@@ -137,6 +137,40 @@ Tasks:
 - [ ] re-run after any Story 0.2 fixes; confirm idempotent
 - [ ] **bump `VERSION` to 0.2.0 and add a `[0.2.0]` entry to `CHANGELOG.md`** capturing the migrate/render/frontmatter work, smoke-test results, and any fidelity-loss notes. Move `[Unreleased]` items into the new release section.
 
+### Story 0.8 - Architecture spike: orchestrator pattern, role-based cantilever, editor collaboration model **[DESIGN SPIKE]**
+
+This story produces decisions, not code. Each task is a discussion topic. Discussion outcomes get recorded as updates to this story (and follow-up stories where appropriate) before any related implementation begins.
+
+So that ErgodixDocs has one coherent operational pattern (single orchestrator + manifest-driven prereqs + small single-purpose modules) modeled on UpFlick conventions, with role-aware modes (`--writer`, `--editor`, `--developer`) and a defensible editor-collaboration + permissions model — all locked in *before* Story 0.2 / 0.3 / 0.6 implementation begins,
+
+Value: prevents the bolt-on tooling sprawl that comes from writing standalone commands one at a time; aligns this codebase with UpFlick conventions for cross-tool consistency; surfaces editor-workflow + permissions decisions early enough that they can shape the migration script's output structure and the repo's public/private split,
+
+Risk: design-by-committee; the chosen pattern may not survive contact with real implementation; over-specifying roles up front creates flag complexity we never use,
+
+Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough to be a starting point; a single `ergodix` CLI with role flags is more discoverable than N separate commands; GitHub's existing access controls are sufficient for editor permissions without inventing new infrastructure,
+
+#### Discussion Topics (each yields a decision; mark `[DECIDED: ...]` inline as we go)
+
+- [ ] **Topic 1 — Orchestrator pattern review.** Is UpFlick's `--cantilever` orchestrator + manifest of single-purpose scripts actually best-practice in 2026 Python tooling, or is it idiomatic to UpFlick? Evaluate alternatives (Click subcommand groups, Typer, Invoke, plain `python -m ergodix.<command>`). Decide: adopt UpFlick's pattern as-is, adopt with modifications, or pick a different idiom.
+- [ ] **Topic 2 — Prereqs layout.** Where do prerequisite checks live and what's their interface contract? Options: subfolder `prereqs/` with one Python script per check (UpFlick-ish), single `prereqs.py` with one function per check, or a manifest file (JSON/YAML/TOML) the orchestrator interprets. Decide: what each prereq returns, how the orchestrator chains them, what happens on failure (continue / abort / prompt).
+- [ ] **Topic 3 — `--cantilever` semantics.** Concrete bounds for "all-encompassing setup / upgrade / deploy." Enumerate the operations cantilever performs in order; mark each as read-only, mutative, or destructive; decide whether cantilever is fully idempotent and what network access it requires.
+- [ ] **Topic 4 — Role flag matrix.** What does each of `--writer`, `--editor`, `--developer` actually do *differently*? Build the matrix: for every operation cantilever performs, mark which roles run it. Confirm composition behavior (`--writer --developer` = union). Decide whether roles are mutually exclusive or composable.
+- [ ] **Topic 5 — Bidirectional flow architecture (Phil's edits → author).** Given Phil edits chapter `.md` files locally in VS Code, what path do his edits take to reach the author? Options:
+  - **A)** GitHub PR — Phil branches, edits, opens PR; author reviews + merges.
+  - **B)** Drive Mirror only — Phil edits the same `.md` file in Drive; Mirror syncs both ways; conflicts handled by file timestamps / manual.
+  - **C)** Hybrid — GitHub for review-able prose changes; Drive Mirror for read-only access by Phil's other tools.
+  - **D)** Private review repo — Phil pushes to a private review repo; author cherry-picks accepted changes into the public/main repo.
+  Decide which (or which combination) and how `ergodix sync` participates.
+- [ ] **Topic 6 — Permissions + public/private split.** Who can do what to which files. GitHub repo permissions (read/triage/write/admin), branch protection (`main` accepts only `develop` PRs), CODEOWNERS for chapter files vs. tool files. Critical re-examine: the original "tooling-only repo, safe to be public" decision was made when chapters were not in scope. Now that we plan to migrate chapters into the same repo as the tooling, **should chapters live in a private repo while tooling stays public?** If yes, design the two-repo coordination model.
+- [ ] **Topic 7 — Pandoc / LaTeX comment representation explainer.** Educational task: write a short doc (`docs/comments-explained.md`) that shows, with examples, exactly what CriticMarkup, HTML comments, and raw LaTeX comments look like on disk; how each renders in Pandoc → XeLaTeX → PDF; what tooling (VS Code extensions, Pandoc filters, `--track-changes`) does what. This is the input to Topic 8.
+- [ ] **Topic 8 — Editor mode vs. plain GitHub.** Given Topics 5–7, does `--editor` add anything that GitHub's review tools don't already provide? Two extremes: (a) "editor mode" is just a documentation label — Phil uses GitHub's PR review like any contributor; (b) "editor mode" is a real `ergodix` mode that runs different tooling (auto-render PDFs of the chapter under review, CriticMarkup→docx exports for Phil's preferred review format, watch-mode local re-render on save). Decide which and why.
+- [ ] **Topic 9 — CLI entry point & installation.** Where does the `ergodix` command live? Options: `ergodix.py` at repo root, console-script entry in `pyproject.toml` once we package, shell wrapper `bin/ergodix` that invokes `python -m ergodix`. How does it end up on the user's PATH after `./install_dependencies.sh` runs? Does activation of `.venv` matter to the end user?
+- [ ] **Topic 10 — Migration plan from current `install_dependencies.sh`.** Concrete refactor: probably rename to `bootstrap.sh` (UpFlick convention), extract package list to `requirements.txt`, extract Drive detection to `prereqs/check_drive.py`, extract config generation to `prereqs/generate_config.py`, extract credential-store setup to `prereqs/setup_credstore.py`. Document what survives, what gets renamed, what gets split, and what the `bootstrap.sh` → `ergodix --cantilever` handoff looks like.
+
+#### How this story closes
+
+Spike closes when Topics 1–10 are all `[DECIDED]` with their resolutions inlined or linked to follow-up implementation stories (which may be created during the spike). At that point, Story 0.2's implementation tasks (`ergodix migrate`, `ergodix render`) and Story 0.3's editor workflow can proceed against a coherent design.
+
 ## Sprint 1 (placeholder — design when Sprint 0 closes)
 
 The actual reason this project exists: AI as architectural co-author. These stories will be fleshed out when Sprint 0 ships.
