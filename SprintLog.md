@@ -1,0 +1,171 @@
+# Sprint Log
+
+## Sprint 0
+
+Sprint 0 is intentionally infrastructure-first: local sync, file format, auth/security, and safe repo boundaries before feature implementation.
+
+### Story 0.1 - Establish local Google Drive sync foundation **[DONE 2026-05-02]**
+
+So that the tool can read and reconcile Google Docs content from a reliable local source,
+Value: we have a concrete filesystem anchor for import/export work instead of designing blind,
+Risk: Google Drive for desktop may not expose or maintain a stable local sync surface on this Mac,
+Assumptions: Google Drive for desktop can be installed, signed in, and made to present synced files locally,
+Tasks:
+- [x] verify Google Drive is installed and signed in
+- [x] identify the local Google Drive path or mounted volume → `/Users/scorellis/My Drive/`
+- [x] confirm files appear locally and update when changed remotely (Mirror mode active, first sync in progress)
+- [x] capture any Drive sync errors or macOS permission blockers — none observed; mode flipped Stream → Mirror without issue
+- [x] BONUS: install_dependencies.sh now bootstraps Drive install + detects mount path + generates config.json
+
+### Story 0.2 - Define canonical repo format
+
+So that the author can edit chapters in VS Code with full ergodic-typesetting expressive power, the editor (human collaborator) can review with CriticMarkup-style comments, and the AI can read full chapter content from the local filesystem,
+Value: chapters become real, full, editable, diffable text files in Drive — no Drive/Docs API needed at runtime; bidirectional sync via Drive Mirror is automatic; ergodic typesetting (rotation, special fonts, landscape pages) is fully supported,
+Risk: one-time export-from-Google-Docs migration may lose fidelity on complex formatting; the Pandoc-Markdown + raw-LaTeX hybrid may feel awkward to editors unfamiliar with either; abandoning native Google Docs loses real-time collab and Docs-native comments,
+Assumptions: VS Code is the primary editor going forward; Drive Mirror reliably syncs `.md`/`.tex` files across devices; Pandoc + XeLaTeX is the canonical render path to PDF; CriticMarkup is acceptable to the editor as a review surface,
+
+#### Format Decisions
+
+**Canonical content format**: Pandoc Markdown with raw LaTeX passthrough.
+
+**File extension**: `.md` **[LOCKED 2026-05-02]**.
+
+**Mandatory YAML frontmatter** at the top of every chapter file disambiguates the Pandoc dialect (since `.md` alone is ambiguous between CommonMark, GFM, Pandoc, etc.):
+
+```yaml
+---
+title: "Chapter 3 — The Glass Tower"
+author: "Stephen Corellis"
+format: pandoc-markdown
+pandoc-extensions: [raw_tex, footnotes, citations, header_attributes]
+---
+```
+
+Rationale: `.md` keeps VS Code Markdown highlighting, CriticMarkup tooling, GitHub rendering, and every "Open with…" association working out of the box. Frontmatter handles the "but it's *Pandoc* Markdown" disambiguation in a way Pandoc itself reads natively. Convention follows bookdown / Quarto / most Pandoc-authored books.
+
+**Feature inventory (where each capability comes from):**
+
+| Feature | Source | Syntax example |
+|---|---|---|
+| Headings, paragraphs, emphasis, lists | Pandoc Markdown | `# Heading`, `*italic*`, `**bold**` |
+| Footnotes | Pandoc Markdown | `[^1]` inline + `[^1]: text` |
+| Complex tables with captions | Pandoc Markdown | Pipe tables, grid tables |
+| Citations and bibliography | Pandoc Markdown + `--citeproc` | `[@author2024]` |
+| Math (inline + display) | Pandoc Markdown | `$x^2$`, `$$\int...$$` |
+| Cross-references (Ch. 4, Fig. 2) | `pandoc-crossref` filter | `\ref{ch:foo}` |
+| Smart quotes, em-dashes | Pandoc Markdown | Built-in via `--smart` |
+| Header IDs and styled spans/divs | Pandoc Markdown | `# Title {#anchor .class}`, `[text]{.italic}` |
+| Inline raw HTML/LaTeX blocks | Pandoc Markdown | ` ```{=latex}` fenced blocks |
+| **Rotation** | Raw LaTeX passthrough | `\rotatebox{180}{...}` |
+| **Special fonts** | Raw LaTeX passthrough | `\fontspec{...}`, `{\fontfamily{...}\selectfont ...}` |
+| **Landscape pages** | Raw LaTeX passthrough | `\begin{landscape}...\end{landscape}` |
+| **TikZ diagrams** | Raw LaTeX passthrough | `\begin{tikzpicture}...\end{tikzpicture}` |
+| **Custom LaTeX commands** | Preamble | `\newcommand{\flicker}[1]{...}` |
+| **Editorial review** | CriticMarkup (plain text in file) | `{++add++} {--del--} {>>comment<<}` |
+
+**Render pipeline**: Pandoc → XeLaTeX → PDF. XeLaTeX (not pdflatex) so Unicode and modern OpenType fonts work natively.
+
+**Folder layout** (under `~/My Drive/Tapestry of the Mind/`):
+- Mirrors the structure in [Hierarchy.md](Hierarchy.md): `Compendium/Book/Section/Chapter.md`
+- AI-generated artifacts live in a parallel `_AI/` subfolder
+- Optional `_archive/` holds the original `.gdoc` files post-migration as a safety net
+
+**Tasks:**
+- [x] **Lock the file extension**: `.md` chosen with mandatory YAML frontmatter declaring `format: pandoc-markdown`. Decided 2026-05-02.
+- [ ] **Migration script (`ergodix migrate`)**: walk `~/My Drive/Tapestry of the Mind/`, for each `.gdoc` call Drive's `files.export` (mimeType: `text/markdown`), write the result as `<basename>.md` alongside the original with the YAML frontmatter prepended, move the original `.gdoc` to `_archive/`. One-time operation; not part of steady-state.
+- [ ] **Frontmatter template**: define the canonical YAML schema (required keys: `title`, `author`, `format`, `pandoc-extensions`; optional: `book`, `section`, `chapter`, `revision`). Migration script populates from Drive metadata where possible.
+- [ ] **Migration fidelity audit**: run on a sample chapter; document what survived, what didn't, what needs hand-fix.
+- [ ] **VS Code setup recipe** for both author and editor: Pandoc Markdown extension, raw LaTeX preview, CriticMarkup extension, recommended settings. Documented in `docs/vscode-setup.md` (file to be created).
+- [ ] **Render command**: `ergodix render <chapter>` produces the PDF via Pandoc + XeLaTeX. Optional `--accept-edits` flag to flatten CriticMarkup before render.
+- [ ] **Folder convention validation**: confirm the Hierarchy.md structure survives migration; decide on slugification rules for filenames.
+
+### Story 0.3 - Define the in-file review and comment representation
+
+So that all forms of collaboration context — editorial review from a human editor, the author's own writing notes, AI-generated continuity flags, and any legacy comments extracted from the original `.gdoc` files at migration time — share a single, plain-text, git-diffable representation inside the chapter `.md` files,
+Value: review context survives every sync and every editor; nothing requires a proprietary comment store; renders cleanly to PDF with `--track-changes=accept` (or equivalent) when producing reader output,
+Risk: a single representation may not fit every comment type equally well; CriticMarkup syntax may be visually noisy in long passages; legacy `.gdoc` comments may not extract cleanly via the Drive API,
+Assumptions: CriticMarkup (`{++add++} {--del--} {>>comment<<} {==highlight==}{>>comment<<}`) is the right surface; Drive's `comments.list` endpoint can extract anchored comments from `.gdoc` files at migration time; AI-generated review markers can be tagged distinguishably so the author can filter them,
+Tasks:
+- [ ] **enumerate the comment-fidelity gap explicitly**: Google Docs comments carry author identity, ISO timestamp, thread/reply chain, resolution state, and a stable text-range anchor. CriticMarkup carries none of these natively. For each piece, decide: encode in the marker (e.g. `{>>[ED:alice 2026-05-02] foo<<}`), encode out-of-band (sidecar JSON), or accept the loss. Document the decisions before the migration script touches real comments.
+- [ ] confirm CriticMarkup as the canonical syntax (decided in Story 0.2 but call it out here too)
+- [ ] decide how to **tag the source** of a comment so author / editor / AI / legacy comments are distinguishable: e.g. `{>>[ED] this verb feels weak<<}`, `{>>[AI] continuity flag: chapter 4 timeline conflict<<}`, `{>>[NOTE] revisit after sleeping on it<<}`
+- [ ] decide whether reply chains flatten into a single comment block, become numbered sub-comments, or get dropped (Google Docs supports nested replies; CriticMarkup is flat)
+- [ ] decide what to do with **resolved** comments at migration time: drop them, archive them in a sidecar, or keep them with a `[RESOLVED]` tag
+- [ ] extend the migration script to read `.gdoc` comments via `drive.comments.list` and embed them as CriticMarkup at the right anchor positions
+- [ ] decide conflict / resolution behavior: when a CriticMarkup edit is accepted, is the resolution baked into the file via `pandoc --track-changes=accept`? Or do we leave a tombstone? (recommendation: bake — simpler)
+- [ ] document the convention in `docs/review-syntax.md` (file to be created) so editors and collaborators have one place to learn it
+
+### Story 0.4 - Separate tracked tools from untracked creative material **[DONE 2026-05-02]**
+
+So that tooling can be versioned publicly without exposing the creative corpus,
+Value: repository hygiene and safer publishing boundaries,
+Risk: accidental commits of source material if ignore boundaries are weak,
+Assumptions: local folder structure can cleanly separate tools from creative assets,
+Tasks:
+- [x] define tracked versus untracked directories — single-directory model adopted; boundaries enforced by `.gitignore` and conventions
+- [x] add ignore rules for creative materials — `.gitignore` covers `local_config.py`, `.ergodix_*`, `.venv/`, `*.gdoc`, `*.gsheet`, `*.gslides`, `/creative/`, `/content/`, `/build/`
+- [x] document the boundary in repo docs — README "Install" and "Auth & Secrets" sections
+- [x] validate that common commands do not stage ignored content — verify after first commit of new files
+- [x] BONUS: boundary simplified by removing `update.sh`; updates use plain `git pull`; secrets centralized in `~/.config/ergodix/` with OS keyring as primary store
+
+### Story 0.5 - Layered auth & secrets with least privilege **[DONE 2026-05-02]**
+
+So that we can call Anthropic and Google APIs without leaking secrets to GitHub or widening blast radius across tools,
+Value: reusable auth structure across all ErgodixDocs deployments, defensible scope discipline,
+Risk: per-project credentials sprawl, or over-broad OAuth scopes that grow into a security hazard,
+Assumptions: OS keyrings are reliably available on the platforms ErgodixDocs targets (macOS first; Linux/Windows via keyring's portable backends),
+Tasks:
+- [x] decide central vs. per-project boundary — central: app-level keys (Anthropic, GCP OAuth client). Per-project: user OAuth refresh tokens.
+- [x] declare minimum scopes — `drive.readonly` + `documents.readonly` only; documented in `auth.py`
+- [x] enforce filesystem permissions — `~/.config/ergodix/` mode 700; `secrets.json`, `local_config.py`, `.ergodix_tokens.json` mode 600
+- [x] add `auth.py` — scope constants, three-tier credential lookup, stub Drive/Docs service builders
+- [x] **upgrade primary store to OS keyring** (`keyring` lib, service `ergodix`); file becomes fallback only — encrypted-at-rest, no plaintext secret on disk during normal use
+- [x] add CLI: `set-key`, `delete-key`, `status`, `migrate-to-keyring`
+- [x] document the model in README "Auth & Secrets" section
+- [x] reframe naming for general-author distribution (no `scorellis-tools` references)
+
+### Story 0.6 - End-to-end smoke test
+
+So that we have proof the whole pipeline works on real Tapestry content before declaring Sprint 0 done,
+Value: validates auth + migration + frontmatter + render path together; surfaces fidelity issues early; confirms the single-directory workflow holds up in practice,
+Risk: the smoke test reveals integration problems that send us back to Story 0.2 for changes,
+Assumptions: one representative chapter is enough to validate the pipeline (we can broaden later if it isn't),
+Tasks:
+- [ ] pick one representative chapter from `Tapestry of the Mind` (something with mixed prose, footnotes, maybe one ergodic moment)
+- [ ] run the full loop: `ergodix migrate` on that one chapter → confirm `.md` + frontmatter is correct → open in VS Code → render via `ergodix render` → inspect the PDF
+- [ ] document any fidelity loss; decide which losses block Sprint 0 closure vs. acceptable for v1
+- [ ] re-run after any Story 0.2 fixes; confirm idempotent
+- [ ] **bump `VERSION` to 0.2.0 and add a `[0.2.0]` entry to `CHANGELOG.md`** capturing the migrate/render/frontmatter work, smoke-test results, and any fidelity-loss notes. Move `[Unreleased]` items into the new release section.
+
+## Sprint 1 (placeholder — design when Sprint 0 closes)
+
+The actual reason this project exists: AI as architectural co-author. These stories will be fleshed out when Sprint 0 ships.
+
+### Story 1.1 - Plotline tracking
+So that the author can see every active plotline across the universe and where each one is in its arc.
+
+### Story 1.2 - Plot-hole and continuity detection
+So that the AI surfaces contradictions, timeline conflicts, and broken cause-effect chains before they ship.
+
+### Story 1.3 - On-demand summaries
+So that the author can ask for a one-page summary of any book, section, or character thread without re-reading the source.
+
+### Story 1.4 - Storyboards
+So that the author can visualize scene sequencing and pacing across a book or compendium.
+
+### Story 1.5 - Worldbuilding support
+So that the AI can answer "is this consistent with what we've established?" against a living, evolving Tapestry-Mechanics knowledge base.
+
+## Resolved Decisions (post-design)
+
+These were open questions in earlier design discussions and have since been settled. Kept here as a record so future planning doesn't reopen them without intent.
+
+- **Sync transport: filesystem via Drive Mirror**, not Drive/Docs API at runtime. Resolved 2026-05-02 in Story 0.2. The API is used only during the one-time `ergodix migrate` step.
+- **Comment representation: CriticMarkup in-file**, not sidecar files or a centralized metadata store. Resolved 2026-05-02 in Stories 0.2 and 0.3.
+- **Bidirectional sync: yes, but via Drive Mirror**, not via API write-back. Chapters edited locally in VS Code; AI-generated artifacts written locally to `_AI/`; Drive Mirror syncs everything in both directions. Resolved 2026-05-02.
+- **Primary editor: VS Code, not Google Docs.** After one-time migration, native `.gdoc` files are archived. Resolved 2026-05-02 in Story 0.2.
+
+## Parking Lot
+
+- **Story 0.7 — Distribution prep** (deferred until Sprint 1+): pip-installable package, standalone GitHub clone, Homebrew formula? Decide *after* the tool is working end-to-end.
+- **AI commenting on chapter docs** (deferred indefinitely): if the AI ever wants to write CriticMarkup directly into chapter `.md` files (rather than just emitting a flag report), revisit the AI-prose boundary policy. Currently the AI writes only into `_AI/` files, never into chapter prose.
