@@ -1,8 +1,10 @@
 # ADR 0001: Click CLI with persona, floater, and importer registries
 
-- **Status**: Accepted
+- **Status**: Accepted (partially superseded — see Note)
 - **Date**: 2026-05-03
 - **Spike**: [Spike 0001 — Orchestrator pattern, persona model, floater registry](../spikes/0001-orchestrator-pattern.md)
+
+> **Note (2026-05-03):** The persona-vs-floater duality described below has been collapsed into a single floater registry by [ADR 0005](0005-roles-as-floaters-and-opus-naming.md). The CLI framework choice (Click) and the importer registry described here remain authoritative. When reading this ADR, treat references to "personas" as historical context; current model has writer / editor / developer / publisher / focus-reader as floaters in a unified registry.
 
 ## Context
 

@@ -157,7 +157,7 @@ Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough
 - [x] **Topic 1 — Orchestrator pattern review.** **[DECIDED 2026-05-03]** Adopt **Click subcommand groups** with three plugin registries (personas, floaters, importers) for Open/Closed extensibility. See [Spike 0001](spikes/0001-orchestrator-pattern.md) for the discussion and [ADR 0001](adrs/0001-click-cli-with-persona-floater-registries.md) for the locked decision.
 - [ ] **Topic 2 — Prereqs layout.** Where do prerequisite checks live and what's their interface contract? Options: subfolder `prereqs/` with one Python script per check (UpFlick-ish), single `prereqs.py` with one function per check, or a manifest file (JSON/YAML/TOML) the orchestrator interprets. Decide: what each prereq returns, how the orchestrator chains them, what happens on failure (continue / abort / prompt).
 - [x] **Topic 3 — `--cantilever` semantics.** **[DECIDED 2026-05-03]** Closed by [ADR 0003](adrs/0003-cantilever-bootstrap-orchestrator.md). 22-operation menu (A1–F2 + D5), all idempotent, abort-fast with detailed remediation messaging, auto-detected connectivity, settings in `settings/` (TOML), per-machine run-record at `~/.config/ergodix/cantilever.log`. Continuous polling job spun out as [ADR 0004](adrs/0004-continuous-repo-polling.md).
-- [ ] **Topic 4 — Role flag matrix.** What does each of `--writer`, `--editor`, `--developer` actually do *differently*? Build the matrix: for every operation cantilever performs, mark which roles run it. Confirm composition behavior (`--writer --developer` = union). Decide whether roles are mutually exclusive or composable.
+- [x] **Topic 4 — Role flag matrix.** **[DECIDED 2026-05-03]** Closed by [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Personas and floaters collapsed into a single registry; every role is a floater. Each role's TOML declares `adds_operations` and (for focus-reader only) `exclusive_with`. CLI surface: `ergodix --writer --developer cantilever`, etc. Empty-flag invocations fail fast. Multi-corpus container named **opus** (locked into Story 0.X for future implementation).
 - [x] **Topic 5 — Bidirectional flow architecture.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md). Editors push edits via per-day feature branches with auto-sync; author reviews via standard GitHub PR. AI artifacts go to `_AI/` and are author-committed manually.
 - [x] **Topic 6 — Permissions + public/private split.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md). Two repos: `ErgodixDocs` (public, tooling) + `tapestry-of-the-mind` (private, corpus). Branch protection on corpus `main` requires PR + author review.
 - [ ] **Topic 7 — Pandoc / LaTeX comment representation explainer.** Educational task: write a short doc (`docs/comments-explained.md`) that shows, with examples, exactly what CriticMarkup, HTML comments, and raw LaTeX comments look like on disk; how each renders in Pandoc → XeLaTeX → PDF; what tooling (VS Code extensions, Pandoc filters, `--track-changes`) does what. This is the input to Topic 8.
@@ -201,3 +201,61 @@ These were open questions in earlier design discussions and have since been sett
 
 - **Story 0.7 — Distribution prep** (deferred until Sprint 1+): pip-installable package, standalone GitHub clone, Homebrew formula? Decide *after* the tool is working end-to-end.
 - **AI commenting on chapter docs** (deferred indefinitely): if the AI ever wants to write CriticMarkup directly into chapter `.md` files (rather than just emitting a flag report), revisit the AI-prose boundary policy. Currently the AI writes only into `_AI/` files, never into chapter prose.
+
+### Story 0.X - Multi-opus support (deferred to Sprint 1+ or first real use case)
+
+**Terminology:** an **opus** is a named bundle of (corpus path + default floater set + last-used context). Plural: **opera**. Term chosen to fit the project's classical/Latin voice without colliding with Compendium (a level in the narrative Hierarchy).
+
+So that one machine and one identity can address multiple opera with different role-sets per opus (you on Tapestry as writer/dev/publisher; you on a friend's manuscript as focus-reader; an editor working two authors' books in parallel),
+
+Value: makes ErgodixDocs viable as the underlying tool when adoption broadens past one author; lets a single user split work across opera without re-installing per project,
+
+Risk: introducing the dimension prematurely costs more than waiting; conflating this with enterprise tenancy concerns that aren't actually adjacent,
+
+Assumptions: forward-compatible architectural pieces already in place (registries, settings folder, three-tier credential lookup); `local_config.py`'s `TAPESTRY_FOLDER` becoming a dict keyed by opus name is non-breaking,
+
+CLI shape (locked at story-open time):
+
+```bash
+ergodix opus list
+ergodix opus add tapestry --corpus tapestry-of-the-mind --writer --developer --publisher
+ergodix opus add friend-novel --corpus their-book --focus-reader
+ergodix opus switch tapestry
+ergodix cantilever                  # uses current opus
+ergodix sync                        # uses current opus
+```
+
+Each opus is stateful — `opus switch <name>` sets a current-opus pointer (probably in `local_config.py`); subsequent commands inherit its corpus + floater config.
+
+Tasks (filled out when story moves out of parking lot):
+- [ ] confirm stateful (`switch`) vs. per-invocation (`--opus <name>`) — likely support both, with `switch` writing the current pointer used as default for subsequent invocations
+- [ ] extend `local_config.py` schema: `OPERA = { "tapestry": {...}, "friend-novel": {...} }` plus `CURRENT_OPUS` pointer
+- [ ] update cantilever to take opus context as input (which floaters apply to which opus)
+- [ ] update `ergodix sync`, `migrate`, `render`, `status` to be opus-aware
+- [ ] migration path for existing single-opus installs (the existing `TAPESTRY_FOLDER` becomes the first entry under `OPERA["default"]`)
+
+### Story 0.Y - Publishing-house / enterprise scale (deferred — not a current target)
+
+Documented for future architectural consideration. Not actively planned.
+
+**What scales as-is:**
+- Persona/floater registry — adding `line-editor`, `developmental-editor`, `proofreader`, etc. is the existing extension pattern
+- Cantilever orchestrator — independent of user count; each machine runs its own
+- Continuous polling — per-machine, each machine independent
+- AI-prose boundary — applies uniformly regardless of org size
+- Settings TOML structure — same registry shape works at any scale
+- Importer registry — new sources added without touching core
+
+**What doesn't scale and would need additions:**
+- **Two-repo single-tenant model**: 500 authors = 500 corpus repos. Need org-level GitHub structure (sub-orgs per imprint), bulk-onboarding, repo templates.
+- **Per-machine OS keyring credentials**: enterprise wants SSO (SAML/OIDC), centrally issued/revoked tokens, vault integration (Vault, AWS Secrets Manager). Current three-tier lookup extends cleanly — add a "Tier 0: SSO/vault" stage above env var.
+- **Per-individual GitHub auth (`gh auth login`)**: enterprise wants GitHub Enterprise + SAML SSO. Same OAuth flow, different IdP.
+- **Per-machine `local_config.py`**: managed devices need IT-pushed config. Add an `org_config.toml` URL or path that gets layered under `local_config.py`.
+- **Per-machine cantilever / poller logs**: enterprise audit needs centralized log forwarding (Splunk, Datadog, S3). Add a "log destination" setting that supports remote sinks.
+- **Individual Anthropic API keys**: enterprise wants centralized billing + per-author quotas. Add support for organization-issued keys with per-author allocation tracking.
+- **GitHub branch protection per-repo**: enterprise wants policies enforced org-wide. GitHub provides this at org level; we'd document the recommended config but enforcement is GitHub's job, not ours.
+- **Compliance** (SOC 2, ISO 27001, GDPR): out of scope for the tool itself; the surrounding deployment + ops practice carries the compliance burden.
+
+**Architectural verdict:** the current design is single-author-centric and **doesn't preclude** enterprise scaling. Every gap above maps to an additive extension using patterns we already have (registries, settings layering, three-tier lookup). None require tearing anything out.
+
+**Recommendation if/when this story activates:** treat it as Sprint 3+ work. Start by identifying the first real enterprise customer's actual needs rather than designing speculative abstractions. Most of the "enterprise readiness" list above is wrong until a specific buyer's procurement requirements clarify it.

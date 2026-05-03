@@ -4,6 +4,8 @@
 - **Date**: 2026-05-03
 - **Spike**: [Spike 0003 — Cantilever semantics, settings architecture, run-record](../spikes/0003-cantilever-semantics.md)
 
+> **Note (2026-05-03):** [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) consolidates `settings/personas/` + `settings/floaters/` into a single `settings/floaters/` folder. The 22-operation menu, idempotency rules, failure semantics, connectivity model, and run-record format described below are unchanged.
+
 ## Context
 
 Per [ADR 0001](0001-click-cli-with-persona-floater-registries.md), `cantilever` is one of the planned subcommands and is the persona-aware bootstrap orchestrator. The original Story 0.8 framing was "all-encompassing setup / upgrade / deploy" — a vibe, not a specification. This ADR makes it concrete: the menu of operations, idempotency rules, settings architecture, failure semantics, and connectivity behavior.
