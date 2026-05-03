@@ -19,10 +19,22 @@ echo "╚═══════════════════════�
 # ---------------------------------------------------------------------------
 # 1. Homebrew
 # ---------------------------------------------------------------------------
+step "Checking platform"
+if [[ "$(uname -s)" != "Darwin" ]]; then
+    fail "This installer targets macOS (Darwin). Detected: $(uname -s)"
+fi
+ok "macOS detected ($(sw_vers -productVersion 2>/dev/null || echo 'unknown'))"
+
 step "Checking Homebrew"
 if ! command -v brew &>/dev/null; then
     warn "Homebrew not found — installing..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Ensure brew is on PATH for the remainder of this script (Apple Silicon vs Intel paths differ)
+    if [ -x /opt/homebrew/bin/brew ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [ -x /usr/local/bin/brew ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
     ok "Homebrew installed"
 else
     ok "Homebrew already installed ($(brew --version | head -1))"
@@ -53,7 +65,12 @@ if ! command -v xelatex &>/dev/null; then
     echo "  (b) BasicTeX — minimal install (~100MB), may need extra packages later"
     echo "      brew install --cask basictex"
     echo ""
-    read -r -p "  Install (a) full MacTeX, (b) BasicTeX, or (s) skip? [a/b/s]: " choice
+    if [ -t 0 ]; then
+        read -r -p "  Install (a) full MacTeX, (b) BasicTeX, or (s) skip? [a/b/s]: " choice
+    else
+        warn "Non-interactive shell — defaulting to skip"
+        choice="s"
+    fi
     case "$choice" in
         a|A) brew install --cask mactex;         ok "MacTeX installed" ;;
         b|B) brew install --cask basictex;       ok "BasicTeX installed" ;;
@@ -96,17 +113,25 @@ source "$VENV/bin/activate"
 pip install --quiet --upgrade pip
 
 PACKAGES=(
-    "google-api-python-client"   # Google Drive API
+    "google-api-python-client"   # Google Drive API (deferred until Story 0.3)
     "google-auth-httplib2"       # Google auth transport
     "google-auth-oauthlib"       # Google OAuth flow
     "python-docx"                # .docx inspection/manipulation
-    "toml"                       # ergodix.toml config parsing
     "click"                      # CLI interface (ergodix command)
+    "anthropic"                  # Anthropic SDK for AI architectural analysis
+    "keyring"                    # OS-native credential store (Keychain/Secret Service/Cred Mgr)
+    # Dev / test dependencies (kept inline for v1; will move to requirements-dev.txt at Story 0.7).
+    "pytest"                     # test runner — de-facto standard for Python testing
+    "pytest-cov"                 # coverage reporting via `pytest --cov`
 )
 
 for pkg in "${PACKAGES[@]}"; do
-    pip install --quiet "$pkg"
-    ok "Python: $pkg"
+    if pip install --quiet "$pkg"; then
+        ok "Python: $pkg"
+    else
+        deactivate
+        fail "Python: failed to install $pkg"
+    fi
 done
 
 deactivate
@@ -118,14 +143,142 @@ step "Google Drive for Desktop"
 if [ -d "/Applications/Google Drive.app" ]; then
     ok "Google Drive for Desktop already installed"
 else
-    warn "Google Drive for Desktop not found"
-    echo "  → Download and install from: https://www.google.com/drive/download/"
-    echo "  → After install: sign in, enable 'Mirror files' for your book folder"
-    echo "  → This gives the BuildArchive converter direct local file access"
+    warn "Google Drive for Desktop not found — installing via Homebrew cask"
+    brew install --cask google-drive
+    ok "Google Drive for Desktop installed"
+fi
+
+# Is the Drive process running?
+if pgrep -f "Google Drive.app/Contents/MacOS/Google Drive" >/dev/null 2>&1; then
+    ok "Google Drive process is running"
+else
+    warn "Google Drive is not running"
+    echo "  → Launch Google Drive from /Applications and sign in"
+    if [ -t 0 ]; then
+        read -r -p "  Open Google Drive now? [y/N]: " open_drive
+        if [[ "$open_drive" =~ ^[yY]$ ]]; then
+            open -a "Google Drive"
+            echo "  Waiting up to 60s for Drive to start and mount..."
+            for _ in $(seq 1 30); do
+                sleep 2
+                if pgrep -f "Google Drive.app/Contents/MacOS/Google Drive" >/dev/null 2>&1; then
+                    ok "Drive process detected"
+                    break
+                fi
+            done
+        fi
+    fi
+fi
+
+# Detect mount paths. Mirror mode → ~/My Drive. Stream mode → ~/Library/CloudStorage/GoogleDrive-*.
+DETECTED_MOUNT_ROOT=""
+DETECTED_MY_DRIVE=""
+DETECTED_SYNC_MODE=""
+
+if [ -d "$HOME/My Drive" ] && [ ! -L "$HOME/My Drive" ]; then
+    DETECTED_MY_DRIVE="$HOME/My Drive"
+    DETECTED_MOUNT_ROOT="$HOME"
+    DETECTED_SYNC_MODE="mirror"
+    ok "Detected Mirror mode at $DETECTED_MY_DRIVE"
+elif compgen -G "$HOME/Library/CloudStorage/GoogleDrive-*" >/dev/null; then
+    CSTORAGE="$(ls -d "$HOME/Library/CloudStorage/GoogleDrive-"* 2>/dev/null | head -1)"
+    if [ -d "$CSTORAGE/My Drive" ]; then
+        DETECTED_MY_DRIVE="$CSTORAGE/My Drive"
+        DETECTED_MOUNT_ROOT="$CSTORAGE"
+        DETECTED_SYNC_MODE="stream"
+        ok "Detected Stream mode at $DETECTED_MY_DRIVE"
+    fi
+else
+    warn "No Drive mount detected yet"
+    echo "  → Once Drive is running and signed in, re-run this script."
 fi
 
 # ---------------------------------------------------------------------------
-# 7. VS Code extensions (optional but recommended)
+# 7. local_config.py — per-machine configuration (gitignored)
+# ---------------------------------------------------------------------------
+step "Per-machine config (local_config.py)"
+
+CONFIG_FILE="$SCRIPT_DIR/local_config.py"
+CONFIG_EXAMPLE="$SCRIPT_DIR/local_config.example.py"
+
+if [ ! -f "$CONFIG_EXAMPLE" ]; then
+    warn "local_config.example.py not found — skipping config generation"
+elif [ -f "$CONFIG_FILE" ]; then
+    ok "Existing local_config.py found — leaving it alone (never overwritten)"
+    echo "  → To regenerate, delete $CONFIG_FILE and re-run this script."
+else
+    DETECTED_TAPESTRY=""
+    if [ -n "$DETECTED_MY_DRIVE" ] && [ -d "$DETECTED_MY_DRIVE/Tapestry of the Mind" ]; then
+        DETECTED_TAPESTRY="$DETECTED_MY_DRIVE/Tapestry of the Mind"
+        ok "Detected Tapestry folder at $DETECTED_TAPESTRY"
+    fi
+
+    CONFIG_EXAMPLE_PATH="$CONFIG_EXAMPLE" \
+    CONFIG_FILE_PATH="$CONFIG_FILE" \
+    DETECTED_MOUNT_ROOT="$DETECTED_MOUNT_ROOT" \
+    DETECTED_MY_DRIVE="$DETECTED_MY_DRIVE" \
+    DETECTED_TAPESTRY="$DETECTED_TAPESTRY" \
+    DETECTED_SYNC_MODE="$DETECTED_SYNC_MODE" \
+    "$VENV/bin/python" - <<'PYEOF'
+from pathlib import Path
+import os
+
+example = Path(os.environ["CONFIG_EXAMPLE_PATH"]).read_text()
+mount = os.environ.get("DETECTED_MOUNT_ROOT", "")
+mydrive = os.environ.get("DETECTED_MY_DRIVE", "")
+tapestry = os.environ.get("DETECTED_TAPESTRY", "")
+sync_mode = os.environ.get("DETECTED_SYNC_MODE", "") or "mirror"
+
+# Replace the example's path expressions with detected absolute paths.
+def line(name, value):
+    if value:
+        return f'{name} = Path({value!r})'
+    return None
+
+replacements = {
+    'DRIVE_MOUNT_ROOT = Path.home() / "My Drive"': line("DRIVE_MOUNT_ROOT", mount),
+    'MY_DRIVE = Path.home() / "My Drive"':         line("MY_DRIVE", mydrive),
+    'TAPESTRY_FOLDER = Path.home() / "My Drive" / "Tapestry of the Mind"':
+        line("TAPESTRY_FOLDER", tapestry),
+    'SYNC_MODE = "mirror"': f'SYNC_MODE = {sync_mode!r}',
+}
+out = example
+for old, new in replacements.items():
+    if new:
+        out = out.replace(old, new)
+Path(os.environ["CONFIG_FILE_PATH"]).write_text(out)
+PYEOF
+
+    chmod 600 "$CONFIG_FILE"
+    ok "Wrote $CONFIG_FILE (mode 600)"
+    if [ -z "$DETECTED_TAPESTRY" ]; then
+        warn "Tapestry folder not detected — edit local_config.py and set TAPESTRY_FOLDER manually"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 8. Credential store — primary: OS keyring; fallback: ~/.config/ergodix/
+# ---------------------------------------------------------------------------
+step "Credential store"
+
+CENTRAL_DIR="$HOME/.config/ergodix"
+mkdir -p "$CENTRAL_DIR"
+chmod 700 "$CENTRAL_DIR"
+ok "Fallback dir ready: $CENTRAL_DIR (mode 700)"
+ok "Primary credential store: OS keyring (macOS Keychain on this machine)"
+echo ""
+echo "  To store API keys (interactive, hidden input):"
+echo "    python auth.py set-key anthropic_api_key"
+echo "    python auth.py set-key google_oauth_client_id"
+echo "    python auth.py set-key google_oauth_client_secret"
+echo ""
+echo "  To check what's stored (without printing values):"
+echo "    python auth.py status"
+echo ""
+echo "  Lookup order at runtime:  env var → OS keyring → ~/.config/ergodix/secrets.json"
+
+# ---------------------------------------------------------------------------
+# 9. VS Code extensions (optional but recommended)
 # ---------------------------------------------------------------------------
 step "VS Code extensions (recommended for writing)"
 if command -v code &>/dev/null; then
@@ -145,8 +298,11 @@ echo "╔═══════════════════════�
 echo "║              Installation Complete                   ║"
 echo "║                                                      ║"
 echo "║  Next steps:                                         ║"
-echo "║  1. Install Google Drive for Desktop (if skipped)   ║"
-echo "║  2. Run: source .venv/bin/activate                  ║"
-echo "║  3. We will build the BuildArchive converter next   ║"
+echo "║  1. Launch Google Drive and sign in (if not done)   ║"
+echo "║  2. Verify local_config.py paths are correct        ║"
+echo "║  3. Store API keys in keyring (when needed):        ║"
+echo "║     python auth.py set-key anthropic_api_key        ║"
+echo "║  4. Run: source .venv/bin/activate                  ║"
+echo "║  5. We will build ergodix migrate/render next       ║"
 echo "╚══════════════════════════════════════════════════════╝"
 echo ""
