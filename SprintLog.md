@@ -180,6 +180,22 @@ Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough
 
 Spike closes when Topics 1–10 are all `[DECIDED]` with their resolutions inlined or linked to follow-up implementation stories (which may be created during the spike). At that point, Story 0.2's implementation tasks (`ergodix migrate`, `ergodix render`) and Story 0.3's editor workflow can proceed against a coherent design.
 
+### Story 0.9 - macOS Keychain integration testing + credential-store abstraction **[NEXT after 0.10 if real]**
+
+So that we know whether macOS Keychain access from a non-codesigned Python interpreter actually behaves the way Story 0.5 assumed (first-read prompt, "Always Allow" makes subsequent reads silent), and so the credential-store layer is compartmentalized enough to swap if Keychain proves friction-y,
+
+Value: Story 0.5's claim is currently untested. If macOS re-prompts on every Python interpreter restart (plausible for non-codesigned binaries), the daily UX breaks. Discovering that during real use is much worse than discovering it during integration testing now,
+
+Risk: Keychain prompts behaving badly forces a rapid swap to a different credential store; if `auth.py` is tightly coupled to `keyring.set_password`/`get_password` calls scattered through code, the swap is painful,
+
+Assumptions: integration tests can simulate or capture real Keychain interactions; abstracting the credential store behind a small interface is cheap; alternative stores (encrypted file, 1Password CLI, etc.) are pluggable behind the same interface,
+
+Tasks:
+- [ ] Write integration test that drives `auth.py set-key`, then opens a fresh Python interpreter and reads it back. Repeat across interpreter restarts. Document actual behavior observed.
+- [ ] If Keychain re-prompts: extract a `CredentialStore` interface in `auth.py` with concrete `KeyringStore` and at least a stub `EncryptedFileStore` implementation. Make the active store selection a setting.
+- [ ] If Keychain behaves: keep current shape; document the test result in the credential-store comment block in `auth.py`.
+- [ ] Either way: ensure all credential reads/writes in the codebase go through a single abstraction (currently `auth.py`'s helpers); no direct `keyring.*` calls from anywhere else.
+
 ### Story 0.10 - Test-driven development scaffolding **[NEXT]**
 
 So that every function we're about to write has a failing test waiting for it before we implement it,
@@ -239,6 +255,37 @@ These were open questions in earlier design discussions and have since been sett
 
 - **Story 0.7 — Distribution prep** (deferred until Sprint 1+): make install accessible to non-technical users who don't know git or terminals. Candidates: PyPI publish (`pip install ergodix`), Homebrew formula (`brew install ergodix`), Mac App Store / signed `.pkg` installer, Windows MSI / Microsoft Store, curl|bash stub at a stable URL, GUI installer wrapping the bootstrap scripts. Decide *after* the tool is working end-to-end and a real "completely ignorant" user is identified to validate against.
 - **AI commenting on chapter docs** (deferred indefinitely): if the AI ever wants to write CriticMarkup directly into chapter `.md` files (rather than just emitting a flag report), revisit the AI-prose boundary policy. Currently the AI writes only into `_AI/` files, never into chapter prose.
+
+### Spike — CriticMarkup dual-mode review (deferred — not blocking v1)
+
+So that the author has a coherent UX for reviewing two parallel review surfaces — diff-level prose changes (per ADR 0006) and CriticMarkup `{>> <<}` annotations *inside* the changed prose — without confusion about precedence, render output, or "is this a comment about the old text or the new text?",
+
+Value: prevents the editor's annotations from being lost or mis-applied during diff review; clarifies the rendered-output shape when a chapter has both an editor's prose edit AND an editor's comment about something else in the same paragraph,
+
+Risk: not addressing this means the author has to mentally context-switch every review session; ad-hoc workflow forms before the spike can settle the convention,
+
+Tasks (when activated):
+- [ ] document the two surfaces and their interaction patterns
+- [ ] decide rendering precedence in `--track-changes=all` mode when both diff and CriticMarkup are present
+- [ ] decide whether `ergodix ingest` should auto-extract CriticMarkup `{>> <<}` blocks into review-comment metadata vs. leave them in-prose
+- [ ] update [docs/comments-explained.md](docs/comments-explained.md) with the resolved convention
+
+### Story — Phil-trained custom prose linter (Sprint 1+ when activated)
+
+So that a custom linter trained on the human editor's repeated corrections becomes a first-pass automatic editor — catching the things the editor consistently fixes (specific verb-tense patterns, comma habits, clichés the author falls into) so the human editor can focus on higher-level work,
+
+Value: amortizes the editor's expertise into reusable tooling; reduces the editor's repetitive workload; demonstrates the AI-as-architectural-analyst principle in a concrete way that respects the AI-prose boundary (the linter *flags*; the human *decides*),
+
+Risk: linter false-positives become noise that the author learns to ignore, defeating the purpose; over-fitting to one editor's idiosyncrasies may reduce portability when adding a second editor,
+
+Assumptions: the editor's review history (post-merge diffs over time) is sufficient training signal; flagging-not-fixing preserves the AI-prose boundary; per-editor and per-author training is feasible at the corpus scale,
+
+Tasks (when activated):
+- [ ] Mine accepted editor patches from `git log` to extract recurring corrections
+- [ ] Build a rule-based first pass (regex / token-pattern matching) for high-confidence patterns
+- [ ] Layer ML or LLM-driven detection for fuzzier patterns (style consistency, tone drift)
+- [ ] Wire as `ergodix lint` subcommand; integrate with `--developer` floater's pre-commit hooks
+- [ ] Per-author + per-editor training profiles in `settings/`
 
 ### Story 0.X - Multi-opus support (deferred to Sprint 1+ or first real use case)
 
