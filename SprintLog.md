@@ -149,7 +149,9 @@ Tasks:
 - [ ] re-run after any Story 0.2 fixes; confirm idempotent
 - [ ] **bump `VERSION` to 0.2.0 and add a `[0.2.0]` entry to `CHANGELOG.md`** capturing the migrate/render/frontmatter work, smoke-test results, and any fidelity-loss notes. Move `[Unreleased]` items into the new release section.
 
-### Story 0.8 - Architecture spike: orchestrator pattern, role-based cantilever, editor collaboration model **[DESIGN SPIKE]**
+### Story 0.8 - Architecture spike: orchestrator pattern, role-based cantilever, editor collaboration model **[DESIGN SPIKE — DONE 2026-05-03]**
+
+**All 10 topics resolved.** ADRs 0001–0007 cover the locked decisions; spikes 0001–0006 capture the discussions. Story 0.8 closes here; implementation work continues under Story 0.2 (and follow-on stories) against the locked architecture.
 
 This story produces decisions, not code. Each task is a discussion topic. Discussion outcomes get recorded as updates to this story (and follow-up stories where appropriate) before any related implementation begins.
 
@@ -169,7 +171,7 @@ Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough
 - [x] **Topic 4 — Role flag matrix.** **[DECIDED 2026-05-03]** Closed by [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Personas and floaters collapsed into a single registry; every role is a floater. Each role's TOML declares `adds_operations` and (for focus-reader only) `exclusive_with`. CLI surface: `ergodix --writer --developer cantilever`, etc. Empty-flag invocations fail fast. Multi-corpus container named **opus** (locked into Story 0.X for future implementation).
 - [x] **Topic 5 — Bidirectional flow architecture.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). Editor's edits flow via signed commits to a per-editor slice repo; author runs `ergodix ingest` to surface a review branch on master. AI artifacts go to `_AI/` and are author-committed manually.
 - [x] **Topic 6 — Permissions + public/private split.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). `ErgodixDocs` (public, tooling) + per-opus master corpus repo (private) + per-editor slice repos (private, file-scoped). Hard read access control via slicing; per-editor blast radius bounded; clean revocation by ceasing to publish + rotating slice credentials.
-- [ ] **Topic 7 — Pandoc / LaTeX comment representation explainer.** Educational task: write a short doc (`docs/comments-explained.md`) that shows, with examples, exactly what CriticMarkup, HTML comments, and raw LaTeX comments look like on disk; how each renders in Pandoc → XeLaTeX → PDF; what tooling (VS Code extensions, Pandoc filters, `--track-changes`) does what. This is the input to Topic 8.
+- [x] **Topic 7 — Pandoc / LaTeX comment representation explainer.** **[DONE 2026-05-03]** Educational doc shipped at [docs/comments-explained.md](docs/comments-explained.md). Covers CriticMarkup, HTML comments, LaTeX comments, and Pandoc spans/divs — with worked examples, render outcomes, VS Code extension list, and tooling cheat sheet.
 - [x] **Topic 8 — Editor mode vs. plain GitHub.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md) and [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Editor is a real floater with concrete cantilever steps (gh auth, slice repo clone, SSH signing key generation + GitHub registration, VS Code + CriticMarkup install for optional annotations, auto-sync VS Code task targeting the slice repo). Daily flow remains zero-command via Cmd+S → debounced `ergodix sync` (now pushing to the editor's slice).
 - [x] **Topic 9 — CLI entry point & installation.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). Console-script entry in `pyproject.toml` (`ergodix = "ergodix.cli:main"`); registered by `pip install -e .` during bootstrap; works on PATH whenever the venv is active. No shell wrappers.
 - [x] **Topic 10 — Migration plan from current `install_dependencies.sh`.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). Rename to `bootstrap.sh` + add `bootstrap.ps1`; extract every operation into `ergodix/prereqs/check_*.py`; move `auth.py` and `version.py` into the `ergodix/` package. Bootstrap is ~5 lines (Python install + venv + `pip install -e .` + `ergodix cantilever`).
@@ -177,6 +179,33 @@ Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough
 #### How this story closes
 
 Spike closes when Topics 1–10 are all `[DECIDED]` with their resolutions inlined or linked to follow-up implementation stories (which may be created during the spike). At that point, Story 0.2's implementation tasks (`ergodix migrate`, `ergodix render`) and Story 0.3's editor workflow can proceed against a coherent design.
+
+### Story 0.10 - Test-driven development scaffolding **[NEXT]**
+
+So that every function we're about to write has a failing test waiting for it before we implement it,
+
+Value: red-green-refactor cycle keeps implementation honest; tests document the contract before code drifts; coverage is built up from day one rather than bolted on later; cantilever's prereq modules in particular benefit because each one is small and individually testable,
+
+Risk: writing too many tests up front against speculative APIs that change during implementation; the tests themselves becoming a maintenance burden if not run continuously,
+
+Assumptions: pytest + pytest-cov are the framework choice (per Story 0.5 + ADR 0007's dev deps); test layout follows pytest conventions (`tests/` at repo root, `test_<module>.py` per source module); contracts are stable enough from ADRs 0001–0007 that tests can be written against them,
+
+Tasks:
+- [ ] Create `tests/` directory at repo root with `conftest.py` for shared fixtures (tmp_path, fake home dir, mocked keyring backend, etc.)
+- [ ] Add pytest config to `pyproject.toml` (test paths, markers, coverage thresholds)
+- [ ] Write failing test stubs for each existing module:
+  - [ ] `tests/test_version.py` — version reads VERSION file; falls back to `0.0.0+unknown`
+  - [ ] `tests/test_auth.py` — three-tier credential lookup; permission-mode invariant; CLI subcommands; keyring error handling
+- [ ] Write failing test stubs for each planned `prereqs/check_*.py` (per ADR 0003's 22-op menu + ADR 0007's layout)
+- [ ] Write failing test stubs for each planned `floaters/<name>.py` registry entry (per ADR 0005)
+- [ ] Write failing test stubs for each planned `importers/<name>.py` (per ADR 0001 — gdocs + scrivener for v1)
+- [ ] Write failing test stubs for `ergodix.cli` Click command groups
+- [ ] Write failing test stubs for `ergodix.cantilever` orchestrator
+- [ ] Write failing test stubs for `ergodix.publish` and `ergodix.ingest` (per ADR 0006 — including the abort-cases the ADR enumerates)
+- [ ] Set up CI to run `pytest --cov` on every push (GitHub Actions; gate via developer floater)
+- [ ] Confirm all tests are RED (failing for the right reasons) before any implementation begins
+
+After this story closes, every subsequent implementation commit has a measurable "made N tests pass" outcome.
 
 ## Sprint 1 (placeholder — design when Sprint 0 closes)
 
