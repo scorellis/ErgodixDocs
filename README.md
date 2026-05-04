@@ -114,6 +114,8 @@ python auth.py set-key google_oauth_client_secret
 
 Each command prompts for the value with hidden input (no shell history, no `ps` exposure) and stores it in your OS keyring under service `ergodix`.
 
+> **Where do the Google OAuth client values come from?** Follow [docs/gcp-setup.md](docs/gcp-setup.md) — the canonical SOP for creating the GCP project, enabling the Drive and Docs APIs, configuring the OAuth consent screen, and minting the OAuth client credential. ~10 minutes, one time per install.
+
 ### Inspecting state (without revealing values)
 
 ```bash
