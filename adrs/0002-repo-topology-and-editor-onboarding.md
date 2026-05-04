@@ -5,6 +5,8 @@
 - **Spike**: [Spike 0002 — Repo topology, editor onboarding, and the bidirectional flow](../spikes/0002-repo-topology-editor-onboarding.md)
 
 > **Note (2026-05-03):** [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) collapses personas and floaters into one registry. References to "editor persona" below should now be read as "editor floater." Behavior described is unchanged; only the noun differs.
+>
+> **Note (2026-05-03 — supersession):** [ADR 0006](0006-editor-collaboration-sliced-repos.md) supersedes the **repo topology** and **editor workflow** sections of this ADR. Specifically: the "all editors share one private corpus repo" topology is replaced by master + per-editor slice repos with publish/ingest commands; the auto-sync-on-save flow now targets the editor's slice repo rather than a shared feature branch; CriticMarkup is no longer the primary editorial review mechanism (it remains optional for annotations). The credentials-storage and `gh auth login` portions of this ADR stand unchanged.
 
 ## Context
 
