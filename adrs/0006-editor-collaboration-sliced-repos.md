@@ -104,9 +104,9 @@ The registry lives at `slices/registry.json` in the master repo and is the singl
 4. Compute the diff between `assigned_files` and the slice repo's current contents:
    - Copy/overwrite authorized files from master.
    - Remove any files in the slice repo no longer in `assigned_files`.
-5. Inject a sync header comment into each `.tex` file (LaTeX-comment-safe):
+5. Inject a sync header comment into each chapter file (LaTeX-comment-safe inside `.md` files containing raw LaTeX, or HTML-comment-safe in pure Markdown blocks):
    ```
-   % tapestry-sync: baseline=<master-sha> editor=<name> published=<iso8601>
+   % ergodix-sync: baseline=<master-sha> editor=<name> published=<iso8601>
    ```
 6. Commit to the slice repo with message:
    ```

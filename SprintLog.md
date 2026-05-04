@@ -241,7 +241,7 @@ Tasks (filled out when story moves out of parking lot):
 - [ ] extend `local_config.py` schema: `OPERA = { "tapestry": {...}, "friend-novel": {...} }` plus `CURRENT_OPUS` pointer
 - [ ] update cantilever to take opus context as input (which floaters apply to which opus)
 - [ ] update `ergodix sync`, `migrate`, `render`, `status` to be opus-aware
-- [ ] migration path for existing single-opus installs (the existing `TAPESTRY_FOLDER` becomes the first entry under `OPERA["default"]`)
+- [ ] migration path for existing single-opus installs (the existing `CORPUS_FOLDER` becomes the first entry under `OPERA["default"]`)
 
 ### Scale concerns (deferred; activate per real signal)
 
