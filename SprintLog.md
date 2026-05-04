@@ -220,7 +220,34 @@ Tasks:
 - [ ] If Keychain behaves: keep current shape; document the test result in the credential-store comment block in `auth.py`.
 - [ ] Either way: ensure all credential reads/writes in the codebase go through a single abstraction (currently `auth.py`'s helpers); no direct `keyring.*` calls from anywhere else.
 
-### Story 0.10 - Test-driven development scaffolding **[NEXT]**
+### Story 0.10 - Test-driven development scaffolding **[IN FLIGHT — branch `feature/test-scaffolding`]**
+
+**Progress as of 2026-05-03 end of session:**
+
+Done:
+- [x] `pyproject.toml` created with dynamic version (reads `VERSION`), Python >=3.11, console-script entry `ergodix = "ergodix.cli:main"`, dev deps (pytest, pytest-cov, ruff, mypy per ADR 0008), pytest config (`--strict-markers`, coverage), ruff lint+format config, mypy strict.
+- [x] `ergodix/` package skeleton with `__init__.py`. `auth.py` and `version.py` moved into the package from repo root.
+- [x] `tests/` directory with `conftest.py` providing `fake_home`, `clean_env`, `fake_keyring` fixtures.
+- [x] `tests/test_version.py` — 6 tests covering version string, VERSION-file matching, fallback, importability, no side effects, PEP 440 (skipped until 1.0).
+- [x] `tests/test_auth.py` — 16 tests covering all three credential tiers, permission-mode invariant, missing-credential error, keyring error narrowing per ADR 0008, CLI smoke, migration-to-keyring.
+- [x] **Bug found and fixed during TDD red phase**: `auth.py` was resolving `Path.home()` at import time, baking the path into module constants. Tests that monkeypatched HOME got stale values. Fixed via `_LazyPath` descriptor that evaluates `Path.home()` on every attribute access.
+- [x] `.gitignore` extended for `*.egg-info`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.coverage`, `htmlcov`.
+- [x] `.venv` recreated with Python 3.13.12 (system Python 3.9.6 was too old for `>=3.11` requirement).
+- [x] **Test result: 22 passed, 1 skipped.**
+
+Remaining (next session):
+- [ ] Stub failing tests for every planned module — one `test_<module>.py` per planned source module:
+  - [ ] `test_cli.py` (Click root group + subcommand routing per ADR 0001)
+  - [ ] `test_cantilever.py` (orchestrator, idempotency, abort-fast, auto-fix bound per ADR 0003 + ADR 0008)
+  - [ ] 22 × `test_prereqs_<op>.py` (each tests the `check() -> CheckResult` contract per ADR 0007)
+  - [ ] 8 × `test_floaters_<name>.py` (writer / editor / developer / publisher / focus_reader / dry_run / verbose / ci per ADR 0005)
+  - [ ] 2 × `test_importers_<name>.py` (gdocs + scrivener)
+  - [ ] `test_publish.py` + `test_ingest.py` (ADR 0006 abort cases: signed-commit verification, unauthorized-file rejection, path-rename rejection, three-way merge)
+  - [ ] `test_connectivity.py`, `test_runrecord.py`
+- [ ] CI workflow file under `.github/workflows/` (gated on ADR 0009; runs pytest --cov, ruff check, ruff format --check, mypy on every push)
+- [ ] Confirm all new tests are RED (failing for the right reasons) before any implementation begins
+- [ ] Coverage gate flipped on once green-phase implementation begins
+
 
 So that every function we're about to write has a failing test waiting for it before we implement it,
 
