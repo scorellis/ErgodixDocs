@@ -31,8 +31,10 @@ DRIVE_MOUNT_ROOT = Path.home() / "My Drive"
 # The "My Drive" folder itself. In Mirror mode this equals DRIVE_MOUNT_ROOT.
 MY_DRIVE = Path.home() / "My Drive"
 
-# Source folder for the universe content.
-TAPESTRY_FOLDER = Path.home() / "My Drive" / "Tapestry of the Mind"
+# Source folder for this opus's corpus content. Edit to point at your own
+# corpus folder under My Drive. (Multi-opus support is Story 0.X — when it
+# lands, this single value becomes a dict keyed by opus name.)
+CORPUS_FOLDER = Path.home() / "My Drive" / "Tapestry of the Mind"
 
 # "stream" or "mirror"
 SYNC_MODE = "mirror"

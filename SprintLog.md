@@ -67,12 +67,42 @@ Rationale: `.md` keeps VS Code Markdown highlighting, CriticMarkup tooling, GitH
 
 **Folder layout** (under `~/My Drive/Tapestry of the Mind/`):
 - Mirrors the structure in [Hierarchy.md](Hierarchy.md): `Compendium/Book/Section/Chapter.md`
+- **One `.md` file per Chapter** — chapters are the smallest creative unit. **[LOCKED 2026-05-03]**
 - AI-generated artifacts live in a parallel `_AI/` subfolder
 - Optional `_archive/` holds the original `.gdoc` files post-migration as a safety net
 
+**LaTeX preamble cascade** **[LOCKED 2026-05-03]**:
+
+A `_preamble.tex` file is **optional at every folder level** of the hierarchy (Epoch / Compendium / Book / Section). When `ergodix render` builds a chapter, it walks up the folder tree from the chapter's directory to the corpus root, collects every `_preamble.tex` it finds, concatenates them most-general-first, and passes the result to Pandoc via `--include-in-header`.
+
+LaTeX naturally honors override-by-redefinition (later-loaded definition wins), so:
+- the epoch preamble sets project-wide defaults (fonts, page geometry, custom commands),
+- a compendium / book / section preamble can override anything for that branch,
+- siblings unaffected.
+
+**Three scopes for font / style changes:**
+
+| Scope | Mechanism | Example |
+|---|---|---|
+| Single passage | Inline `{\fontfamily{cmtt}\selectfont ...}` in chapter prose | One paragraph in monospace inside an otherwise-Garamond chapter |
+| Single chapter | YAML frontmatter `extra-preamble:` block with raw LaTeX | This chapter only in Times New Roman |
+| Entire book / section | Drop `_preamble.tex` in that folder | All of Book Two in Crimson Pro |
+
+The render command is ~15 lines: walk up the directory tree, collect `_preamble.tex` files in order, concatenate. No plugin system, no settings file — file presence at folder boundaries does the work.
+
 **Tasks:**
 - [x] **Lock the file extension**: `.md` chosen with mandatory YAML frontmatter declaring `format: pandoc-markdown`. Decided 2026-05-02.
-- [ ] **Migration script (`ergodix migrate`)**: walk `~/My Drive/Tapestry of the Mind/`, for each `.gdoc` call Drive's `files.export` (mimeType: `text/markdown`), write the result as `<basename>.md` alongside the original with the YAML frontmatter prepended, move the original `.gdoc` to `_archive/`. One-time operation; not part of steady-state.
+- [ ] **Migration orchestrator (`ergodix migrate --from <importer>`)**: orchestrator dispatches to a plugin in `importers/`. Per [ADR 0001](adrs/0001-click-cli-with-persona-floater-registries.md), Open/Closed at the command surface — new sources land as new files in `importers/`.
+  - [ ] **`importers/gdocs.py`**: walk `~/My Drive/Tapestry of the Mind/`, for each `.gdoc` call Drive's `files.export` (mimeType: `text/markdown`), write `<basename>.md` alongside with YAML frontmatter prepended, move the original `.gdoc` to `_archive/`.
+  - [ ] **`importers/scrivener.py`**: read a `.scriv` bundle (filesystem-only, no API). Walk `Files/Data/<UUID>/content.rtf` per chunk; consult `Docs.xml` for hierarchy / titles. Run RTF through Pandoc → Markdown; prepend frontmatter populated from Scrivener metadata where available (synopsis, status). **v1: flat dump to `_unsorted/`** — author reorganizes into the canonical hierarchy in VS Code afterward. Mapping-manifest support deferred.
+  - [ ] **Future importers** (`importers/docx.py`, `importers/text.py`, etc.) — out of Sprint 0 scope; documented as the extension model in ADR 0001.
+- [ ] **Editor collaboration commands (`ergodix publish` / `ergodix ingest`)**: implement the sliced-repository workflow per [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). Author-side, run continuously (not bootstrap).
+  - [ ] **`slices/registry.json` schema implementation** in the master corpus repo: editors, slice repo URLs, public-key fingerprints, assigned files, baseline SHAs, policy flags.
+  - [ ] **`ergodix publish --editor <name>`**: clone/update slice repo scratch dir, copy authorized files, inject sync header comment, commit, push, update registry baseline, commit registry to master.
+  - [ ] **`ergodix ingest --editor <name>`**: fetch slice, verify signed commits, verify all changed files within `assigned_files`, generate patches via `git format-patch`, apply via `git am --3way` to a review branch on master, leave unmerged for author review.
+  - [ ] **`--bundle` mode** (stretch goal): produce/consume git bundles for air-gap exchange.
+  - [ ] **Tests**: clean publish, publish with file removal, ingest with no conflicts, ingest with three-way merge, ingest with unauthorized file modification (must abort), ingest with unsigned commits (must abort), path-rename rejection, registry round-trip.
+- [ ] **Editor floater cantilever extensions** (per [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md) integration): generate SSH signing key (`ssh-keygen -t ed25519`), register as a signing key on GitHub via `gh ssh-key add --type signing`, configure local git to sign commits by default (`git config commit.gpgsign true`, `git config gpg.format ssh`).
 - [ ] **Frontmatter template**: define the canonical YAML schema (required keys: `title`, `author`, `format`, `pandoc-extensions`; optional: `book`, `section`, `chapter`, `revision`). Migration script populates from Drive metadata where possible.
 - [ ] **Migration fidelity audit**: run on a sample chapter; document what survived, what didn't, what needs hand-fix.
 - [ ] **VS Code setup recipe** for both author and editor: Pandoc Markdown extension, raw LaTeX preview, CriticMarkup extension, recommended settings. Documented in `docs/vscode-setup.md` (file to be created).
@@ -81,7 +111,9 @@ Rationale: `.md` keeps VS Code Markdown highlighting, CriticMarkup tooling, GitH
 
 ### Story 0.3 - Define the in-file review and comment representation
 
-So that all forms of collaboration context — editorial review from a human editor, the author's own writing notes, AI-generated continuity flags, and any legacy comments extracted from the original `.gdoc` files at migration time — share a single, plain-text, git-diffable representation inside the chapter `.md` files,
+> **Note (2026-05-03):** [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md) demoted CriticMarkup from primary editorial review surface to optional annotation. The editor's primary review mechanism is now direct prose edits via signed git commits in their slice repo, with the author reviewing via three-way merge in a review branch. CriticMarkup remains useful for: (a) the editor leaving comments without proposing changes (`{>>this paragraph feels weak<<}`), (b) the author's own self-notes, (c) AI-generated continuity flags. The tasks below are revised to reflect this — the migration to `.md` no longer needs CriticMarkup ingestion to be its primary purpose.
+
+So that all forms of collaboration context — editor annotations (comments without proposed changes), the author's own writing notes, AI-generated continuity flags, and any legacy comments extracted from the original `.gdoc` files at migration time — share a single, plain-text, git-diffable representation inside the chapter `.md` files,
 Value: review context survives every sync and every editor; nothing requires a proprietary comment store; renders cleanly to PDF with `--track-changes=accept` (or equivalent) when producing reader output,
 Risk: a single representation may not fit every comment type equally well; CriticMarkup syntax may be visually noisy in long passages; legacy `.gdoc` comments may not extract cleanly via the Drive API,
 Assumptions: CriticMarkup (`{++add++} {--del--} {>>comment<<} {==highlight==}{>>comment<<}`) is the right surface; Drive's `comments.list` endpoint can extract anchored comments from `.gdoc` files at migration time; AI-generated review markers can be tagged distinguishably so the author can filter them,
@@ -137,6 +169,84 @@ Tasks:
 - [ ] re-run after any Story 0.2 fixes; confirm idempotent
 - [ ] **bump `VERSION` to 0.2.0 and add a `[0.2.0]` entry to `CHANGELOG.md`** capturing the migrate/render/frontmatter work, smoke-test results, and any fidelity-loss notes. Move `[Unreleased]` items into the new release section.
 
+### Story 0.8 - Architecture spike: orchestrator pattern, role-based cantilever, editor collaboration model **[DESIGN SPIKE — DONE 2026-05-03]**
+
+**All 10 topics resolved.** ADRs 0001–0008 cover the locked decisions; spikes 0001–0006 capture the discussions. Story 0.8 closes here; implementation work continues under Story 0.2 (and follow-on stories) against the locked architecture.
+
+**Closing notes:**
+- All 22 cantilever prereq operations stay as separate modules under `ergodix/prereqs/` regardless of size. Consistency over file-count savings.
+- Author works in `--writer --developer` floater combination during the project's pre-release year. No external authors invited until the tool stabilizes.
+
+This story produces decisions, not code. Each task is a discussion topic. Discussion outcomes get recorded as updates to this story (and follow-up stories where appropriate) before any related implementation begins.
+
+So that ErgodixDocs has one coherent operational pattern (single orchestrator + manifest-driven prereqs + small single-purpose modules) modeled on UpFlick conventions, with role-aware modes (`--writer`, `--editor`, `--developer`) and a defensible editor-collaboration + permissions model — all locked in *before* Story 0.2 / 0.3 / 0.6 implementation begins,
+
+Value: prevents the bolt-on tooling sprawl that comes from writing standalone commands one at a time; aligns this codebase with UpFlick conventions for cross-tool consistency; surfaces editor-workflow + permissions decisions early enough that they can shape the migration script's output structure and the repo's public/private split,
+
+Risk: design-by-committee; the chosen pattern may not survive contact with real implementation; over-specifying roles up front creates flag complexity we never use,
+
+Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough to be a starting point; a single `ergodix` CLI with role flags is more discoverable than N separate commands; GitHub's existing access controls are sufficient for editor permissions without inventing new infrastructure,
+
+#### Discussion Topics (each yields a decision; mark `[DECIDED: ...]` inline as we go)
+
+- [x] **Topic 1 — Orchestrator pattern review.** **[DECIDED 2026-05-03]** Adopt **Click subcommand groups** with three plugin registries (personas, floaters, importers) for Open/Closed extensibility. See [Spike 0001](spikes/0001-orchestrator-pattern.md) for the discussion and [ADR 0001](adrs/0001-click-cli-with-persona-floater-registries.md) for the locked decision.
+- [x] **Topic 2 — Prereqs layout.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). One Python module per operation under `ergodix/prereqs/`, each exposing `def check() -> CheckResult`. Cantilever loads, dispatches, acts on result.
+- [x] **Topic 3 — `--cantilever` semantics.** **[DECIDED 2026-05-03]** Closed by [ADR 0003](adrs/0003-cantilever-bootstrap-orchestrator.md). 22-operation menu (A1–F2 + D5), all idempotent, abort-fast with detailed remediation messaging, auto-detected connectivity, settings in `settings/` (TOML), per-machine run-record at `~/.config/ergodix/cantilever.log`. Continuous polling job spun out as [ADR 0004](adrs/0004-continuous-repo-polling.md).
+- [x] **Topic 4 — Role flag matrix.** **[DECIDED 2026-05-03]** Closed by [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Personas and floaters collapsed into a single registry; every role is a floater. Each role's TOML declares `adds_operations` and (for focus-reader only) `exclusive_with`. CLI surface: `ergodix --writer --developer cantilever`, etc. Empty-flag invocations fail fast. Multi-corpus container named **opus** (locked into Story 0.X for future implementation).
+- [x] **Topic 5 — Bidirectional flow architecture.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). Editor's edits flow via signed commits to a per-editor slice repo; author runs `ergodix ingest` to surface a review branch on master. AI artifacts go to `_AI/` and are author-committed manually.
+- [x] **Topic 6 — Permissions + public/private split.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). `ErgodixDocs` (public, tooling) + per-opus master corpus repo (private) + per-editor slice repos (private, file-scoped). Hard read access control via slicing; per-editor blast radius bounded; clean revocation by ceasing to publish + rotating slice credentials.
+- [x] **Topic 7 — Pandoc / LaTeX comment representation explainer.** **[DONE 2026-05-03]** Educational doc shipped at [docs/comments-explained.md](docs/comments-explained.md). Covers CriticMarkup, HTML comments, LaTeX comments, and Pandoc spans/divs — with worked examples, render outcomes, VS Code extension list, and tooling cheat sheet.
+- [x] **Topic 8 — Editor mode vs. plain GitHub.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md) and [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Editor is a real floater with concrete cantilever steps (gh auth, slice repo clone, SSH signing key generation + GitHub registration, VS Code + CriticMarkup install for optional annotations, auto-sync VS Code task targeting the slice repo). Daily flow remains zero-command via Cmd+S → debounced `ergodix sync` (now pushing to the editor's slice).
+- [x] **Topic 9 — CLI entry point & installation.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). Console-script entry in `pyproject.toml` (`ergodix = "ergodix.cli:main"`); registered by `pip install -e .` during bootstrap; works on PATH whenever the venv is active. No shell wrappers.
+- [x] **Topic 10 — Migration plan from current `install_dependencies.sh`.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). Rename to `bootstrap.sh` + add `bootstrap.ps1`; extract every operation into `ergodix/prereqs/check_*.py`; move `auth.py` and `version.py` into the `ergodix/` package. Bootstrap is ~5 lines (Python install + venv + `pip install -e .` + `ergodix cantilever`).
+
+#### How this story closes
+
+Spike closes when Topics 1–10 are all `[DECIDED]` with their resolutions inlined or linked to follow-up implementation stories (which may be created during the spike). At that point, Story 0.2's implementation tasks (`ergodix migrate`, `ergodix render`) and Story 0.3's editor workflow can proceed against a coherent design.
+
+### Story 0.9 - macOS Keychain integration testing + credential-store abstraction **[NEXT after 0.10 if real]**
+
+So that we know whether macOS Keychain access from a non-codesigned Python interpreter actually behaves the way Story 0.5 assumed (first-read prompt, "Always Allow" makes subsequent reads silent), and so the credential-store layer is compartmentalized enough to swap if Keychain proves friction-y,
+
+Value: Story 0.5's claim is currently untested. If macOS re-prompts on every Python interpreter restart (plausible for non-codesigned binaries), the daily UX breaks. Discovering that during real use is much worse than discovering it during integration testing now,
+
+Risk: Keychain prompts behaving badly forces a rapid swap to a different credential store; if `auth.py` is tightly coupled to `keyring.set_password`/`get_password` calls scattered through code, the swap is painful,
+
+Assumptions: integration tests can simulate or capture real Keychain interactions; abstracting the credential store behind a small interface is cheap; alternative stores (encrypted file, 1Password CLI, etc.) are pluggable behind the same interface,
+
+Tasks:
+- [ ] Write integration test that drives `auth.py set-key`, then opens a fresh Python interpreter and reads it back. Repeat across interpreter restarts. Document actual behavior observed.
+- [ ] If Keychain re-prompts: extract a `CredentialStore` interface in `auth.py` with concrete `KeyringStore` and at least a stub `EncryptedFileStore` implementation. Make the active store selection a setting.
+- [ ] If Keychain behaves: keep current shape; document the test result in the credential-store comment block in `auth.py`.
+- [ ] Either way: ensure all credential reads/writes in the codebase go through a single abstraction (currently `auth.py`'s helpers); no direct `keyring.*` calls from anywhere else.
+
+### Story 0.10 - Test-driven development scaffolding **[NEXT]**
+
+So that every function we're about to write has a failing test waiting for it before we implement it,
+
+Value: red-green-refactor cycle keeps implementation honest; tests document the contract before code drifts; coverage is built up from day one rather than bolted on later; cantilever's prereq modules in particular benefit because each one is small and individually testable,
+
+Risk: writing too many tests up front against speculative APIs that change during implementation; the tests themselves becoming a maintenance burden if not run continuously,
+
+Assumptions: pytest + pytest-cov are the framework choice (per Story 0.5 + ADR 0007's dev deps); test layout follows pytest conventions (`tests/` at repo root, `test_<module>.py` per source module); contracts are stable enough from ADRs 0001–0007 that tests can be written against them,
+
+Tasks:
+- [ ] Create `tests/` directory at repo root with `conftest.py` for shared fixtures (tmp_path, fake home dir, mocked keyring backend, etc.)
+- [ ] Add pytest config to `pyproject.toml` (test paths, markers, coverage thresholds)
+- [ ] Write failing test stubs for each existing module:
+  - [ ] `tests/test_version.py` — version reads VERSION file; falls back to `0.0.0+unknown`
+  - [ ] `tests/test_auth.py` — three-tier credential lookup; permission-mode invariant; CLI subcommands; keyring error handling
+- [ ] Write failing test stubs for each planned `prereqs/check_*.py` (per ADR 0003's 22-op menu + ADR 0007's layout)
+- [ ] Write failing test stubs for each planned `floaters/<name>.py` registry entry (per ADR 0005)
+- [ ] Write failing test stubs for each planned `importers/<name>.py` (per ADR 0001 — gdocs + scrivener for v1)
+- [ ] Write failing test stubs for `ergodix.cli` Click command groups
+- [ ] Write failing test stubs for `ergodix.cantilever` orchestrator
+- [ ] Write failing test stubs for `ergodix.publish` and `ergodix.ingest` (per ADR 0006 — including the abort-cases the ADR enumerates)
+- [ ] Set up CI to run `pytest --cov` on every push (GitHub Actions; gate via developer floater)
+- [ ] Confirm all tests are RED (failing for the right reasons) before any implementation begins
+
+After this story closes, every subsequent implementation commit has a measurable "made N tests pass" outcome.
+
 ## Sprint 1 (placeholder — design when Sprint 0 closes)
 
 The actual reason this project exists: AI as architectural co-author. These stories will be fleshed out when Sprint 0 ships.
@@ -167,5 +277,158 @@ These were open questions in earlier design discussions and have since been sett
 
 ## Parking Lot
 
-- **Story 0.7 — Distribution prep** (deferred until Sprint 1+): pip-installable package, standalone GitHub clone, Homebrew formula? Decide *after* the tool is working end-to-end.
+- **Story 0.7 — Distribution prep** (deferred until Sprint 1+): make install accessible to non-technical users who don't know git or terminals. Candidates: PyPI publish (`pip install ergodix`), Homebrew formula (`brew install ergodix`), Mac App Store / signed `.pkg` installer, Windows MSI / Microsoft Store, curl|bash stub at a stable URL, GUI installer wrapping the bootstrap scripts. Decide *after* the tool is working end-to-end and a real "completely ignorant" user is identified to validate against.
 - **AI commenting on chapter docs** (deferred indefinitely): if the AI ever wants to write CriticMarkup directly into chapter `.md` files (rather than just emitting a flag report), revisit the AI-prose boundary policy. Currently the AI writes only into `_AI/` files, never into chapter prose.
+
+### Spike — CriticMarkup dual-mode review (deferred — not blocking v1)
+
+So that the author has a coherent UX for reviewing two parallel review surfaces — diff-level prose changes (per ADR 0006) and CriticMarkup `{>> <<}` annotations *inside* the changed prose — without confusion about precedence, render output, or "is this a comment about the old text or the new text?",
+
+Value: prevents the editor's annotations from being lost or mis-applied during diff review; clarifies the rendered-output shape when a chapter has both an editor's prose edit AND an editor's comment about something else in the same paragraph,
+
+Risk: not addressing this means the author has to mentally context-switch every review session; ad-hoc workflow forms before the spike can settle the convention,
+
+Tasks (when activated):
+- [ ] document the two surfaces and their interaction patterns
+- [ ] decide rendering precedence in `--track-changes=all` mode when both diff and CriticMarkup are present
+- [ ] decide whether `ergodix ingest` should auto-extract CriticMarkup `{>> <<}` blocks into review-comment metadata vs. leave them in-prose
+- [ ] update [docs/comments-explained.md](docs/comments-explained.md) with the resolved convention
+
+### Story — Phil-trained custom prose linter (Sprint 1+ when activated)
+
+So that a custom linter trained on the human editor's repeated corrections becomes a first-pass automatic editor — catching the things the editor consistently fixes (specific verb-tense patterns, comma habits, clichés the author falls into) so the human editor can focus on higher-level work,
+
+Value: amortizes the editor's expertise into reusable tooling; reduces the editor's repetitive workload; demonstrates the AI-as-architectural-analyst principle in a concrete way that respects the AI-prose boundary (the linter *flags*; the human *decides*),
+
+Risk: linter false-positives become noise that the author learns to ignore, defeating the purpose; over-fitting to one editor's idiosyncrasies may reduce portability when adding a second editor,
+
+Assumptions: the editor's review history (post-merge diffs over time) is sufficient training signal; flagging-not-fixing preserves the AI-prose boundary; per-editor and per-author training is feasible at the corpus scale,
+
+Tasks (when activated):
+- [ ] Mine accepted editor patches from `git log` to extract recurring corrections
+- [ ] Build a rule-based first pass (regex / token-pattern matching) for high-confidence patterns
+- [ ] Layer ML or LLM-driven detection for fuzzier patterns (style consistency, tone drift)
+- [ ] Wire as `ergodix lint` subcommand; integrate with `--developer` floater's pre-commit hooks
+- [ ] Per-author + per-editor training profiles in `settings/`
+
+### Story 0.X - Multi-opus support (deferred to Sprint 1+ or first real use case)
+
+**Terminology:** an **opus** is a named bundle of (corpus path + default floater set + last-used context). Plural: **opera**. Term chosen to fit the project's classical/Latin voice without colliding with Compendium (a level in the narrative Hierarchy).
+
+So that one machine and one identity can address multiple opera with different role-sets per opus (you on Tapestry as writer/dev/publisher; you on a friend's manuscript as focus-reader; an editor working two authors' books in parallel),
+
+Value: makes ErgodixDocs viable as the underlying tool when adoption broadens past one author; lets a single user split work across opera without re-installing per project,
+
+Risk: introducing the dimension prematurely costs more than waiting; conflating this with enterprise tenancy concerns that aren't actually adjacent,
+
+Assumptions: forward-compatible architectural pieces already in place (registries, settings folder, three-tier credential lookup); `local_config.py`'s `CORPUS_FOLDER` becoming a dict keyed by opus name is non-breaking,
+
+CLI shape (locked at story-open time):
+
+```bash
+ergodix opus list
+ergodix opus add tapestry --corpus tapestry-of-the-mind --writer --developer --publisher
+ergodix opus add friend-novel --corpus their-book --focus-reader
+ergodix opus switch tapestry
+ergodix cantilever                  # uses current opus
+ergodix sync                        # uses current opus
+```
+
+Each opus is stateful — `opus switch <name>` sets a current-opus pointer (probably in `local_config.py`); subsequent commands inherit its corpus + floater config.
+
+Tasks (filled out when story moves out of parking lot):
+- [ ] confirm stateful (`switch`) vs. per-invocation (`--opus <name>`) — likely support both, with `switch` writing the current pointer used as default for subsequent invocations
+- [ ] extend `local_config.py` schema: `OPERA = { "tapestry": {...}, "friend-novel": {...} }` plus `CURRENT_OPUS` pointer
+- [ ] update cantilever to take opus context as input (which floaters apply to which opus)
+- [ ] update `ergodix sync`, `migrate`, `render`, `status` to be opus-aware
+- [ ] migration path for existing single-opus installs (the existing `CORPUS_FOLDER` becomes the first entry under `OPERA["default"]`)
+
+### Scale concerns (deferred; activate per real signal)
+
+The dimensions below are real architectural considerations even though they don't have urgency yet. Forward-compatibility decisions made now should not foreclose any of them. Each becomes its own story when activated.
+
+#### Story 0.Z1 - Concurrency and write-collision handling
+
+So that multiple editors can work on the corpus simultaneously without losing edits or producing broken merges,
+
+Value: real-world co-editing (writer + editor + future line editor) needs to be safe; auto-sync racing against itself across machines is the failure mode this prevents,
+
+Risk if ignored: silent data loss when two auto-syncs land in overlapping windows; surprising conflicts that bypass the editor persona's "zero-friction" promise,
+
+Assumptions: each editor's machine works on independent feature branches by default; sync conflicts on shared branches surface as standard git conflicts; debouncing in the auto-sync VS Code task is part of the solution but not the whole solution,
+
+Investigate when activated: per-machine sync queues; conflict detection in `ergodix sync` before push (warn user when remote has new commits on the same branch); fast-forward-only sync as default; explicit `ergodix sync --force` for the rare overrule case.
+
+#### Story 0.Z2 - Corpus volume and AI analysis efficiency
+
+So that the AI architectural-analysis features (plotline tracking, continuity detection, summaries, storyboards — Sprint 1) work on a full multi-book corpus (200+ chapters, 1M+ words) without per-invocation context-bloat or cost explosion,
+
+Value: this is the actual product. "Load the whole corpus into the context window every time" stops working at corpus sizes serious authors will quickly reach,
+
+Risk if ignored: AI features are demoware that only work on tiny samples; the tool's reason-for-existing fails to scale with the user's actual writing,
+
+Assumptions: prompt caching meaningfully cuts repeat-analysis cost (Anthropic's prompt cache has a 5-minute TTL — useful for active sessions); per-chapter analysis with cross-chapter index is tractable; vector-store retrieval-augmented generation is a viable layer on top; incremental analysis (only re-analyze what changed) is implementable,
+
+Investigate when activated: chapter-level analysis index; embedding-based retrieval over the corpus; prompt-caching strategy per command; result caching on disk so repeat invocations are free; batch APIs (Anthropic supports batch jobs) for non-interactive work.
+
+#### Story 0.Z3 - Long-tail: history, retention, storage growth
+
+So that the corpus repo remains performant after 5+ years of edits, render outputs don't bloat git, and old AI artifacts don't accumulate forever,
+
+Value: serious authors work on multi-decade projects; the tool should not become the bottleneck,
+
+Risk if ignored: git operations slow as history grows; PDF render outputs balloon the repo; the `_AI/` folder becomes a graveyard of stale analyses; clone times become a barrier for new contributors,
+
+Assumptions: git LFS for binary render outputs is viable; `.gitattributes` patterns can isolate large artifacts; retention policies are configurable per opus,
+
+Investigate when activated: git LFS for `_AI/` PDFs and render outputs; `.gitattributes` configuration; retention policy in `settings/` (e.g. "keep latest 5 render outputs per chapter, delete older"); cantilever-time pruning operation; corpus-archive command for cold-storing old material.
+
+#### Story 0.Z4 - AI cost and quota management
+
+So that AI architectural-analysis features have predictable cost, hard caps to prevent runaway billing, and (eventually) per-user allocation when an organization runs the tool,
+
+Value: a writer running daily continuity analysis on a million-word corpus can rack up real bills; an enterprise running it across many authors will demand budget controls,
+
+Risk if ignored: surprise bills become a tool-killer; users avoid AI features because cost is opaque; enterprise adoption is blocked entirely,
+
+Assumptions: aggressive prompt caching cuts the dominant cost; monthly caps configured at cantilever time are practical; usage telemetry can be opt-in for users who want a cost dashboard; per-feature cost reporting is implementable,
+
+Investigate when activated: prompt caching strategy; per-user / per-opus monthly cap with hard cutoff; cost dashboard (`ergodix cost report`); telemetry that respects privacy (opt-in, never includes prose); enterprise extension hooks for centralized billing (relates to Story 0.Y).
+
+#### Story 0.Z5 - Graceful degradation and resilience
+
+So that ErgodixDocs works (or fails gracefully and informatively) under partial outages: keyring locked, Anthropic API down, GitHub unavailable, Drive offline, Pandoc broken, XeLaTeX missing,
+
+Value: trust. The tool should not become a catastrophic single point of failure when any one external dependency is degraded; users should not develop workaround habits that bypass the tool,
+
+Risk if ignored: any single dependency outage blocks all work; users learn to circumvent the tool; the auto-sync flow becomes a liability when the network is intermittent,
+
+Assumptions: most operations have viable fallback paths (cached results, deferred operations, read-only modes); failure mode classification is implementable; "degraded mode" can be communicated clearly via `ergodix status`,
+
+Investigate when activated: failure-mode catalog per operation (already has a kernel in ADR 0003's auto-fix concept); circuit breakers on external API calls; explicit degraded-mode indicators surfaced in CLI output and the run-record; cached-result fallback for AI features when the API is unavailable.
+
+### Story 0.Y - Publishing-house / enterprise scale (deferred — not a current target)
+
+Documented for future architectural consideration. Not actively planned.
+
+**What scales as-is:**
+- Persona/floater registry — adding `line-editor`, `developmental-editor`, `proofreader`, etc. is the existing extension pattern
+- Cantilever orchestrator — independent of user count; each machine runs its own
+- Continuous polling — per-machine, each machine independent
+- AI-prose boundary — applies uniformly regardless of org size
+- Settings TOML structure — same registry shape works at any scale
+- Importer registry — new sources added without touching core
+
+**What doesn't scale and would need additions:**
+- **Two-repo single-tenant model**: 500 authors = 500 corpus repos. Need org-level GitHub structure (sub-orgs per imprint), bulk-onboarding, repo templates.
+- **Per-machine OS keyring credentials**: enterprise wants SSO (SAML/OIDC), centrally issued/revoked tokens, vault integration (Vault, AWS Secrets Manager). Current three-tier lookup extends cleanly — add a "Tier 0: SSO/vault" stage above env var.
+- **Per-individual GitHub auth (`gh auth login`)**: enterprise wants GitHub Enterprise + SAML SSO. Same OAuth flow, different IdP.
+- **Per-machine `local_config.py`**: managed devices need IT-pushed config. Add an `org_config.toml` URL or path that gets layered under `local_config.py`.
+- **Per-machine cantilever / poller logs**: enterprise audit needs centralized log forwarding (Splunk, Datadog, S3). Add a "log destination" setting that supports remote sinks.
+- **Individual Anthropic API keys**: enterprise wants centralized billing + per-author quotas. Add support for organization-issued keys with per-author allocation tracking.
+- **GitHub branch protection per-repo**: enterprise wants policies enforced org-wide. GitHub provides this at org level; we'd document the recommended config but enforcement is GitHub's job, not ours.
+- **Compliance** (SOC 2, ISO 27001, GDPR): out of scope for the tool itself; the surrounding deployment + ops practice carries the compliance burden.
+
+**Architectural verdict:** the current design is single-author-centric and **doesn't preclude** enterprise scaling. Every gap above maps to an additive extension using patterns we already have (registries, settings layering, three-tier lookup). None require tearing anything out.
+
+**Recommendation if/when this story activates:** treat it as Sprint 3+ work. Start by identifying the first real enterprise customer's actual needs rather than designing speculative abstractions. Most of the "enterprise readiness" list above is wrong until a specific buyer's procurement requirements clarify it.

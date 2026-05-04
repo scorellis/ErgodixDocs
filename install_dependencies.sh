@@ -207,17 +207,21 @@ elif [ -f "$CONFIG_FILE" ]; then
     ok "Existing local_config.py found — leaving it alone (never overwritten)"
     echo "  → To regenerate, delete $CONFIG_FILE and re-run this script."
 else
-    DETECTED_TAPESTRY=""
+    # Try to auto-detect a corpus folder under My Drive. The default attempt is
+    # "Tapestry of the Mind" (the original author's corpus name); other authors
+    # can edit local_config.py after install. Multi-opus auto-detection is
+    # Story 0.X — until then, single corpus folder per install.
+    DETECTED_CORPUS=""
     if [ -n "$DETECTED_MY_DRIVE" ] && [ -d "$DETECTED_MY_DRIVE/Tapestry of the Mind" ]; then
-        DETECTED_TAPESTRY="$DETECTED_MY_DRIVE/Tapestry of the Mind"
-        ok "Detected Tapestry folder at $DETECTED_TAPESTRY"
+        DETECTED_CORPUS="$DETECTED_MY_DRIVE/Tapestry of the Mind"
+        ok "Detected corpus folder at $DETECTED_CORPUS"
     fi
 
     CONFIG_EXAMPLE_PATH="$CONFIG_EXAMPLE" \
     CONFIG_FILE_PATH="$CONFIG_FILE" \
     DETECTED_MOUNT_ROOT="$DETECTED_MOUNT_ROOT" \
     DETECTED_MY_DRIVE="$DETECTED_MY_DRIVE" \
-    DETECTED_TAPESTRY="$DETECTED_TAPESTRY" \
+    DETECTED_CORPUS="$DETECTED_CORPUS" \
     DETECTED_SYNC_MODE="$DETECTED_SYNC_MODE" \
     "$VENV/bin/python" - <<'PYEOF'
 from pathlib import Path
@@ -226,7 +230,7 @@ import os
 example = Path(os.environ["CONFIG_EXAMPLE_PATH"]).read_text()
 mount = os.environ.get("DETECTED_MOUNT_ROOT", "")
 mydrive = os.environ.get("DETECTED_MY_DRIVE", "")
-tapestry = os.environ.get("DETECTED_TAPESTRY", "")
+corpus = os.environ.get("DETECTED_CORPUS", "")
 sync_mode = os.environ.get("DETECTED_SYNC_MODE", "") or "mirror"
 
 # Replace the example's path expressions with detected absolute paths.
@@ -238,8 +242,8 @@ def line(name, value):
 replacements = {
     'DRIVE_MOUNT_ROOT = Path.home() / "My Drive"': line("DRIVE_MOUNT_ROOT", mount),
     'MY_DRIVE = Path.home() / "My Drive"':         line("MY_DRIVE", mydrive),
-    'TAPESTRY_FOLDER = Path.home() / "My Drive" / "Tapestry of the Mind"':
-        line("TAPESTRY_FOLDER", tapestry),
+    'CORPUS_FOLDER = Path.home() / "My Drive" / "Tapestry of the Mind"':
+        line("CORPUS_FOLDER", corpus),
     'SYNC_MODE = "mirror"': f'SYNC_MODE = {sync_mode!r}',
 }
 out = example
@@ -251,8 +255,8 @@ PYEOF
 
     chmod 600 "$CONFIG_FILE"
     ok "Wrote $CONFIG_FILE (mode 600)"
-    if [ -z "$DETECTED_TAPESTRY" ]; then
-        warn "Tapestry folder not detected — edit local_config.py and set TAPESTRY_FOLDER manually"
+    if [ -z "$DETECTED_CORPUS" ]; then
+        warn "Corpus folder not detected — edit local_config.py and set CORPUS_FOLDER manually"
     fi
 fi
 
