@@ -61,8 +61,56 @@ except ImportError:
 
 KEYRING_SERVICE = "ergodix"
 
-CENTRAL_DIR = Path.home() / ".config" / "ergodix"
-CENTRAL_SECRETS_FILE = CENTRAL_DIR / "secrets.json"
+
+# Paths are resolved lazily so that tests (and any caller that monkeypatches
+# HOME) get current values rather than what was true at import time. Keep
+# these as functions, not module-level constants.
+
+
+def _central_dir() -> Path:
+    return Path.home() / ".config" / "ergodix"
+
+
+def _central_secrets_file() -> Path:
+    return _central_dir() / "secrets.json"
+
+
+# Backwards-compatible names for code paths that still treat them as
+# attributes (e.g. `auth.CENTRAL_SECRETS_FILE`). These shadow the constant
+# names but evaluate at access time via the property-like helpers above.
+class _LazyPath:
+    """Tiny descriptor: each attribute is computed on access."""
+
+    def __init__(self, fn):
+        self._fn = fn
+
+    def __getattr__(self, name):
+        return getattr(self._fn(), name)
+
+    def __fspath__(self):
+        return os.fspath(self._fn())
+
+    def __str__(self):
+        return str(self._fn())
+
+    def __repr__(self):
+        return repr(self._fn())
+
+    def __eq__(self, other):
+        return self._fn() == other
+
+    def exists(self):
+        return self._fn().exists()
+
+    def stat(self):
+        return self._fn().stat()
+
+    def unlink(self):
+        return self._fn().unlink()
+
+
+CENTRAL_DIR = _LazyPath(_central_dir)
+CENTRAL_SECRETS_FILE = _LazyPath(_central_secrets_file)
 
 KNOWN_KEYS = (
     "anthropic_api_key",
