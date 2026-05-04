@@ -40,7 +40,8 @@ Update it whenever a session changes direction, a window/session is lost, or a m
   - `.gitignore` — excludes `local_config.py`, all `.ergodix_*` files, `.venv/`, `*.gdoc`/`.gsheet`/`.gslides`, build artifacts, creative folders.
 - **Removed:** `update.sh` (single-directory decision) and earlier rsync/deploy/config JSON experiments.
 - **Canonical chapter format LOCKED:** Pandoc Markdown with raw LaTeX passthrough, file extension `.md`, mandatory YAML frontmatter declaring `format: pandoc-markdown` plus the active `pandoc-extensions` list. See SprintLog.md Story 0.2 "Format Decisions" for the full feature inventory.
-- **Authoring direction reversed:** VS Code (not Google Docs) is the primary editor going forward. After one-time migration, chapters live as `.md` files in `~/My Drive/Tapestry of the Mind/`, edited in VS Code by author and editor, synced via Drive Mirror, read directly by AI tooling. No Drive/Docs API at runtime for content. Editor collaboration uses CriticMarkup syntax in-file.
+- **Authoring direction reversed:** VS Code (not Google Docs) is the primary editor going forward. After one-time migration, chapters live as `.md` files in the private corpus repo (`tapestry-of-the-mind`), edited in VS Code by author and editor, version-controlled via git per [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). No Drive/Docs API at runtime for content. CriticMarkup remains as optional annotation; editor's primary review is direct prose edits via signed git commits in their slice repo.
+- **Pre-release timeline (2026-05-03):** the author intends ~1 year of private development in `--writer --developer` floater combination before inviting other authors. This pacing informs Story 0.7 (distribution prep) — no urgency to ship installers, app-store packaging, etc. until the tool has stabilized through real daily use.
 
 ## Known Content
 

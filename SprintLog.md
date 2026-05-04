@@ -67,8 +67,28 @@ Rationale: `.md` keeps VS Code Markdown highlighting, CriticMarkup tooling, GitH
 
 **Folder layout** (under `~/My Drive/Tapestry of the Mind/`):
 - Mirrors the structure in [Hierarchy.md](Hierarchy.md): `Compendium/Book/Section/Chapter.md`
+- **One `.md` file per Chapter** — chapters are the smallest creative unit. **[LOCKED 2026-05-03]**
 - AI-generated artifacts live in a parallel `_AI/` subfolder
 - Optional `_archive/` holds the original `.gdoc` files post-migration as a safety net
+
+**LaTeX preamble cascade** **[LOCKED 2026-05-03]**:
+
+A `_preamble.tex` file is **optional at every folder level** of the hierarchy (Epoch / Compendium / Book / Section). When `ergodix render` builds a chapter, it walks up the folder tree from the chapter's directory to the corpus root, collects every `_preamble.tex` it finds, concatenates them most-general-first, and passes the result to Pandoc via `--include-in-header`.
+
+LaTeX naturally honors override-by-redefinition (later-loaded definition wins), so:
+- the epoch preamble sets project-wide defaults (fonts, page geometry, custom commands),
+- a compendium / book / section preamble can override anything for that branch,
+- siblings unaffected.
+
+**Three scopes for font / style changes:**
+
+| Scope | Mechanism | Example |
+|---|---|---|
+| Single passage | Inline `{\fontfamily{cmtt}\selectfont ...}` in chapter prose | One paragraph in monospace inside an otherwise-Garamond chapter |
+| Single chapter | YAML frontmatter `extra-preamble:` block with raw LaTeX | This chapter only in Times New Roman |
+| Entire book / section | Drop `_preamble.tex` in that folder | All of Book Two in Crimson Pro |
+
+The render command is ~15 lines: walk up the directory tree, collect `_preamble.tex` files in order, concatenate. No plugin system, no settings file — file presence at folder boundaries does the work.
 
 **Tasks:**
 - [x] **Lock the file extension**: `.md` chosen with mandatory YAML frontmatter declaring `format: pandoc-markdown`. Decided 2026-05-02.
@@ -151,7 +171,11 @@ Tasks:
 
 ### Story 0.8 - Architecture spike: orchestrator pattern, role-based cantilever, editor collaboration model **[DESIGN SPIKE — DONE 2026-05-03]**
 
-**All 10 topics resolved.** ADRs 0001–0007 cover the locked decisions; spikes 0001–0006 capture the discussions. Story 0.8 closes here; implementation work continues under Story 0.2 (and follow-on stories) against the locked architecture.
+**All 10 topics resolved.** ADRs 0001–0008 cover the locked decisions; spikes 0001–0006 capture the discussions. Story 0.8 closes here; implementation work continues under Story 0.2 (and follow-on stories) against the locked architecture.
+
+**Closing notes:**
+- All 22 cantilever prereq operations stay as separate modules under `ergodix/prereqs/` regardless of size. Consistency over file-count savings.
+- Author works in `--writer --developer` floater combination during the project's pre-release year. No external authors invited until the tool stabilizes.
 
 This story produces decisions, not code. Each task is a discussion topic. Discussion outcomes get recorded as updates to this story (and follow-up stories where appropriate) before any related implementation begins.
 
