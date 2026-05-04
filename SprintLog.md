@@ -221,7 +221,7 @@ Value: makes ErgodixDocs viable as the underlying tool when adoption broadens pa
 
 Risk: introducing the dimension prematurely costs more than waiting; conflating this with enterprise tenancy concerns that aren't actually adjacent,
 
-Assumptions: forward-compatible architectural pieces already in place (registries, settings folder, three-tier credential lookup); `local_config.py`'s `TAPESTRY_FOLDER` becoming a dict keyed by opus name is non-breaking,
+Assumptions: forward-compatible architectural pieces already in place (registries, settings folder, three-tier credential lookup); `local_config.py`'s `CORPUS_FOLDER` becoming a dict keyed by opus name is non-breaking,
 
 CLI shape (locked at story-open time):
 

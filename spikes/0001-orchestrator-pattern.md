@@ -60,7 +60,7 @@ Author asked, partway through Topic 1: "Where did we land on the target for the 
 - `ErgodixDocs` (public) — tooling, planning, ADRs, spikes.
 - `tapestry-of-the-mind` (private) — `.md` chapter files, frontmatter, AI artifacts.
 
-Reasoning: different audiences, different update cadences, different sensitivity. Tooling reads `TAPESTRY_FOLDER` from `local_config.py`; doesn't import from the corpus repo. Coordination is "tooling can run against any corpus folder."
+Reasoning: different audiences, different update cadences, different sensitivity. Tooling reads `CORPUS_FOLDER` from `local_config.py`; doesn't import from the corpus repo. Coordination is "tooling can run against any corpus folder."
 
 Not locked here — Topic 6 will formalize it. Recorded so we have continuity.
 
