@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-_VERSION_FILE = Path(__file__).resolve().parent / "VERSION"
+# VERSION lives at the repo root, one level above this package.
+_VERSION_FILE = Path(__file__).resolve().parent.parent / "VERSION"
 
 try:
     __version__ = _VERSION_FILE.read_text().strip()

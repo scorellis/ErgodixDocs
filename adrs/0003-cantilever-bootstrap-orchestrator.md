@@ -1,10 +1,12 @@
 # ADR 0003: Cantilever bootstrap orchestrator
 
-- **Status**: Accepted
+- **Status**: Partially Superseded by [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) and [ADR 0006](0006-editor-collaboration-sliced-repos.md)
 - **Date**: 2026-05-03
 - **Spike**: [Spike 0003 — Cantilever semantics, settings architecture, run-record](../spikes/0003-cantilever-semantics.md)
 
-> **Note (2026-05-03):** [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) consolidates `settings/personas/` + `settings/floaters/` into a single `settings/floaters/` folder. The 22-operation menu, idempotency rules, failure semantics, connectivity model, and run-record format described below are unchanged.
+> **Note (2026-05-04 — corrections):** the operation count below was originally documented as "21" then incremented to "22" when D5 was added. Both numbers were wrong; the actual count of items in the table at the time of this ADR's authorship was **23** (A1–A7 + B1–B2 + C1–C6 + D1–D4 + E1–E2 + F1–F2). With D5 added by ADR 0004 and D6 added by ADR 0006's editor-signing-key work, **the current count is 25**. This ADR's body text below has been corrected to reflect those numbers.
+>
+> **Note (2026-05-03):** [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) consolidates `settings/personas/` + `settings/floaters/` into a single `settings/floaters/` folder. Body text below has been updated to drop the now-obsolete `settings/personas/` references. Idempotency rules, failure semantics, connectivity model, and run-record format are unchanged.
 
 ## Context
 
@@ -12,7 +14,7 @@ Per [ADR 0001](0001-click-cli-with-persona-floater-registries.md), `cantilever` 
 
 ## Decision
 
-### Operation menu — 21 operations, six categories
+### Operation menu — 25 operations, six categories
 
 Cantilever's complete catalog of operations. Each persona's settings file selects which operations apply to that persona.
 
@@ -55,6 +57,7 @@ Cantilever's complete catalog of operations. Each persona's settings file select
 | D3 | Install dev dependencies (developer floater) | mutative | yes |
 | D4 | Set up `develop` branch tracking + branch protection notice (developer floater) | read-only | no |
 | D5 | Install continuous polling job (LaunchAgent on macOS) — see [ADR 0004](0004-continuous-repo-polling.md) | mutative | no |
+| D6 | Set up editor signing key — generate `ed25519` SSH key + register with GitHub as a signing key + configure local git to sign commits (editor floater only) — see [ADR 0006](0006-editor-collaboration-sliced-repos.md) | mutative | yes |
 
 **E — Verification & exit**
 
@@ -138,14 +141,16 @@ critical = true   # set to false if the persona doesn't need PDF rendering
 ```
 
 ```toml
-# settings/personas/editor.toml
-includes = ["A1", "A2", "A5", "A6", "A7", "B1", "C1", "C2", "C3", "D1", "E1", "E2", "F1", "F2"]
-# editor doesn't need: A3 (Pandoc), A4 (XeLaTeX), B2 (Tapestry path detection),
-#                       C4 (local_config — corpus repo only), C5/C6 (no API keys for editor),
-#                       D2/D3/D4 (no dev tooling unless --developer floater is added)
+# settings/floaters/editor.toml  (per ADR 0005 — single floater registry)
+adds_operations = ["A7", "C3", "D1", "D5", "D6"]
+exclusive_with = ["focus-reader"]
+# editor doesn't need: A3 (Pandoc), A4 (XeLaTeX), B2 (Drive Tapestry path),
+#                       C4 (local_config — author-side concern), C5/C6 (no API keys),
+#                       D2/D3/D4 (no dev tooling unless --developer is added).
+# D6 was added 2026-05-04 per ADR 0006 (SSH signing-key setup).
 ```
 
-Adding a new persona = drop a new file in `settings/personas/`. Adding a new operation = add it to `settings/bootstrap.toml`. No code changes.
+Adding a new floater = drop a new file in `settings/floaters/`. Adding a new operation = add it to `settings/bootstrap.toml`. No code changes.
 
 ### Run-record
 
@@ -161,7 +166,8 @@ The polling job (ADR 0004) and future `ergodix status` consume this to know what
 
 - `ergodix migrate` — explicit one-time corpus import; sibling subcommand.
 - `ergodix render` — Pandoc → PDF; sibling subcommand.
-- `ergodix sync` — outbound edit push; sibling subcommand.
+- `ergodix sync-out` (editor save → slice push) and `ergodix sync-in` (poller fetch); sibling subcommands. See [ADR 0008](0008-cleanup-sync-rename-ownership-autofix-static-analysis.md) for the rename rationale.
+- `ergodix publish` / `ergodix ingest` — author-side editor-collaboration commands; sibling subcommands. See [ADR 0006](0006-editor-collaboration-sliced-repos.md).
 - OS updates, GCP project setup — out of scope.
 
 ## Consequences

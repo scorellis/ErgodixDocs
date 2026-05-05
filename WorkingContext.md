@@ -90,7 +90,17 @@ When work resumes, append a short dated note covering:
 
 ## Immediate Next Step
 
-- Wait for Mirror first-sync to complete in the background.
-- Initial commit + push of the source repo to GitHub.
-- Keep setup and daily workflow in a single checkout; run `./install_dependencies.sh` in repo root as needed.
-- Then enter planning mode for **Sprint 0 Story 0.2 — Define canonical repo format** (Pandoc Markdown + raw LaTeX, decide which Google Docs features must round-trip, how to represent unsupported constructs, file naming/folder conventions inside `Tapestry of the Mind`).
+**Session paused 2026-05-03 evening. Pick up tomorrow.**
+
+State at pause:
+- Story 0.8 (architecture spike) is **DONE**. ADRs 0001–0008 + spikes 0001–0006 merged to main.
+- Branch model simplified to **trunk-based**. `develop` was deleted; only `main` plus feature branches.
+- Story 0.10 (TDD scaffolding) is **in flight on branch `feature/test-scaffolding`**. One commit landed locally (not yet pushed): `pyproject.toml`, `ergodix/` package skeleton with auth/version moved in, `tests/` with conftest + test_version + test_auth. 22 tests pass. One real bug found and fixed (lazy `Path.home()` resolution in auth.py).
+- Local working tree clean on `feature/test-scaffolding`.
+
+Tomorrow:
+1. Push `feature/test-scaffolding` (1 commit) and review the diff.
+2. Stub failing tests for every planned module per Story 0.10's remaining task list (~40 test files).
+3. Begin GREEN phase: write minimal implementations to make tests pass, one module at a time, smallest first.
+
+Open architectural concern (file before next implementation work): **ADR 0009 — CI workflow design** (lint, typecheck, test, coverage, multi-platform matrix, what blocks merge). Story 0.10's CI task waits on this.

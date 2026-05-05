@@ -1,6 +1,6 @@
 # ADR 0002: Two-repo topology with auto-sync editor persona
 
-- **Status**: Accepted
+- **Status**: Partially Superseded by [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) and [ADR 0006](0006-editor-collaboration-sliced-repos.md)
 - **Date**: 2026-05-03
 - **Spike**: [Spike 0002 — Repo topology, editor onboarding, and the bidirectional flow](../spikes/0002-repo-topology-editor-onboarding.md)
 

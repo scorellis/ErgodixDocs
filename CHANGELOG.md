@@ -9,7 +9,20 @@ Versioning policy: while the tool is pre-1.0, **0.MINOR.PATCH** — minor bumps 
 ## [Unreleased]
 
 ### Added
-- (placeholder for in-progress Sprint 0 implementation work)
+- Architecture design phase complete: ADRs 0001–0008 and Spikes 0001–0006 covering CLI framework, registries, repo topology, editor collaboration via sliced repos, cantilever orchestrator, polling job, role/floater model, opus naming, bootstrap layout, and post-audit cleanup decisions. Merged to main via PR #2.
+- `docs/comments-explained.md` — educational doc on CriticMarkup, HTML comments, raw LaTeX comments, and Pandoc spans/divs.
+- `docs/gcp-setup.md` — canonical SOP for the one-time GCP project setup (cherry-picked onto main via PR #3 after the architecture-spike merge).
+- `adrs/`, `spikes/` folders with READMEs documenting conventions and numbering.
+- `pyproject.toml` (Story 0.10) — Python >=3.11, console-script entry, pytest/ruff/mypy config per ADR 0008.
+- `ergodix/` package skeleton (Story 0.10) — `auth.py` and `version.py` moved from repo root.
+- `tests/` directory with `conftest.py` + first failing test files for `version` and `auth`. 22 passing, 1 skipped (PEP 440 strict-version test gated until 1.0).
+
+### Changed
+- `auth.py` central paths now resolve `Path.home()` lazily via a `_LazyPath` descriptor (bug found during TDD: tests that monkeypatched HOME got stale paths because module-level constants resolved at import time).
+- Branch model simplified to trunk-based on 2026-05-03 — `develop` deleted; only `main` plus feature branches.
+
+### Removed
+- Stale `feature/gcp-setup-playbook` branch (content was cherry-picked to a fresh branch off post-architecture main; original branch had become unmergeable).
 
 ## [0.1.0] - 2026-05-02
 

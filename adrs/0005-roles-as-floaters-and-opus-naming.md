@@ -29,7 +29,7 @@ The persona registry from ADR 0001 collapses into the floater registry. Each flo
 | Floater | adds_operations | exclusive_with | behavior_modifier |
 |---|---|---|---|
 | `writer` | A7, C3, C4, C6 | focus-reader | false |
-| `editor` | A7, C3, D1, D5 | focus-reader | false |
+| `editor` | A7, C3, D1, D5, D6 | focus-reader | false |
 | `developer` | D2, D3, D4 | focus-reader | false |
 | `publisher` | A3, A4, B1, B2, C3, D5 | focus-reader | false |
 | `focus-reader` | B1, B2, D5 | writer, editor, developer, publisher | false |
@@ -116,7 +116,7 @@ This naming and CLI shape is **locked now** even though the implementation is de
 - **Importer registry** for `migrate --from <name>`. ADR 0001 stands.
 - **Three-tier credential lookup**. ADR auth design stands.
 - **Two-repo topology** (public ErgodixDocs + private corpus repos). ADR 0002 stands; only "editor persona" terminology becomes "editor floater."
-- **Cantilever's 22-operation menu and idempotency rules**. ADR 0003 stands; settings folder structure simplifies.
+- **Cantilever's operation menu and idempotency rules** (count grew from 21→24→25 as ADRs 0004 and 0006 added ops; current count maintained in ADR 0003). Settings folder structure simplifies to `settings/floaters/` only.
 
 ## Consequences
 

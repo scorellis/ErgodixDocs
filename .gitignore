@@ -13,6 +13,14 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Python packaging / test / lint caches
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
 # Build artifacts (Pandoc output)
 /build/
 

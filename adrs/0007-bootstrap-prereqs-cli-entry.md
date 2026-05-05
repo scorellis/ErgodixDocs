@@ -7,7 +7,7 @@
 
 ## Context
 
-ADR 0003 specified that cantilever runs a 22-operation menu. ADR 0001 specified Click subcommand groups for the CLI. Today's `install_dependencies.sh` is a monolithic Bash script that does most of what cantilever should do, but in one file. Three implementation questions needed answers before any of it can be built:
+ADR 0003 specified that cantilever runs a 25-operation menu. ADR 0001 specified Click subcommand groups for the CLI. Today's `install_dependencies.sh` is a monolithic Bash script that does most of what cantilever should do, but in one file. Three implementation questions needed answers before any of it can be built:
 
 - How does the existing monolith get broken apart?
 - What's the contract for each piece?
@@ -29,7 +29,7 @@ Everything cantilever does today via Bash is moved into Python. Bootstrap is jus
 
 ### Prereqs layout (Topic 2)
 
-Every operation from ADR 0003's 22-operation menu becomes a Python module under `ergodix/prereqs/`. Each module exposes:
+Every operation from ADR 0003's 25-operation menu becomes a Python module under `ergodix/prereqs/`. Each module exposes:
 
 ```python
 def check() -> CheckResult:
@@ -97,7 +97,7 @@ ErgodixDocs/
 ### What stays the same
 
 - ADR 0001's Click subcommand groups: unchanged.
-- ADR 0003's 22-operation menu and idempotency rules: unchanged. Operations now live in `prereqs/`.
+- ADR 0003's 25-operation menu and idempotency rules: unchanged. Operations now live in `prereqs/`.
 - ADR 0005's all-floaters model: unchanged.
 - `auth.py` three-tier credential lookup: unchanged.
 - `bootstrap.toml` + `settings/floaters/<name>.toml`: same shape, settled location.
@@ -118,7 +118,7 @@ ErgodixDocs/
 - Standard Python tooling (pytest, mypy, ruff) Just Works against the package layout.
 
 **Harder:**
-- Refactor work is real — extracting ~22 operations from Bash to Python, plus moving `auth.py` and `version.py`. One implementation session.
+- Refactor work is real — extracting ~25 operations from Bash to Python, plus moving `auth.py` and `version.py`. One implementation session.
 - Bootstrap scripts must handle Python-not-installed gracefully (install Python via OS package manager). Per-platform code.
 - Console-script entries require `pip install -e .` to have run; users who skip bootstrap and manually `python -m ergodix` will work, but the documented happy path is bootstrap → `ergodix cantilever`.
 
@@ -139,5 +139,5 @@ ErgodixDocs/
 
 - [Spike 0006](../spikes/0006-bootstrap-prereqs-cli-entry.md) — discussion record.
 - [ADR 0001](0001-click-cli-with-persona-floater-registries.md) — Click subcommand groups.
-- [ADR 0003](0003-cantilever-bootstrap-orchestrator.md) — 22-operation menu now mapped to prereqs modules.
+- [ADR 0003](0003-cantilever-bootstrap-orchestrator.md) — 25-operation menu now mapped to prereqs modules.
 - [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) — floater registry that drives which prereqs run.

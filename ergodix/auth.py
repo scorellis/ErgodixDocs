@@ -61,8 +61,83 @@ except ImportError:
 
 KEYRING_SERVICE = "ergodix"
 
-CENTRAL_DIR = Path.home() / ".config" / "ergodix"
-CENTRAL_SECRETS_FILE = CENTRAL_DIR / "secrets.json"
+
+# Paths are resolved lazily so that tests (and any caller that monkeypatches
+# HOME) get current values rather than what was true at import time. Keep
+# these as functions, not module-level constants.
+
+
+def _central_dir() -> Path:
+    return Path.home() / ".config" / "ergodix"
+
+
+def _central_secrets_file() -> Path:
+    return _central_dir() / "secrets.json"
+
+
+# Backwards-compatible names for code paths that still treat them as
+# attributes (e.g. `auth.CENTRAL_SECRETS_FILE`). These shadow the constant
+# names but evaluate at access time via the helpers above.
+#
+# _LazyPath forwards every attribute to a freshly resolved Path, including
+# the operator surface (truediv, joinpath, etc.) so callers can treat it
+# like a normal Path without surprises.
+class _LazyPath:
+    __slots__ = ("_fn",)
+
+    def __init__(self, fn):
+        self._fn = fn
+
+    def _resolve(self):
+        return self._fn()
+
+    def __getattr__(self, name):
+        # Falls through for attributes not on this class itself.
+        return getattr(self._resolve(), name)
+
+    # Path operators: resolve and delegate
+    def __truediv__(self, other):
+        return self._resolve() / other
+
+    def __rtruediv__(self, other):
+        return other / self._resolve()
+
+    def joinpath(self, *args, **kwargs):
+        return self._resolve().joinpath(*args, **kwargs)
+
+    # Path-like protocol
+    def __fspath__(self):
+        return os.fspath(self._resolve())
+
+    # String / repr / eq / hash forward to the resolved Path
+    def __str__(self):
+        return str(self._resolve())
+
+    def __repr__(self):
+        return f"_LazyPath({self._resolve()!r})"
+
+    def __eq__(self, other):
+        if isinstance(other, _LazyPath):
+            return self._resolve() == other._resolve()
+        return self._resolve() == other
+
+    def __hash__(self):
+        return hash(self._resolve())
+
+    # Common Path methods we know are used in this module — explicit
+    # forwards keep mypy happy without losing the lazy semantics.
+    def exists(self):
+        return self._resolve().exists()
+
+    def stat(self):
+        return self._resolve().stat()
+
+    def unlink(self, missing_ok: bool = False):
+        return self._resolve().unlink(missing_ok=missing_ok)
+
+
+CENTRAL_DIR = _LazyPath(_central_dir)
+CENTRAL_SECRETS_FILE = _LazyPath(_central_secrets_file)
 
 KNOWN_KEYS = (
     "anthropic_api_key",
