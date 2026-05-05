@@ -244,7 +244,9 @@ Remaining (next session):
   - [ ] 2 × `test_importers_<name>.py` (gdocs + scrivener)
   - [ ] `test_publish.py` + `test_ingest.py` (ADR 0006 abort cases: signed-commit verification, unauthorized-file rejection, path-rename rejection, three-way merge)
   - [ ] `test_connectivity.py`, `test_runrecord.py`
-- [ ] CI workflow file under `.github/workflows/` (gated on ADR 0009; runs pytest --cov, ruff check, ruff format --check, mypy on every push)
+- [x] **ADR 0009 (CI workflow + dependency-pin policy) [DECIDED 2026-05-04]**: two-job CI design (locked = gating, latest = informational tripwire), `uv` lockfile, multi-platform 3 OS × 3 Python matrix on public repo (free), hard-floor coverage ratchet, `~=` caps on fast-moving APIs only. See [Spike 0007](spikes/0007-ci-and-dependency-policy.md) and [ADR 0009](adrs/0009-ci-and-dependency-policy.md).
+- [ ] CI workflow file under `.github/workflows/ci.yml` per ADR 0009 (locked job matrix + latest tripwire job).
+- [ ] `uv.lock` generated and committed; `pyproject.toml` updated with `~=` caps on `anthropic` and `google-api-python-client`.
 - [ ] Confirm all new tests are RED (failing for the right reasons) before any implementation begins
 - [ ] Coverage gate flipped on once green-phase implementation begins
 
