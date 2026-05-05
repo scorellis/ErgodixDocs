@@ -191,12 +191,12 @@ Assumptions: UpFlick's orchestrator + manifest pattern is well-considered enough
 
 - [x] **Topic 1 — Orchestrator pattern review.** **[DECIDED 2026-05-03]** Adopt **Click subcommand groups** with three plugin registries (personas, floaters, importers) for Open/Closed extensibility. See [Spike 0001](spikes/0001-orchestrator-pattern.md) for the discussion and [ADR 0001](adrs/0001-click-cli-with-persona-floater-registries.md) for the locked decision.
 - [x] **Topic 2 — Prereqs layout.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). One Python module per operation under `ergodix/prereqs/`, each exposing `def check() -> CheckResult`. Cantilever loads, dispatches, acts on result.
-- [x] **Topic 3 — `--cantilever` semantics.** **[DECIDED 2026-05-03]** Closed by [ADR 0003](adrs/0003-cantilever-bootstrap-orchestrator.md). 22-operation menu (A1–F2 + D5), all idempotent, abort-fast with detailed remediation messaging, auto-detected connectivity, settings in `settings/` (TOML), per-machine run-record at `~/.config/ergodix/cantilever.log`. Continuous polling job spun out as [ADR 0004](adrs/0004-continuous-repo-polling.md).
+- [x] **Topic 3 — `--cantilever` semantics.** **[DECIDED 2026-05-03]** Closed by [ADR 0003](adrs/0003-cantilever-bootstrap-orchestrator.md). 25-operation menu (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2; D5 added by ADR 0004 for the poller, D6 added by ADR 0006 for editor signing-key setup). All idempotent, abort-fast with detailed remediation messaging, auto-detected connectivity, settings in `settings/` (TOML), per-machine run-record at `~/.config/ergodix/cantilever.log`. Continuous polling job spun out as [ADR 0004](adrs/0004-continuous-repo-polling.md).
 - [x] **Topic 4 — Role flag matrix.** **[DECIDED 2026-05-03]** Closed by [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Personas and floaters collapsed into a single registry; every role is a floater. Each role's TOML declares `adds_operations` and (for focus-reader only) `exclusive_with`. CLI surface: `ergodix --writer --developer cantilever`, etc. Empty-flag invocations fail fast. Multi-corpus container named **opus** (locked into Story 0.X for future implementation).
 - [x] **Topic 5 — Bidirectional flow architecture.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). Editor's edits flow via signed commits to a per-editor slice repo; author runs `ergodix ingest` to surface a review branch on master. AI artifacts go to `_AI/` and are author-committed manually.
 - [x] **Topic 6 — Permissions + public/private split.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). `ErgodixDocs` (public, tooling) + per-opus master corpus repo (private) + per-editor slice repos (private, file-scoped). Hard read access control via slicing; per-editor blast radius bounded; clean revocation by ceasing to publish + rotating slice credentials.
 - [x] **Topic 7 — Pandoc / LaTeX comment representation explainer.** **[DONE 2026-05-03]** Educational doc shipped at [docs/comments-explained.md](docs/comments-explained.md). Covers CriticMarkup, HTML comments, LaTeX comments, and Pandoc spans/divs — with worked examples, render outcomes, VS Code extension list, and tooling cheat sheet.
-- [x] **Topic 8 — Editor mode vs. plain GitHub.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md) and [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md). Editor is a real floater with concrete cantilever steps (gh auth, slice repo clone, SSH signing key generation + GitHub registration, VS Code + CriticMarkup install for optional annotations, auto-sync VS Code task targeting the slice repo). Daily flow remains zero-command via Cmd+S → debounced `ergodix sync` (now pushing to the editor's slice).
+- [x] **Topic 8 — Editor mode vs. plain GitHub.** **[DECIDED 2026-05-03]** Closed by [ADR 0002](adrs/0002-repo-topology-and-editor-onboarding.md), updated by [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md), [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md), and [ADR 0008](adrs/0008-cleanup-sync-rename-ownership-autofix-static-analysis.md). Editor is a real floater with concrete cantilever steps (gh auth, slice repo clone, SSH signing key generation + GitHub registration, VS Code + CriticMarkup install for optional annotations, auto-sync VS Code task targeting the slice repo). Daily flow remains zero-command via Cmd+S → debounced `ergodix sync-out` (renamed from `sync` per ADR 0008; pushes to the editor's slice).
 - [x] **Topic 9 — CLI entry point & installation.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). Console-script entry in `pyproject.toml` (`ergodix = "ergodix.cli:main"`); registered by `pip install -e .` during bootstrap; works on PATH whenever the venv is active. No shell wrappers.
 - [x] **Topic 10 — Migration plan from current `install_dependencies.sh`.** **[DECIDED 2026-05-03]** Closed by [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md). Rename to `bootstrap.sh` + add `bootstrap.ps1`; extract every operation into `ergodix/prereqs/check_*.py`; move `auth.py` and `version.py` into the `ergodix/` package. Bootstrap is ~5 lines (Python install + venv + `pip install -e .` + `ergodix cantilever`).
 
@@ -263,7 +263,7 @@ Tasks:
 - [ ] Write failing test stubs for each existing module:
   - [ ] `tests/test_version.py` — version reads VERSION file; falls back to `0.0.0+unknown`
   - [ ] `tests/test_auth.py` — three-tier credential lookup; permission-mode invariant; CLI subcommands; keyring error handling
-- [ ] Write failing test stubs for each planned `prereqs/check_*.py` (per ADR 0003's 22-op menu + ADR 0007's layout)
+- [ ] Write failing test stubs for each planned `prereqs/check_*.py` (per ADR 0003's 25-op menu + ADR 0007's layout)
 - [ ] Write failing test stubs for each planned `floaters/<name>.py` registry entry (per ADR 0005)
 - [ ] Write failing test stubs for each planned `importers/<name>.py` (per ADR 0001 — gdocs + scrivener for v1)
 - [ ] Write failing test stubs for `ergodix.cli` Click command groups
@@ -358,7 +358,7 @@ ergodix opus add tapestry --corpus tapestry-of-the-mind --writer --developer --p
 ergodix opus add friend-novel --corpus their-book --focus-reader
 ergodix opus switch tapestry
 ergodix cantilever                  # uses current opus
-ergodix sync                        # uses current opus
+ergodix sync-out                    # uses current opus (per ADR 0008 rename)
 ```
 
 Each opus is stateful — `opus switch <name>` sets a current-opus pointer (probably in `local_config.py`); subsequent commands inherit its corpus + floater config.
@@ -367,7 +367,7 @@ Tasks (filled out when story moves out of parking lot):
 - [ ] confirm stateful (`switch`) vs. per-invocation (`--opus <name>`) — likely support both, with `switch` writing the current pointer used as default for subsequent invocations
 - [ ] extend `local_config.py` schema: `OPERA = { "tapestry": {...}, "friend-novel": {...} }` plus `CURRENT_OPUS` pointer
 - [ ] update cantilever to take opus context as input (which floaters apply to which opus)
-- [ ] update `ergodix sync`, `migrate`, `render`, `status` to be opus-aware
+- [ ] update `ergodix sync-out`, `sync-in`, `migrate`, `render`, `status` to be opus-aware
 - [ ] migration path for existing single-opus installs (the existing `CORPUS_FOLDER` becomes the first entry under `OPERA["default"]`)
 
 ### Scale concerns (deferred; activate per real signal)
@@ -384,7 +384,7 @@ Risk if ignored: silent data loss when two auto-syncs land in overlapping window
 
 Assumptions: each editor's machine works on independent feature branches by default; sync conflicts on shared branches surface as standard git conflicts; debouncing in the auto-sync VS Code task is part of the solution but not the whole solution,
 
-Investigate when activated: per-machine sync queues; conflict detection in `ergodix sync` before push (warn user when remote has new commits on the same branch); fast-forward-only sync as default; explicit `ergodix sync --force` for the rare overrule case.
+Investigate when activated: per-machine sync queues; conflict detection in `ergodix sync-out` before push (warn user when remote has new commits on the same branch); fast-forward-only sync as default; explicit `ergodix sync-out --force` for the rare overrule case.
 
 #### Story 0.Z2 - Corpus volume and AI analysis efficiency
 

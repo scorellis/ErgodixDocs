@@ -77,36 +77,63 @@ def _central_secrets_file() -> Path:
 
 # Backwards-compatible names for code paths that still treat them as
 # attributes (e.g. `auth.CENTRAL_SECRETS_FILE`). These shadow the constant
-# names but evaluate at access time via the property-like helpers above.
+# names but evaluate at access time via the helpers above.
+#
+# _LazyPath forwards every attribute to a freshly resolved Path, including
+# the operator surface (truediv, joinpath, etc.) so callers can treat it
+# like a normal Path without surprises.
 class _LazyPath:
-    """Tiny descriptor: each attribute is computed on access."""
+    __slots__ = ("_fn",)
 
     def __init__(self, fn):
         self._fn = fn
 
+    def _resolve(self):
+        return self._fn()
+
     def __getattr__(self, name):
-        return getattr(self._fn(), name)
+        # Falls through for attributes not on this class itself.
+        return getattr(self._resolve(), name)
 
+    # Path operators: resolve and delegate
+    def __truediv__(self, other):
+        return self._resolve() / other
+
+    def __rtruediv__(self, other):
+        return other / self._resolve()
+
+    def joinpath(self, *args, **kwargs):
+        return self._resolve().joinpath(*args, **kwargs)
+
+    # Path-like protocol
     def __fspath__(self):
-        return os.fspath(self._fn())
+        return os.fspath(self._resolve())
 
+    # String / repr / eq / hash forward to the resolved Path
     def __str__(self):
-        return str(self._fn())
+        return str(self._resolve())
 
     def __repr__(self):
-        return repr(self._fn())
+        return f"_LazyPath({self._resolve()!r})"
 
     def __eq__(self, other):
-        return self._fn() == other
+        if isinstance(other, _LazyPath):
+            return self._resolve() == other._resolve()
+        return self._resolve() == other
 
+    def __hash__(self):
+        return hash(self._resolve())
+
+    # Common Path methods we know are used in this module — explicit
+    # forwards keep mypy happy without losing the lazy semantics.
     def exists(self):
-        return self._fn().exists()
+        return self._resolve().exists()
 
     def stat(self):
-        return self._fn().stat()
+        return self._resolve().stat()
 
-    def unlink(self):
-        return self._fn().unlink()
+    def unlink(self, missing_ok: bool = False):
+        return self._resolve().unlink(missing_ok=missing_ok)
 
 
 CENTRAL_DIR = _LazyPath(_central_dir)

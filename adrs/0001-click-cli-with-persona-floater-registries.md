@@ -1,6 +1,6 @@
 # ADR 0001: Click CLI with persona, floater, and importer registries
 
-- **Status**: Accepted (partially superseded — see Note)
+- **Status**: Partially Superseded by [ADR 0005](0005-roles-as-floaters-and-opus-naming.md)
 - **Date**: 2026-05-03
 - **Spike**: [Spike 0001 — Orchestrator pattern, persona model, floater registry](../spikes/0001-orchestrator-pattern.md)
 
