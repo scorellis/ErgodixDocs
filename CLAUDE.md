@@ -50,8 +50,8 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - **CLI framework**: Click subcommand groups. Console-script entry in `pyproject.toml` registers `ergodix` on PATH.
 - **Roles as floaters**: `--writer`, `--editor`, `--developer`, `--publisher`, `--focus-reader`. Composable. `focus-reader` is mutex with the others. Behavior floaters: `--dry-run`, `--verbose`, `--ci`.
 - **Plugin registries**: `ergodix/floaters/`, `ergodix/importers/`, `ergodix/prereqs/`. Adding a new entry = drop a file. No central enum.
-- **Cantilever**: 25-operation orchestrator (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2). Idempotent. Abort-fast with detailed remediation. Connectivity auto-detected.
-- **Auto-fix iterative bound**: at most one retry per operation. Recursion is forbidden.
+- **Cantilever**: 25-operation orchestrator (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2). Four-phase execution per [ADR 0010](adrs/0010-installer-preflight-consent-gate.md): inspect (read-only) → plan + single consent gate → apply (mutative, with grouped sudo) → verify (smoke checks). Idempotent. Abort-fast with detailed remediation. Connectivity auto-detected.
+- **Prereq contract** (per ADR 0010): each prereq module exposes `inspect() -> InspectResult` (read-only) and `apply() -> ApplyResult` (mutative). The earlier `check() -> CheckResult` contract from ADR 0007 is partially superseded; `auto_fix` callable is removed entirely (every mutative action goes through consent).
 - **Auth**: three-tier credential lookup — env var → OS keyring (service `ergodix`) → fallback file `~/.config/ergodix/secrets.json` (mode 600).
 - **Scopes**: `drive.readonly` and `documents.readonly` only. Broader scopes require an explicit ADR.
 - **Repo topology**: public `ErgodixDocs` (tooling) + private corpus repo per opus + per-editor slice repos (signed commits, baseline-tracked resync via `ergodix publish` / `ergodix ingest`).

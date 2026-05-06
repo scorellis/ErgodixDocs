@@ -1,9 +1,11 @@
 # ADR 0007: Bootstrap scripts, prereqs module layout, console-script CLI entry
 
-- **Status**: Accepted
+- **Status**: Partially Superseded by [ADR 0010](0010-installer-preflight-consent-gate.md)
 - **Date**: 2026-05-03
 - **Spike**: [Spike 0006 — Bootstrap, prereqs layout, CLI entry point](../spikes/0006-bootstrap-prereqs-cli-entry.md)
 - **Closes**: Story 0.8 Topics 2, 9, 10.
+
+> **Note (2026-05-05):** ADR 0010 supersedes this ADR's prereq contract. The single `check() -> CheckResult` function and `auto_fix` callable are replaced by separate `inspect() -> InspectResult` (read-only) and `apply() -> ApplyResult` (mutative) functions. The bootstrap-script + console-script-entry + folder-layout decisions in this ADR stand unchanged — only the per-prereq function shape is revised.
 
 ## Context
 

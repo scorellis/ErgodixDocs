@@ -61,7 +61,7 @@ def test_version_module_is_runnable():
     """`python -m ergodix.version` should print the version and exit 0."""
     import subprocess
 
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         [sys.executable, "-m", "ergodix.version"],
         capture_output=True,
         text=True,
@@ -83,5 +83,5 @@ def test_version_is_valid_pep440():
 
 def test_version_module_has_no_side_effects_on_import():
     """Importing ergodix.version must not write anything to disk."""
-    importlib.import_module("ergodix.version")  # noqa: F841
+    importlib.import_module("ergodix.version")
     # no assertion needed — if import had side effects, other tests would catch it
