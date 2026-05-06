@@ -107,6 +107,7 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 
 - **Proceed**: any tested change that satisfies an existing ADR or SprintLog task.
 - **Ask**: any change that conflicts with an ADR (would require supersession), introduces a new dependency, or expands scope beyond the current story.
+- **Always ask before pushing to remote.** Local commits are fine; pushes go through user approval every time. The user may have reasons (timing, account context, work boundaries) for wanting visibility into when public-repo activity happens.
 - **Always ask**: anything destructive (force-push, branch deletion, history rewrite). Never run a destructive git command without explicit user approval.
 
 ## Communication norms with the user

@@ -220,7 +220,37 @@ Tasks:
 - [ ] If Keychain behaves: keep current shape; document the test result in the credential-store comment block in `auth.py`.
 - [ ] Either way: ensure all credential reads/writes in the codebase go through a single abstraction (currently `auth.py`'s helpers); no direct `keyring.*` calls from anywhere else.
 
-### Story 0.10 - Test-driven development scaffolding **[IN FLIGHT — branch `feature/test-scaffolding`]**
+### Story 0.11 - Installer redesign per ADR 0010 **[ELEVATED to highest active priority — blocks remaining Story 0.10 work]**
+
+So that running cantilever feels like one decision (a single Y/n on a clearly-laid-out plan) rather than a forest of mid-stream prompts; so that the system is inspected before anything is mutated; so that admin escalation happens once at the right moment; and so that a final verification step proves the install actually works,
+
+Value: today's installer (`install_dependencies.sh`) was test-run on 2026-05-05 and surfaced concrete gaps (no `pip install -e .`, Python version not enforced, stale `auth.py` reference in final message, LTeX silent failure, no verification step, mid-stream prompts). All evidence is in [Spike 0008](spikes/0008-installer-redesign-preflight-consent.md). Fixing them piecemeal would be cheaper short-term but would not fix the underlying UX (charge-through-with-prompts) or the contract conflation in `check() -> CheckResult` from ADR 0007.
+
+Risk: implementation touches every prereq module that exists or is planned (25 from ADR 0003); the `inspect()` / `apply()` split is mechanical but voluminous; if we get the verify-phase contract wrong we'll catch install regressions late.
+
+Assumptions: the four-phase model (inspect → plan + consent → apply → verify) from [ADR 0010](adrs/0010-installer-preflight-consent-gate.md) is workable; the `--ci` floater can faithfully bypass consent using `settings/floaters/ci.toml` defaults; the user is OK with re-running cantilever from the top after a failed apply (no resumability in v1).
+
+**Why elevated above remaining Story 0.10 work:** the prereq-module contract changes from `check() -> CheckResult` (ADR 0007) to separate `inspect()` and `apply()` (ADR 0010). Test stubs written against the old contract would have to be rewritten. Doing Story 0.11 first means Story 0.10's remaining stub work targets the correct contract.
+
+Tasks:
+- [ ] Rewrite `install_dependencies.sh` to a minimal `bootstrap.sh` (and `bootstrap.ps1`) that does only: detect Python ≥3.11, create `.venv` with it, `pip install -e ".[dev]"`, run `ergodix cantilever`. Per ADR 0007.
+- [ ] Define `InspectResult` and `ApplyResult` dataclasses in `ergodix/prereqs/types.py` per ADR 0010.
+- [ ] Implement `ergodix/cantilever.py` with the four-phase orchestrator: inspect → plan + consent → apply (with grouped sudo) → verify.
+- [ ] Implement the verify-phase smoke checks: import package, `ergodix --version`, pytest, `local_config.py` sanity.
+- [ ] For each of the 25 cantilever operations from ADR 0003, write the corresponding `ergodix/prereqs/check_<op>.py` with split `inspect()` / `apply()` functions. Tests come first per CLAUDE.md TDD norm.
+- [ ] Address every gap from Spike 0008's intel:
+  - [ ] `pip install -e .` is an explicit phase-3 step
+  - [ ] Python ≥3.11 enforced in inspect; plan adds Homebrew python@3.13 install if missing
+  - [ ] Final next-steps message uses `ergodix` console-script commands only (no stale `python auth.py` reference)
+  - [ ] Phase 4 verification is required, fails loud
+  - [ ] VS Code extension install failures surface the underlying `code --install-extension` exit code + stderr
+  - [ ] All choices (MacTeX option, Drive launch) move into the phase 2 plan, not mid-execute
+  - [ ] `HOMEBREW_NO_AUTO_UPDATE=1` set for cantilever's brew calls
+  - [ ] Final next-steps message generated from the run record, not hardcoded
+- [ ] Re-run cantilever in `~/Documents/Scorellient/Applications/ErgodixDocs/` to validate. Should produce a working install with `ergodix` on PATH and `pytest` passing — without manual intervention.
+- [ ] Update CHANGELOG `[Unreleased]` with the contract change and refer to ADR 0010.
+
+### Story 0.10 - Test-driven development scaffolding **[IN FLIGHT — branch `feature/test-scaffolding`; PAUSED until Story 0.11 lands]**
 
 **Progress as of 2026-05-03 end of session:**
 
