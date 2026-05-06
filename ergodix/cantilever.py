@@ -66,7 +66,25 @@ CantileverOutcome = Literal[
     "applied",
     "applied-with-failures",
     "admin-denied",
+    "verify-failed",
 ]
+
+
+@dataclass(frozen=True)
+class VerifyResult:
+    """Output of a single phase-4 verify check. Read-only."""
+
+    name: str
+    """Stable identifier of the check (e.g. 'ergodix_imports')."""
+
+    passed: bool
+    """True iff the check determined the system is in the expected state."""
+
+    message: str
+    """Human-readable summary, displayed regardless of passed."""
+
+    remediation: str | None = None
+    """Actionable advice when passed is False."""
 
 
 @dataclass
@@ -77,6 +95,7 @@ class CantileverResult:
     inspect_results: list[InspectResult]
     plan: Plan
     apply_results: list[ApplyResult] = field(default_factory=list)
+    verify_results: list[VerifyResult] = field(default_factory=list)
 
 
 # ─── Default consent function (replaced by tests) ──────────────────────────
@@ -117,6 +136,80 @@ def _default_is_online_fn() -> bool:
     do a quick TCP probe to a stable endpoint.
     """
     return True
+
+
+def _verify_import_package() -> VerifyResult:
+    """Smoke check: `python -c "import ergodix"` exits 0."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import ergodix"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return VerifyResult(
+            name="ergodix_imports",
+            passed=True,
+            message="`import ergodix` succeeds",
+        )
+    stderr = result.stderr.strip()
+    last_line = stderr.splitlines()[-1] if stderr else "unknown error"
+    return VerifyResult(
+        name="ergodix_imports",
+        passed=False,
+        message=f"`import ergodix` failed: {last_line}",
+        remediation="Activate your venv and run: pip install -e .",
+    )
+
+
+def _verify_ergodix_command() -> VerifyResult:
+    """Smoke check: `ergodix --version` exits 0."""
+    import shutil
+    import subprocess
+
+    ergodix_path = shutil.which("ergodix")
+    if ergodix_path is None:
+        return VerifyResult(
+            name="ergodix_on_path",
+            passed=False,
+            message="`ergodix` command not on PATH",
+            remediation=("Activate the venv (source .venv/bin/activate) and run: pip install -e ."),
+        )
+    try:
+        result = subprocess.run(
+            [ergodix_path, "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError) as exc:
+        return VerifyResult(
+            name="ergodix_on_path",
+            passed=False,
+            message=f"failed to run `ergodix --version`: {exc}",
+            remediation="Re-run cantilever to repair the install.",
+        )
+    if result.returncode == 0:
+        return VerifyResult(
+            name="ergodix_on_path",
+            passed=True,
+            message=f"`ergodix --version` returns: {result.stdout.strip()}",
+        )
+    return VerifyResult(
+        name="ergodix_on_path",
+        passed=False,
+        message=f"`ergodix --version` exited {result.returncode}",
+        remediation="Re-run cantilever to repair the install.",
+    )
+
+
+_DEFAULT_VERIFY_CHECKS: list[Callable[[], VerifyResult]] = [
+    _verify_import_package,
+    _verify_ergodix_command,
+]
 
 
 def _default_request_admin_fn() -> bool:
@@ -169,6 +262,29 @@ def _inspect_all(prereqs: list[PrereqSpec], *, online: bool) -> list[InspectResu
 def _build_plan(inspect_results: list[InspectResult]) -> Plan:
     """Phase 2 (build): filter to needs-action items; preserve input order."""
     return Plan(items=[ir for ir in inspect_results if ir.needs_action])
+
+
+def _run_verify_phase(
+    checks: list[Callable[[], VerifyResult]],
+    *,
+    output_fn: Callable[[str], None],
+) -> list[VerifyResult]:
+    """
+    Phase 4: run each verify check, collect results, emit a summary.
+
+    Always runs every check (no abort-fast) — the user wants to see the
+    full end-state, not just the first thing that's wrong.
+    """
+    results: list[VerifyResult] = []
+    output_fn("\nVerification:")
+    for check in checks:
+        result = check()
+        results.append(result)
+        marker = "✓" if result.passed else "✗"
+        output_fn(f"  {marker} {result.name}: {result.message}")
+        if not result.passed and result.remediation:
+            output_fn(f"    Suggested fix: {result.remediation}")
+    return results
 
 
 def _apply_consented(
@@ -227,6 +343,7 @@ def run_cantilever(
     is_online_fn: Callable[[], bool] = _default_is_online_fn,
     output_fn: Callable[[str], None] = print,
     request_admin_fn: Callable[[], bool] = _default_request_admin_fn,
+    verify_checks: list[Callable[[], VerifyResult]] | None = None,
 ) -> CantileverResult:
     """
     Top-level entrypoint. Per ADR 0010.
@@ -241,11 +358,15 @@ def run_cantilever(
         request_admin_fn: prompts for admin (sudo) credentials once, returning
             True if granted. Called only when the plan contains an op marked
             ``needs_admin``.
+        verify_checks: list of phase-4 verify functions. Defaults to the
+            built-in checks (``_verify_import_package`` and
+            ``_verify_ergodix_command``). Tests inject explicit lists.
 
     Returns:
         CantileverResult describing the outcome, the inspections, the plan,
-        and any apply results.
+        and any apply / verify results.
     """
+    checks = verify_checks if verify_checks is not None else _DEFAULT_VERIFY_CHECKS
     # Phase 1: Inspect (read-only).
     online = is_online_fn()
     inspect_results = _inspect_all(prereqs, online=online)
@@ -299,11 +420,25 @@ def run_cantilever(
 
     apply_results, completed = _apply_consented(prereqs, plan, output_fn=output_fn)
 
-    outcome: CantileverOutcome = "applied" if completed else "applied-with-failures"
+    # Phase 4: Verify. Always runs after apply (whether apply succeeded or
+    # aborted) — the user needs the end-state picture either way.
+    verify_results = _run_verify_phase(checks, output_fn=output_fn)
+
+    # Outcome ladder:
+    #   apply failed at all → "applied-with-failures" (apply failure dominates)
+    #   apply succeeded, any verify failed → "verify-failed"
+    #   both apply and verify clean → "applied"
+    if not completed:
+        outcome: CantileverOutcome = "applied-with-failures"
+    elif any(not vr.passed for vr in verify_results):
+        outcome = "verify-failed"
+    else:
+        outcome = "applied"
 
     return CantileverResult(
         outcome=outcome,
         inspect_results=inspect_results,
         plan=plan,
         apply_results=apply_results,
+        verify_results=verify_results,
     )

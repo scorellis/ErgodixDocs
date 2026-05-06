@@ -310,6 +310,7 @@ def test_consent_accept_proceeds_to_apply() -> None:
         prereqs=[p],
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     assert p.apply_call_count == 1
@@ -347,6 +348,7 @@ def test_ci_floater_bypasses_consent_treats_as_accept() -> None:
         prereqs=[p],
         consent_fn=lambda _plan: pytest.fail("consent should not be called under --ci"),
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     # Apply was invoked despite no consent prompt.
@@ -370,6 +372,7 @@ def test_apply_runs_each_consented_op_in_plan_order() -> None:
         prereqs=[a, b, c],
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     # Each apply called once, in plan order.
@@ -392,6 +395,7 @@ def test_apply_emits_progress_lines_per_op() -> None:
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
         output_fn=captured.append,
+        verify_checks=[],
     )
 
     output = "\n".join(captured)
@@ -416,6 +420,7 @@ def test_apply_aborts_fast_on_first_failure() -> None:
         prereqs=[a, b, c],
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     assert a.apply_call_count == 1
@@ -436,6 +441,7 @@ def test_apply_outcome_applied_when_all_succeeded() -> None:
         prereqs=[a, b],
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     assert result.outcome == "applied"
@@ -473,6 +479,7 @@ def test_apply_emits_remediation_hint_on_failure() -> None:
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
         output_fn=captured.append,
+        verify_checks=[],
     )
 
     output = "\n".join(captured)
@@ -502,6 +509,7 @@ def test_admin_credentials_requested_once_when_plan_has_admin_ops() -> None:
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
         request_admin_fn=fake_request_admin,
+        verify_checks=[],
     )
 
     # Even though TWO ops need admin, the request happens just once.
@@ -523,6 +531,7 @@ def test_admin_credentials_not_requested_when_no_admin_ops() -> None:
         consent_fn=lambda _plan: True,
         is_online_fn=lambda: True,
         request_admin_fn=fake_request_admin,
+        verify_checks=[],
     )
 
 
@@ -542,3 +551,211 @@ def test_admin_denied_outcome_when_credentials_not_granted() -> None:
     assert result.outcome == "admin-denied"
     assert a.apply_call_count == 0  # no apply ran
     assert result.apply_results == []
+
+
+# ─── Phase 4: verify ───────────────────────────────────────────────────────
+
+
+def test_verify_runs_after_successful_apply() -> None:
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    p = _needs_install_prereq("A3")
+    verify_called = False
+
+    def fake_verify() -> VerifyResult:
+        nonlocal verify_called
+        verify_called = True
+        return VerifyResult(name="t", passed=True, message="ok")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[p],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[fake_verify],
+    )
+
+    assert verify_called
+
+
+def test_verify_runs_even_when_apply_aborted() -> None:
+    """End-state verification matters most when apply went sideways."""
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    p = _needs_install_prereq("A3")
+    p.apply_status = "failed"
+
+    verify_called = False
+
+    def fake_verify() -> VerifyResult:
+        nonlocal verify_called
+        verify_called = True
+        return VerifyResult(name="t", passed=True, message="ok")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[p],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[fake_verify],
+    )
+
+    assert verify_called
+
+
+def test_verify_skipped_when_no_changes_needed() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    def fake_verify():  # type: ignore[no-untyped-def]
+        pytest.fail("verify should not run when no apply happened")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[fake_verify],
+    )
+
+
+def test_verify_skipped_in_dry_run() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    def fake_verify():  # type: ignore[no-untyped-def]
+        pytest.fail("verify should not run in dry-run mode")
+
+    run_cantilever(
+        floaters={"writer": True, "dry-run": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[fake_verify],
+    )
+
+
+def test_verify_skipped_when_consent_declined() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    def fake_verify():  # type: ignore[no-untyped-def]
+        pytest.fail("verify should not run when consent declined")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        verify_checks=[fake_verify],
+    )
+
+
+def test_verify_skipped_when_admin_denied() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    def fake_verify():  # type: ignore[no-untyped-def]
+        pytest.fail("verify should not run when admin was denied")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3", needs_admin=True)],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        request_admin_fn=lambda: False,
+        verify_checks=[fake_verify],
+    )
+
+
+def test_verify_results_collected_in_cantilever_result() -> None:
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[
+            lambda: VerifyResult(name="c1", passed=True, message="ok"),
+            lambda: VerifyResult(name="c2", passed=True, message="ok"),
+        ],
+    )
+
+    assert [vr.name for vr in result.verify_results] == ["c1", "c2"]
+
+
+def test_verify_failed_after_successful_apply_yields_verify_failed_outcome() -> None:
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[
+            lambda: VerifyResult(name="c1", passed=False, message="bad", remediation="fix it"),
+        ],
+    )
+
+    assert result.outcome == "verify-failed"
+
+
+def test_verify_does_not_override_applied_with_failures_outcome() -> None:
+    """Apply failure dominates verify failure in the outcome ladder."""
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    p = _needs_install_prereq("A3")
+    p.apply_status = "failed"
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[p],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        verify_checks=[lambda: VerifyResult(name="c1", passed=False, message="bad")],
+    )
+
+    assert result.outcome == "applied-with-failures"
+
+
+def test_verify_emits_pass_marker_for_passing_checks() -> None:
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    captured: list[str] = []
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[lambda: VerifyResult(name="ergodix_imports", passed=True, message="ok")],
+    )
+
+    output = "\n".join(captured)
+    assert "ergodix_imports" in output
+    assert "✓" in output
+
+
+def test_verify_emits_fail_marker_and_remediation() -> None:
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    captured: list[str] = []
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[
+            lambda: VerifyResult(
+                name="ergodix_imports",
+                passed=False,
+                message="couldn't import",
+                remediation="run pip install -e .",
+            ),
+        ],
+    )
+
+    output = "\n".join(captured)
+    assert "✗" in output
+    assert "ergodix_imports" in output
+    assert "run pip install -e ." in output
