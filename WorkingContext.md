@@ -90,17 +90,29 @@ When work resumes, append a short dated note covering:
 
 ## Immediate Next Step
 
-**Session paused 2026-05-03 evening. Pick up tomorrow.**
+**Session paused 2026-05-06 (early morning). Pick up next session.**
 
 State at pause:
-- Story 0.8 (architecture spike) is **DONE**. ADRs 0001–0008 + spikes 0001–0006 merged to main.
-- Branch model simplified to **trunk-based**. `develop` was deleted; only `main` plus feature branches.
-- Story 0.10 (TDD scaffolding) is **in flight on branch `feature/test-scaffolding`**. One commit landed locally (not yet pushed): `pyproject.toml`, `ergodix/` package skeleton with auth/version moved in, `tests/` with conftest + test_version + test_auth. 22 tests pass. One real bug found and fixed (lazy `Path.home()` resolution in auth.py).
-- Local working tree clean on `feature/test-scaffolding`.
+- **Story 0.8 (architecture)** — DONE. ADRs 0001–0010 + Spikes 0001–0008 merged to main.
+- **Story 0.10 (TDD scaffolding)** — paused; partial work (pyproject.toml, package skeleton, test_version + test_auth + test_cli) is on `main` from the prior merged PR. Remaining ~40 test stubs are paused pending Story 0.11 finish.
+- **Story 0.11 (Installer redesign per ADR 0010)** — in flight on `feature/installer-redesign`. **7 commits, pushed**. Substantial work done:
+  - ADR 0010 + Spike 0008 + Story 0.11 added
+  - Copilot review #1 fix-now batch (auth path repaired, ruff/mypy strict clean, CLI tests pinning the surface, README + ADR 0007 status updates)
+  - Step 1: prereq types (`InspectResult`, `ApplyResult`)
+  - Step 2a: cantilever phases 1+2 (inspect, plan, consent gate, dry-run, ci)
+  - Step 2b: cantilever phase 3 (apply, sudo grouping, abort-fast, remediation)
+  - Step 2c: cantilever phase 4 (verify with default smoke checks)
+  - Copilot review #2 fix batch (inspect-failed first-class outcome, op_id uniqueness validation, PATH-derived ergodix smoke check, verify-on-no-changes, _verify_local_config_sane)
+- **Tests: 110 passing, 1 skipped. Coverage 75%. ruff + mypy strict clean.**
 
-Tomorrow:
-1. Push `feature/test-scaffolding` (1 commit) and review the diff.
-2. Stub failing tests for every planned module per Story 0.10's remaining task list (~40 test files).
-3. Begin GREEN phase: write minimal implementations to make tests pass, one module at a time, smallest first.
+Story 0.11 remaining steps:
+- **Step 3**: First real prereq — `ergodix/prereqs/check_platform.py` (A1, simplest of the 25 ops). Validates the inspect/apply contract against real code. Smallest piece next.
+- **Step 4**: Wire `ergodix cantilever` Click subcommand to `run_cantilever()` (currently a stub).
+- **Step 5**: Thin `bootstrap.sh` + integration smoke test in fresh deploy directory.
+- **Step 6**: Remaining 24 prereqs — cookie-cutter against the established pattern.
 
-Open architectural concern (file before next implementation work): **ADR 0009 — CI workflow design** (lint, typecheck, test, coverage, multi-platform matrix, what blocks merge). Story 0.10's CI task waits on this.
+Other notable session artifacts:
+- **CLAUDE.md** gained "Working partnership norms" section: pushback on principle violations, late-arriving principles are normal, course corrections are healthy, persistent record carries partnership across sessions.
+- **`.claude/settings.json`** added with read-only auto-allows for `pytest`, `ruff check`, `ruff format --check`, `mypy` to reduce permission prompts.
+
+Next-session opening move: open the PR against `main` for `feature/installer-redesign`, ask Copilot to review (third review of this branch), absorb findings, then proceed to Story 0.11 step 3.
