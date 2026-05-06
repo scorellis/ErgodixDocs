@@ -98,6 +98,7 @@ def test_inspect_phase_calls_every_prereq() -> None:
         prereqs=prereqs,
         consent_fn=lambda _plan: False,  # no-op since plan is empty
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     for p in prereqs:
@@ -135,6 +136,7 @@ def test_inspect_phase_marks_network_required_ops_deferred_when_offline() -> Non
         prereqs=[network_op, local_op],
         consent_fn=lambda _plan: False,
         is_online_fn=lambda: False,
+        verify_checks=[],
     )
 
     by_id = {ir.op_id: ir for ir in result.inspect_results}
@@ -157,6 +159,7 @@ def test_inspect_phase_runs_network_ops_normally_when_online() -> None:
         prereqs=[network_op],
         consent_fn=lambda _plan: True,  # accept
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     by_id = {ir.op_id: ir for ir in result.inspect_results}
@@ -196,6 +199,7 @@ def test_plan_is_empty_when_all_ops_are_ok() -> None:
         prereqs=prereqs,
         consent_fn=lambda _plan: pytest.fail("consent should not be requested for empty plan"),
         is_online_fn=lambda: True,
+        verify_checks=[],
     )
 
     assert result.plan.items == []
@@ -603,19 +607,46 @@ def test_verify_runs_even_when_apply_aborted() -> None:
     assert verify_called
 
 
-def test_verify_skipped_when_no_changes_needed() -> None:
-    from ergodix.cantilever import run_cantilever
+def test_verify_runs_when_no_changes_needed() -> None:
+    """
+    Per Copilot review 2026-05-05: verify should run on the no-changes-
+    needed path too — that's the moment a too-permissive inspect would
+    produce a false green. Verify is the cross-check.
+    """
+    from ergodix.cantilever import VerifyResult, run_cantilever
 
-    def fake_verify():  # type: ignore[no-untyped-def]
-        pytest.fail("verify should not run when no apply happened")
+    verify_called = False
+
+    def fake_verify() -> VerifyResult:
+        nonlocal verify_called
+        verify_called = True
+        return VerifyResult(name="t", passed=True, message="ok")
 
     run_cantilever(
         floaters={"writer": True},
         prereqs=[_ok_prereq("A1")],
-        consent_fn=lambda _plan: True,
+        consent_fn=lambda _plan: pytest.fail("consent should not be requested"),
         is_online_fn=lambda: True,
         verify_checks=[fake_verify],
     )
+
+    assert verify_called
+
+
+def test_verify_failure_when_no_changes_needed_yields_verify_failed_outcome() -> None:
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: pytest.fail("consent should not be requested"),
+        is_online_fn=lambda: True,
+        verify_checks=[
+            lambda: VerifyResult(name="t", passed=False, message="bad", remediation="x"),
+        ],
+    )
+
+    assert result.outcome == "verify-failed"
 
 
 def test_verify_skipped_in_dry_run() -> None:
@@ -732,6 +763,168 @@ def test_verify_emits_pass_marker_for_passing_checks() -> None:
     output = "\n".join(captured)
     assert "ergodix_imports" in output
     assert "✓" in output
+
+
+# ─── Inspect-failed halts cantilever (Copilot 2026-05-05 finding #2) ──────
+
+
+def test_inspect_failed_halts_cantilever_before_plan_building() -> None:
+    """
+    Per Copilot review 2026-05-05: a failed inspect must NOT silently fall
+    through to no-changes-needed (because needs_action is False for status
+    'failed') or get rewritten to deferred-offline. It is its own outcome.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    failing = FakePrereq(
+        op_id="A2",
+        inspect_status="failed",
+        description="Pandoc availability",
+        current_state="exec failed: command not found",
+        proposed_action=None,
+    )
+    other = _needs_install_prereq("A3")
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[failing, other],
+        consent_fn=lambda _plan: pytest.fail("consent must not run when inspect failed"),
+        is_online_fn=lambda: True,
+        verify_checks=[lambda: pytest.fail("verify must not run when inspect failed")],  # type: ignore[arg-type, return-value]
+    )
+
+    assert result.outcome == "inspect-failed"
+    # No apply must have happened.
+    assert other.apply_call_count == 0
+    # The failing inspect result is in the result.
+    assert any(r.status == "failed" for r in result.inspect_results)
+
+
+def test_inspect_failed_status_not_rewritten_to_deferred_offline_when_offline() -> None:
+    """
+    Even offline, a 'failed' inspect must remain failed — not get rewritten
+    to 'deferred-offline'. Only needs-install / needs-update get rewritten.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    failing = FakePrereq(
+        op_id="A2",
+        inspect_status="failed",
+        description="Pandoc availability",
+        current_state="probe error",
+        network_required=True,
+    )
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[failing],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: False,
+        verify_checks=[],
+    )
+
+    by_id = {ir.op_id: ir for ir in result.inspect_results}
+    assert by_id["A2"].status == "failed"
+    assert result.outcome == "inspect-failed"
+
+
+# ─── op_id uniqueness validation (Copilot finding #3) ─────────────────────
+
+
+def test_duplicate_op_ids_raises_at_entry() -> None:
+    """Two prereqs with the same op_id is a programmer error; fail loudly."""
+    from ergodix.cantilever import run_cantilever
+
+    a = _ok_prereq("A1")
+    a_dup = _ok_prereq("A1")  # same op_id
+
+    with pytest.raises(ValueError, match="duplicate"):
+        run_cantilever(
+            floaters={"writer": True},
+            prereqs=[a, a_dup],
+            consent_fn=lambda _plan: False,
+            is_online_fn=lambda: True,
+            verify_checks=[],
+        )
+
+
+# ─── Verify ergodix smoke uses venv path (Copilot finding #4) ──────────────
+
+
+def test_default_ergodix_smoke_uses_interpreter_directory_path() -> None:
+    """
+    The default ergodix command smoke check must locate ergodix relative
+    to sys.executable's directory (the venv's bin/Scripts), not via
+    shutil.which() on ambient PATH. Otherwise the check is sensitive to
+    how cantilever was invoked rather than to whether install succeeded.
+    """
+    import sys
+    from pathlib import Path
+
+    from ergodix.cantilever import _verify_ergodix_command
+
+    result = _verify_ergodix_command()
+    expected_dir = Path(sys.executable).parent
+    # The check's message must reference the interpreter-derived path
+    # whether it passed or failed — that's what we're really testing
+    # (i.e. the path was derived from sys.executable, not from $PATH).
+    assert str(expected_dir) in result.message
+
+
+# ─── Local-config-sane verify check (Copilot finding #1, partial) ─────────
+
+
+def test_verify_local_config_sane_passes_with_valid_file(tmp_path, monkeypatch) -> None:
+    from ergodix.cantilever import _verify_local_config_sane
+
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        "from pathlib import Path\nCORPUS_FOLDER = Path('/some/corpus')\n",
+    )
+    config.chmod(0o600)
+
+    result = _verify_local_config_sane()
+    assert result.passed
+    assert "local_config" in result.name
+
+
+def test_verify_local_config_sane_fails_when_missing(tmp_path, monkeypatch) -> None:
+    from ergodix.cantilever import _verify_local_config_sane
+
+    monkeypatch.chdir(tmp_path)  # no local_config.py exists here
+
+    result = _verify_local_config_sane()
+    assert not result.passed
+    assert "not found" in result.message.lower() or "missing" in result.message.lower()
+
+
+def test_verify_local_config_sane_fails_when_perms_loose(tmp_path, monkeypatch) -> None:
+    from ergodix.cantilever import _verify_local_config_sane
+
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        "from pathlib import Path\nCORPUS_FOLDER = Path('/some/corpus')\n",
+    )
+    config.chmod(0o644)  # too permissive
+
+    result = _verify_local_config_sane()
+    assert not result.passed
+    assert "600" in result.message or "perm" in result.message.lower()
+
+
+def test_verify_local_config_sane_fails_when_corpus_folder_empty(tmp_path, monkeypatch) -> None:
+    from ergodix.cantilever import _verify_local_config_sane
+
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text("CORPUS_FOLDER = ''\n")
+    config.chmod(0o600)
+
+    result = _verify_local_config_sane()
+    assert not result.passed
+    assert "CORPUS_FOLDER" in result.message
 
 
 def test_verify_emits_fail_marker_and_remediation() -> None:

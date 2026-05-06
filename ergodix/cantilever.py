@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal, Protocol
 
 from ergodix.prereqs.types import ApplyResult, InspectResult
@@ -67,6 +68,7 @@ CantileverOutcome = Literal[
     "applied-with-failures",
     "admin-denied",
     "verify-failed",
+    "inspect-failed",
 ]
 
 
@@ -166,21 +168,33 @@ def _verify_import_package() -> VerifyResult:
 
 
 def _verify_ergodix_command() -> VerifyResult:
-    """Smoke check: `ergodix --version` exits 0."""
-    import shutil
-    import subprocess
+    """
+    Smoke check: `ergodix --version` exits 0.
 
-    ergodix_path = shutil.which("ergodix")
-    if ergodix_path is None:
+    Locates the script via ``sys.executable``'s directory rather than via
+    ``shutil.which`` on ambient PATH. PATH-based lookup is sensitive to
+    *how* cantilever was invoked rather than to whether the install
+    actually succeeded; deriving from the interpreter directory matches
+    where ``pip install -e .`` puts the console-script.
+    """
+    import platform
+    import subprocess
+    import sys
+
+    interpreter_dir = Path(sys.executable).parent
+    suffix = ".exe" if platform.system() == "Windows" else ""
+    ergodix_path = interpreter_dir / f"ergodix{suffix}"
+
+    if not ergodix_path.exists():
         return VerifyResult(
             name="ergodix_on_path",
             passed=False,
-            message="`ergodix` command not on PATH",
-            remediation=("Activate the venv (source .venv/bin/activate) and run: pip install -e ."),
+            message=f"`ergodix` script not found at {ergodix_path}",
+            remediation="Activate the venv and run: pip install -e .",
         )
     try:
         result = subprocess.run(
-            [ergodix_path, "--version"],
+            [str(ergodix_path), "--version"],
             capture_output=True,
             text=True,
             check=False,
@@ -189,26 +203,92 @@ def _verify_ergodix_command() -> VerifyResult:
         return VerifyResult(
             name="ergodix_on_path",
             passed=False,
-            message=f"failed to run `ergodix --version`: {exc}",
+            message=f"failed to run `{ergodix_path} --version`: {exc}",
             remediation="Re-run cantilever to repair the install.",
         )
     if result.returncode == 0:
         return VerifyResult(
             name="ergodix_on_path",
             passed=True,
-            message=f"`ergodix --version` returns: {result.stdout.strip()}",
+            message=f"`{ergodix_path} --version` returns: {result.stdout.strip()}",
         )
     return VerifyResult(
         name="ergodix_on_path",
         passed=False,
-        message=f"`ergodix --version` exited {result.returncode}",
+        message=f"`{ergodix_path} --version` exited {result.returncode}",
         remediation="Re-run cantilever to repair the install.",
+    )
+
+
+def _verify_local_config_sane() -> VerifyResult:
+    """
+    Smoke check (per ADR 0010): ``local_config.py`` exists in the current
+    directory, has mode 600, and defines a non-empty ``CORPUS_FOLDER``.
+
+    Resolves the file from the current working directory because cantilever
+    is documented to run from the repo root. Tests use ``monkeypatch.chdir``
+    to point this at fixture content.
+    """
+    import importlib.util
+
+    config_path = Path.cwd() / "local_config.py"
+
+    if not config_path.exists():
+        return VerifyResult(
+            name="local_config_sane",
+            passed=False,
+            message=f"local_config.py not found at {config_path}",
+            remediation="Re-run cantilever; the config-bootstrap step generates it.",
+        )
+
+    mode = config_path.stat().st_mode & 0o777
+    if mode != 0o600:
+        return VerifyResult(
+            name="local_config_sane",
+            passed=False,
+            message=f"local_config.py has perms {oct(mode)}, expected 0o600",
+            remediation=f"chmod 600 {config_path}",
+        )
+
+    try:
+        spec = importlib.util.spec_from_file_location("_local_config_check", config_path)
+        if spec is None or spec.loader is None:  # pragma: no cover — defensive
+            return VerifyResult(
+                name="local_config_sane",
+                passed=False,
+                message=f"could not load {config_path} as a module",
+                remediation="Inspect the file for syntax errors.",
+            )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        return VerifyResult(
+            name="local_config_sane",
+            passed=False,
+            message=f"loading local_config.py raised: {exc}",
+            remediation="Inspect the file for syntax errors and re-run cantilever.",
+        )
+
+    corpus = getattr(module, "CORPUS_FOLDER", None)
+    if not corpus or not str(corpus).strip():
+        return VerifyResult(
+            name="local_config_sane",
+            passed=False,
+            message="CORPUS_FOLDER in local_config.py is missing or empty",
+            remediation="Edit local_config.py and set CORPUS_FOLDER to your corpus path.",
+        )
+
+    return VerifyResult(
+        name="local_config_sane",
+        passed=True,
+        message=f"local_config.py at {config_path} has mode 600 and CORPUS_FOLDER={corpus}",
     )
 
 
 _DEFAULT_VERIFY_CHECKS: list[Callable[[], VerifyResult]] = [
     _verify_import_package,
     _verify_ergodix_command,
+    _verify_local_config_sane,
 ]
 
 
@@ -237,13 +317,16 @@ def _default_request_admin_fn() -> bool:
 def _inspect_all(prereqs: list[PrereqSpec], *, online: bool) -> list[InspectResult]:
     """
     Phase 1: run every prereq's inspect(). If the system is offline, any
-    network-required op that came back as needing action is rewritten to
-    deferred-offline (its action is genuinely not safe to attempt).
+    network-required op that *would have wanted to act* (needs-install or
+    needs-update) is rewritten to deferred-offline. A 'failed' inspect is
+    NEVER rewritten — it surfaces as-is so cantilever can halt with an
+    inspect-failed outcome.
     """
+    rewritable = {"needs-install", "needs-update"}
     results: list[InspectResult] = []
     for prereq in prereqs:
         result = prereq.inspect()
-        if not online and result.network_required and result.status != "ok":
+        if not online and result.network_required and result.status in rewritable:
             # Re-issue as deferred-offline. InspectResult is frozen, so build a new one.
             result = InspectResult(
                 op_id=result.op_id,
@@ -367,18 +450,51 @@ def run_cantilever(
         and any apply / verify results.
     """
     checks = verify_checks if verify_checks is not None else _DEFAULT_VERIFY_CHECKS
+
+    # Pre-flight: op_ids must be unique (Copilot review 2026-05-05 finding #3).
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for prereq in prereqs:
+        if prereq.op_id in seen:
+            duplicates.append(prereq.op_id)
+        seen.add(prereq.op_id)
+    if duplicates:
+        raise ValueError(
+            f"prereq list contains duplicate op_id(s): {sorted(set(duplicates))}. "
+            "Each prereq must have a unique op_id."
+        )
+
     # Phase 1: Inspect (read-only).
     online = is_online_fn()
     inspect_results = _inspect_all(prereqs, online=online)
+
+    # Phase 1.5: if any inspect failed, halt before plan/consent/apply.
+    # Per Copilot review 2026-05-05 finding #2: a 'failed' inspect must not
+    # silently fall through to no-changes-needed (because needs_action is
+    # False) or be rewritten to deferred-offline.
+    if any(ir.status == "failed" for ir in inspect_results):
+        return CantileverResult(
+            outcome="inspect-failed",
+            inspect_results=inspect_results,
+            plan=Plan(items=[]),
+        )
 
     # Phase 2: Plan.
     plan = _build_plan(inspect_results)
 
     if not plan.items:
+        # Per Copilot review 2026-05-05 finding #5: still run verify on the
+        # no-changes path. If inspect was too permissive, verify is the
+        # cross-check that catches a false green.
+        verify_results = _run_verify_phase(checks, output_fn=output_fn)
+        outcome: CantileverOutcome = (
+            "verify-failed" if any(not vr.passed for vr in verify_results) else "no-changes-needed"
+        )
         return CantileverResult(
-            outcome="no-changes-needed",
+            outcome=outcome,
             inspect_results=inspect_results,
             plan=plan,
+            verify_results=verify_results,
         )
 
     # Phase 2: Consent gate (or floater bypass).
@@ -429,7 +545,7 @@ def run_cantilever(
     #   apply succeeded, any verify failed → "verify-failed"
     #   both apply and verify clean → "applied"
     if not completed:
-        outcome: CantileverOutcome = "applied-with-failures"
+        outcome = "applied-with-failures"
     elif any(not vr.passed for vr in verify_results):
         outcome = "verify-failed"
     else:

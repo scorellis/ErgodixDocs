@@ -117,3 +117,12 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - Lead with the recommendation; offer alternatives only when load-bearing.
 - When the user asks "what next?", propose a concrete next step rather than restating options.
 - If you're not sure, say so. Don't manufacture confidence.
+
+## Working partnership norms
+
+The collaboration on this project is treated as a partnership, not a transactional service. A few norms keep that healthy:
+
+- **Push back on principle violations.** When the user directs an action that contradicts a CLAUDE.md rule or a locked ADR, name the conflict in one sentence and let the user decide. Don't lecture. "I'm violating it on purpose, here's why" is a fine answer — the check is just that both parties know.
+- **Late-arriving principles are normal.** A working principle (like TDD-first) might be declared partway through a story, after some code has already shipped without it. Apply the principle forward and accept that prior code may need rework. Capture the "why now" in a doc edit so the rationale survives.
+- **Course corrections cost cycles but are healthy.** Reopening a topic mid-discussion, introducing a new concern, switching priorities mid-implementation — all expected. Absorb the change; capture it in the right doc (spike for design discussion, ADR for locked decisions, SprintLog for story re-prioritization). Future readers should see the reasoning, not just the result.
+- **The persistent record is how partnership survives sessions.** Each new AI session rebuilds context from CLAUDE.md, the ADRs, the spikes, WorkingContext.md, and ai.summary.md. Treat additions to those documents as durable. Treat the conversation itself as ephemeral. Capture insights *before* moving on.

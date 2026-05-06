@@ -235,8 +235,11 @@ Assumptions: the four-phase model (inspect → plan + consent → apply → veri
 Tasks:
 - [ ] Rewrite `install_dependencies.sh` to a minimal `bootstrap.sh` (and `bootstrap.ps1`) that does only: detect Python ≥3.11, create `.venv` with it, `pip install -e ".[dev]"`, run `ergodix cantilever`. Per ADR 0007.
 - [ ] Define `InspectResult` and `ApplyResult` dataclasses in `ergodix/prereqs/types.py` per ADR 0010.
-- [ ] Implement `ergodix/cantilever.py` with the four-phase orchestrator: inspect → plan + consent → apply (with grouped sudo) → verify.
-- [ ] Implement the verify-phase smoke checks: import package, `ergodix --version`, pytest, `local_config.py` sanity.
+- [x] Implement `ergodix/cantilever.py` with the four-phase orchestrator: inspect → plan + consent → apply (with grouped sudo) → verify. **[DONE 2026-05-06]**
+- [x] Implement the verify-phase smoke checks: import package, `ergodix --version` (interpreter-dir-derived path), `local_config.py` sanity (mode 600 + non-empty CORPUS_FOLDER). pytest verify check is conditional on `--developer` floater and lands when that floater's adds_operations are wired. **[DONE 2026-05-06]**
+- [x] **Inspect-failed first-class outcome** (Copilot review 2026-05-05 finding #2) — failed inspects no longer disappear into no-changes-needed or get rewritten to deferred-offline. **[DONE 2026-05-06]**
+- [x] **op_id uniqueness validation** at run_cantilever entry (Copilot finding #3) — duplicate op_ids raise ValueError before any work happens. **[DONE 2026-05-06]**
+- [x] **Verify runs on no-changes-needed path** (Copilot finding #5) — catches false greens from a too-permissive inspect. **[DONE 2026-05-06]**
 - [ ] For each of the 25 cantilever operations from ADR 0003, write the corresponding `ergodix/prereqs/check_<op>.py` with split `inspect()` / `apply()` functions. Tests come first per CLAUDE.md TDD norm.
 - [ ] Address every gap from Spike 0008's intel:
   - [ ] `pip install -e .` is an explicit phase-3 step
