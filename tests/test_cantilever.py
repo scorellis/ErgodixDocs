@@ -353,3 +353,192 @@ def test_ci_floater_bypasses_consent_treats_as_accept() -> None:
     assert p.apply_call_count == 1
     # Outcome is success (consent was implicitly given).
     assert result.outcome in {"applied", "applied-with-failures"}
+
+
+# ─── Phase 3: apply ────────────────────────────────────────────────────────
+
+
+def test_apply_runs_each_consented_op_in_plan_order() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_install_prereq("A3")
+    b = _needs_install_prereq("A5")
+    c = _needs_install_prereq("A7")
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b, c],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+    )
+
+    # Each apply called once, in plan order.
+    assert a.apply_call_count == 1
+    assert b.apply_call_count == 1
+    assert c.apply_call_count == 1
+    assert [r.op_id for r in result.apply_results] == ["A3", "A5", "A7"]
+
+
+def test_apply_emits_progress_lines_per_op() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    a = _needs_install_prereq("A3")
+    b = _needs_install_prereq("A5")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+    )
+
+    output = "\n".join(captured)
+    # Each step in the plan should produce a [k/total] line during apply.
+    assert "[1/2]" in output
+    assert "[2/2]" in output
+
+
+def test_apply_aborts_fast_on_first_failure() -> None:
+    """If apply() returns failed, the remaining ops are not invoked."""
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_install_prereq("A3")
+    a.apply_status = "failed"
+    a.apply_message = "brew install failed"
+
+    b = _needs_install_prereq("A5")  # should never be applied
+    c = _needs_install_prereq("A7")  # should never be applied
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b, c],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+    )
+
+    assert a.apply_call_count == 1
+    assert b.apply_call_count == 0
+    assert c.apply_call_count == 0
+    assert result.outcome == "applied-with-failures"
+    assert len(result.apply_results) == 1
+
+
+def test_apply_outcome_applied_when_all_succeeded() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_install_prereq("A3")
+    b = _needs_install_prereq("A5")
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+    )
+
+    assert result.outcome == "applied"
+
+
+def test_apply_emits_remediation_hint_on_failure() -> None:
+    from ergodix.cantilever import run_cantilever
+    from ergodix.prereqs.types import ApplyResult
+
+    captured: list[str] = []
+
+    class FailingPrereq:
+        op_id = "A4"
+
+        def inspect(self) -> InspectResult:
+            return InspectResult(
+                op_id="A4",
+                status="needs-install",
+                description="Install XeLaTeX",
+                current_state="not found",
+                proposed_action="brew install --cask mactex",
+            )
+
+        def apply(self) -> ApplyResult:
+            return ApplyResult(
+                op_id="A4",
+                status="failed",
+                message="brew install --cask mactex returned exit 1",
+                remediation_hint="Free up at least 4 GB of disk space.",
+            )
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[FailingPrereq()],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+    )
+
+    output = "\n".join(captured)
+    assert "Free up at least 4 GB of disk space" in output
+
+
+# ─── Sudo grouping ─────────────────────────────────────────────────────────
+
+
+def test_admin_credentials_requested_once_when_plan_has_admin_ops() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_install_prereq("A3", needs_admin=True)
+    b = _needs_install_prereq("A4", needs_admin=True)
+    c = _needs_install_prereq("A5", needs_admin=False)
+
+    request_count = 0
+
+    def fake_request_admin() -> bool:
+        nonlocal request_count
+        request_count += 1
+        return True
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b, c],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        request_admin_fn=fake_request_admin,
+    )
+
+    # Even though TWO ops need admin, the request happens just once.
+    assert request_count == 1
+
+
+def test_admin_credentials_not_requested_when_no_admin_ops() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_install_prereq("A3", needs_admin=False)
+    b = _needs_install_prereq("A5", needs_admin=False)
+
+    def fake_request_admin() -> bool:
+        pytest.fail("admin should not be requested when no plan op needs it")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        request_admin_fn=fake_request_admin,
+    )
+
+
+def test_admin_denied_outcome_when_credentials_not_granted() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_install_prereq("A4", needs_admin=True)
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        request_admin_fn=lambda: False,  # user declined / sudo failed
+    )
+
+    assert result.outcome == "admin-denied"
+    assert a.apply_call_count == 0  # no apply ran
+    assert result.apply_results == []

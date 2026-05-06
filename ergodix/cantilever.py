@@ -65,6 +65,7 @@ CantileverOutcome = Literal[
     "dry-run",
     "applied",
     "applied-with-failures",
+    "admin-denied",
 ]
 
 
@@ -118,6 +119,25 @@ def _default_is_online_fn() -> bool:
     return True
 
 
+def _default_request_admin_fn() -> bool:
+    """
+    Request admin (sudo) credentials once. After this returns True, any
+    subsequent `sudo` call within the cache window (default 5 min on macOS)
+    runs without prompting again. Tests inject their own.
+    """
+    import shutil
+    import subprocess
+
+    sudo_path = shutil.which("sudo")
+    if sudo_path is None:
+        return False
+    try:
+        result = subprocess.run([sudo_path, "-v"], check=False)
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 # ─── Phase implementations ─────────────────────────────────────────────────
 
 
@@ -154,19 +174,46 @@ def _build_plan(inspect_results: list[InspectResult]) -> Plan:
 def _apply_consented(
     prereqs: list[PrereqSpec],
     plan: Plan,
-) -> list[ApplyResult]:
+    *,
+    output_fn: Callable[[str], None],
+) -> tuple[list[ApplyResult], bool]:
     """
-    Phase 3 (skeleton): walk the plan and call apply() on each prereq.
-    Detailed sudo grouping, progress display, and abort-fast remediation
-    are filled in by step 2b of Story 0.11.
+    Phase 3 (apply): walk the plan in order, call apply() on each prereq.
+
+    - Emits a `[k/total] description...` progress line per op.
+    - Emits a check or cross marker line per op.
+    - On the first failure, emits a remediation block (with the prereq's
+      remediation_hint if present) and returns immediately. Subsequent
+      ops are NOT invoked. This is the abort-fast contract from ADR 0003.
+
+    Returns a tuple ``(results, completed_fully)``. ``completed_fully``
+    is False when an apply failed (so the caller can set the appropriate
+    outcome).
     """
-    plan_op_ids = {item.op_id for item in plan.items}
     by_op_id = {p.op_id: p for p in prereqs}
     results: list[ApplyResult] = []
-    for item in plan.items:
-        if item.op_id in plan_op_ids:
-            results.append(by_op_id[item.op_id].apply())
-    return results
+    total = len(plan.items)
+
+    for index, item in enumerate(plan.items, start=1):
+        prereq = by_op_id[item.op_id]
+        output_fn(f"[{index}/{total}] {item.description}…")
+        result = prereq.apply()
+        results.append(result)
+
+        if result.status == "failed":
+            output_fn(f"  ✗ Failed at step {index} of {total}: {item.op_id} — {item.description}")
+            output_fn(f"    Reason: {result.message}")
+            if result.remediation_hint:
+                output_fn(f"    Suggested fix: {result.remediation_hint}")
+            output_fn(
+                "    Re-run cantilever after addressing this; "
+                "earlier steps that already succeeded will be skipped (idempotent)."
+            )
+            return results, False
+
+        output_fn(f"  ✓ {result.message}")
+
+    return results, True
 
 
 # ─── Public entry point ────────────────────────────────────────────────────
@@ -178,6 +225,8 @@ def run_cantilever(
     prereqs: list[PrereqSpec],
     consent_fn: Callable[[Plan], bool] = _default_consent_fn,
     is_online_fn: Callable[[], bool] = _default_is_online_fn,
+    output_fn: Callable[[str], None] = print,
+    request_admin_fn: Callable[[], bool] = _default_request_admin_fn,
 ) -> CantileverResult:
     """
     Top-level entrypoint. Per ADR 0010.
@@ -187,6 +236,11 @@ def run_cantilever(
         prereqs: ordered list of prereq specs to drive.
         consent_fn: receives the Plan; returns True for accept, False for decline.
         is_online_fn: returns True if network is available.
+        output_fn: writes progress/remediation lines. Tests pass a list-appender;
+            real use prints to stderr/stdout.
+        request_admin_fn: prompts for admin (sudo) credentials once, returning
+            True if granted. Called only when the plan contains an op marked
+            ``needs_admin``.
 
     Returns:
         CantileverResult describing the outcome, the inspections, the plan,
@@ -209,7 +263,7 @@ def run_cantilever(
     # Phase 2: Consent gate (or floater bypass).
     if floaters.get("dry-run"):
         # Dry-run: show plan, do not apply.
-        print(_render_plan(plan))
+        output_fn(_render_plan(plan))
         return CantileverResult(
             outcome="dry-run",
             inspect_results=inspect_results,
@@ -227,12 +281,25 @@ def run_cantilever(
             )
     # else: --ci floater treats as accept.
 
-    # Phase 3 (skeleton): apply consented items.
-    apply_results = _apply_consented(prereqs, plan)
+    # Phase 3: Apply.
+    # Sudo grouping: if any plan op needs admin, request credentials ONCE
+    # before any apply runs. Subsequent sudo invocations within the cache
+    # window won't re-prompt. If the user denies / sudo fails, we abort
+    # without running any apply.
+    if plan.has_admin_ops and not request_admin_fn():
+        output_fn(
+            "error: admin credentials required for one or more steps but "
+            "were not granted. No changes have been made."
+        )
+        return CantileverResult(
+            outcome="admin-denied",
+            inspect_results=inspect_results,
+            plan=plan,
+        )
 
-    # Outcome classification. Phase 4 (verify) refines this in step 2b.
-    any_failed = any(r.status == "failed" for r in apply_results)
-    outcome: CantileverOutcome = "applied-with-failures" if any_failed else "applied"
+    apply_results, completed = _apply_consented(prereqs, plan, output_fn=output_fn)
+
+    outcome: CantileverOutcome = "applied" if completed else "applied-with-failures"
 
     return CantileverResult(
         outcome=outcome,
