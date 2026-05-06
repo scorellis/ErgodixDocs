@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pytest *)",
+      "Bash(ruff check *)",
+      "Bash(ruff format --check *)",
+      "Bash(mypy *)"
+    ]
+  }
+}

@@ -33,10 +33,10 @@ Scope policy (least privilege):
 
 CLI (run from your ErgodixDocs repo directory):
 
-    python auth.py set-key anthropic_api_key
-    python auth.py delete-key anthropic_api_key
-    python auth.py status
-    python auth.py migrate-to-keyring [--delete-file]
+    python -m ergodix.auth set-key anthropic_api_key
+    python -m ergodix.auth delete-key anthropic_api_key
+    python -m ergodix.auth status
+    python -m ergodix.auth migrate-to-keyring [--delete-file]
 """
 
 from __future__ import annotations
@@ -44,13 +44,16 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 # Defer keyring import so that --help and basic file fallback still work
 # even if keyring isn't installed yet (e.g. before install_dependencies.sh ran).
 try:
     import keyring
     import keyring.errors
+
     _HAS_KEYRING = True
 except ImportError:
     keyring = None  # type: ignore
@@ -85,59 +88,59 @@ def _central_secrets_file() -> Path:
 class _LazyPath:
     __slots__ = ("_fn",)
 
-    def __init__(self, fn):
+    def __init__(self, fn: Callable[[], Path]) -> None:
         self._fn = fn
 
-    def _resolve(self):
+    def _resolve(self) -> Path:
         return self._fn()
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         # Falls through for attributes not on this class itself.
         return getattr(self._resolve(), name)
 
     # Path operators: resolve and delegate
-    def __truediv__(self, other):
+    def __truediv__(self, other: str | Path) -> Path:
         return self._resolve() / other
 
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other: str | Path) -> Path:
         return other / self._resolve()
 
-    def joinpath(self, *args, **kwargs):
-        return self._resolve().joinpath(*args, **kwargs)
+    def joinpath(self, *args: str | Path) -> Path:
+        return self._resolve().joinpath(*args)
 
     # Path-like protocol
-    def __fspath__(self):
+    def __fspath__(self) -> str:
         return os.fspath(self._resolve())
 
     # String / repr / eq / hash forward to the resolved Path
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self._resolve())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"_LazyPath({self._resolve()!r})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, _LazyPath):
             return self._resolve() == other._resolve()
         return self._resolve() == other
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self._resolve())
 
     # Common Path methods we know are used in this module — explicit
     # forwards keep mypy happy without losing the lazy semantics.
-    def exists(self):
+    def exists(self) -> bool:
         return self._resolve().exists()
 
-    def stat(self):
+    def stat(self) -> os.stat_result:
         return self._resolve().stat()
 
-    def unlink(self, missing_ok: bool = False):
-        return self._resolve().unlink(missing_ok=missing_ok)
+    def unlink(self, missing_ok: bool = False) -> None:
+        self._resolve().unlink(missing_ok=missing_ok)
 
 
-CENTRAL_DIR = _LazyPath(_central_dir)
-CENTRAL_SECRETS_FILE = _LazyPath(_central_secrets_file)
+CENTRAL_DIR: _LazyPath = _LazyPath(_central_dir)
+CENTRAL_SECRETS_FILE: _LazyPath = _LazyPath(_central_secrets_file)
 
 KNOWN_KEYS = (
     "anthropic_api_key",
@@ -169,19 +172,18 @@ def _from_keyring(name: str) -> str | None:
         return None
     except keyring.errors.KeyringError as exc:
         raise RuntimeError(
-            "Keyring lookup failed. Ensure your OS keyring is unlocked and "
-            "available, then retry."
+            "Keyring lookup failed. Ensure your OS keyring is unlocked and available, then retry."
         ) from exc
 
 
-def _read_file_data_checked() -> dict:
+def _read_file_data_checked() -> dict[str, Any]:
     if (CENTRAL_SECRETS_FILE.stat().st_mode & 0o077) != 0:
         raise PermissionError(
-            f"{CENTRAL_SECRETS_FILE} has loose permissions. "
-            f"Run: chmod 600 {CENTRAL_SECRETS_FILE}"
+            f"{CENTRAL_SECRETS_FILE} has loose permissions. Run: chmod 600 {CENTRAL_SECRETS_FILE}"
         )
     with open(CENTRAL_SECRETS_FILE) as f:
-        return json.load(f)
+        data: dict[str, Any] = json.load(f)
+    return data
 
 
 def _from_file(name: str) -> str | None:
@@ -189,11 +191,14 @@ def _from_file(name: str) -> str | None:
         return None
     data = _read_file_data_checked()
     if name in data:
-        return data[name]
+        value = data[name]
+        return value if isinstance(value, str) else None
     if name == "google_oauth_client_id":
-        return data.get("google_oauth", {}).get("client_id")
+        nested = data.get("google_oauth", {}).get("client_id")
+        return nested if isinstance(nested, str) else None
     if name == "google_oauth_client_secret":
-        return data.get("google_oauth", {}).get("client_secret")
+        nested = data.get("google_oauth", {}).get("client_secret")
+        return nested if isinstance(nested, str) else None
     return None
 
 
@@ -214,8 +219,7 @@ def get_credential(name: str) -> str:
         return fl
 
     raise RuntimeError(
-        f"No credential found for {name!r}. "
-        f"Run: python auth.py set-key {name}"
+        f"No credential found for {name!r}. Run: python -m ergodix.auth set-key {name}"
     )
 
 
@@ -233,17 +237,15 @@ def get_google_oauth_client() -> tuple[str, str]:
 # ─── Per-project Google API service builders (stubs) ────────────────────────
 
 
-def get_drive_service():
+def get_drive_service() -> Any:
     raise NotImplementedError(
         "Drive API access not yet wired up. Mirror mode covers v1 needs. "
         "Implement when Sprint 0 Story 0.3 (comment sync) starts."
     )
 
 
-def get_docs_service():
-    raise NotImplementedError(
-        "Docs API access not yet wired up. Implement with Story 0.3."
-    )
+def get_docs_service() -> Any:
+    raise NotImplementedError("Docs API access not yet wired up. Implement with Story 0.3.")
 
 
 # ─── CLI ────────────────────────────────────────────────────────────────────
@@ -252,8 +254,7 @@ def get_docs_service():
 def _require_keyring() -> None:
     if not _HAS_KEYRING:
         print(
-            "keyring is not installed. Run install_dependencies.sh first, "
-            "or: pip install keyring",
+            "keyring is not installed. Run install_dependencies.sh first, or: pip install keyring",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -265,6 +266,7 @@ def cmd_set_key(name: str) -> None:
         print(f"Unknown key {name!r}. Known: {', '.join(KNOWN_KEYS)}", file=sys.stderr)
         sys.exit(1)
     import getpass
+
     value = getpass.getpass(f"Enter value for {name} (input hidden): ").strip()
     if not value:
         print("Empty value — aborted.", file=sys.stderr)
@@ -288,8 +290,10 @@ def cmd_status() -> None:
         print(f"Backend:         {keyring.get_keyring().__class__.__name__}")
     else:
         print("Backend:         (keyring not installed)")
-    print(f"File fallback:   {CENTRAL_SECRETS_FILE} "
-          f"({'exists' if CENTRAL_SECRETS_FILE.exists() else 'absent'})")
+    print(
+        f"File fallback:   {CENTRAL_SECRETS_FILE} "
+        f"({'exists' if CENTRAL_SECRETS_FILE.exists() else 'absent'})"
+    )
     print()
     print("Credential presence (values never printed):")
     for name in KNOWN_KEYS:
@@ -334,8 +338,9 @@ def cmd_migrate_to_keyring(delete_file: bool) -> None:
         CENTRAL_SECRETS_FILE.unlink()
         print(f"Deleted {CENTRAL_SECRETS_FILE}")
     elif moved:
-        print(f"Original file kept at {CENTRAL_SECRETS_FILE}. "
-              f"Re-run with --delete-file to remove it.")
+        print(
+            f"Original file kept at {CENTRAL_SECRETS_FILE}. Re-run with --delete-file to remove it."
+        )
 
 
 def _main() -> None:

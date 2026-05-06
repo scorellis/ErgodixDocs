@@ -14,12 +14,9 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 import sys
-from pathlib import Path
 
 import pytest
-
 
 # ─── Smoke: module is importable from the package ───────────────────────────
 
@@ -222,7 +219,7 @@ def test_cli_help_runs():
     """`python -m ergodix.auth --help` exits 0 and prints the docstring."""
     import subprocess
 
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         [sys.executable, "-m", "ergodix.auth", "--help"],
         capture_output=True,
         text=True,
@@ -235,7 +232,7 @@ def test_cli_status_runs(fake_keyring, fake_home):
     """`python -m ergodix.auth status` reports presence without printing values."""
     import subprocess
 
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         [sys.executable, "-m", "ergodix.auth", "status"],
         capture_output=True,
         text=True,

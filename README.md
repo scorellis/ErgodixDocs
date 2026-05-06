@@ -43,17 +43,20 @@ Clone one repo, run the installer there, and keep local machine-specific files g
    git clone <your-ergodixdocs-repo-url> ~/Documents/source/ErgodixDocs
    cd ~/Documents/source/ErgodixDocs
    ```
-2. **Run the installer from the repo directory:**
+2. **Run the v1 installer from the repo directory:**
    ```bash
    ./install_dependencies.sh
    ```
    The installer:
    - installs Homebrew, Pandoc, Python, MacTeX/BasicTeX (optional), and Google Drive for Desktop
    - sets up `.venv/` and Python packages (Google API client, Anthropic SDK, etc.)
-   - detects whether Drive is in **Stream** or **Mirror** mode and finds your `My Drive` and `Tapestry of the Mind` paths
+   - detects whether Drive is in **Stream** or **Mirror** mode and finds your `My Drive` and corpus folder paths
    - generates `local_config.py` from `local_config.example.py` with detected paths filled in
    - prepares fallback secrets location at `~/.config/ergodix/secrets.json` (mode 600 when created)
    - **never overwrites** an existing `local_config.py` or `secrets.json`
+
+   **Note**: this v1 installer does *not* run `pip install -e .`, so the `ergodix` console-script command is not registered yet. Use `python -m ergodix.cli …` and `python -m ergodix.auth …` until [Story 0.11](SprintLog.md) ships the new `bootstrap.sh` per [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md) and [ADR 0010](adrs/0010-installer-preflight-consent-gate.md). After that, plain `ergodix` works.
+
 3. **Manual one-time Drive steps** (the script can't automate these):
    - Sign in to Google Drive for Desktop in the menu-bar app.
    - In Drive Preferences, choose **Mirror files** (recommended) or **Stream files**.
@@ -102,14 +105,14 @@ Whenever ErgodixDocs needs an API key, it asks `auth.py`, which resolves in this
    Service name: `ergodix`.
 3. **Fallback file** — `~/.config/ergodix/secrets.json` (mode 600, gitignored by location). Only used if the keyring backend is unavailable. `auth.py` refuses to read this file if its permissions are loosened.
 
-A missing credential raises `RuntimeError` pointing the user at the right `python auth.py set-key …` command.
+A missing credential raises `RuntimeError` pointing the user at the right `python -m ergodix.auth set-key …` command.
 
 ### Storing keys (interactive, hidden input)
 
 ```bash
-python auth.py set-key anthropic_api_key
-python auth.py set-key google_oauth_client_id
-python auth.py set-key google_oauth_client_secret
+python -m ergodix.auth set-key anthropic_api_key
+python -m ergodix.auth set-key google_oauth_client_id
+python -m ergodix.auth set-key google_oauth_client_secret
 ```
 
 Each command prompts for the value with hidden input (no shell history, no `ps` exposure) and stores it in your OS keyring under service `ergodix`.
@@ -119,7 +122,7 @@ Each command prompts for the value with hidden input (no shell history, no `ps` 
 ### Inspecting state (without revealing values)
 
 ```bash
-python auth.py status
+python -m ergodix.auth status
 ```
 
 Shows:
@@ -130,9 +133,9 @@ Shows:
 ### Other commands
 
 ```bash
-python auth.py delete-key <name>            # remove a key from the keyring
-python auth.py migrate-to-keyring           # move keys from secrets.json into the keyring
-python auth.py migrate-to-keyring --delete-file   # …and delete the fallback file
+python -m ergodix.auth delete-key <name>            # remove a key from the keyring
+python -m ergodix.auth migrate-to-keyring           # move keys from secrets.json into the keyring
+python -m ergodix.auth migrate-to-keyring --delete-file   # …and delete the fallback file
 ```
 
 ### Per-project OAuth tokens

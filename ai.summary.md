@@ -1,65 +1,70 @@
 # AI Session Summary
 
-## 2026-05-03 (end-of-day)
+## 2026-05-06 (end-of-late-night-session)
 
 ### Prompt To Resume Conversation
 
 You are an AI in the ErgodixDocs workspace. Continue from this saved state.
 
 **Project intent:**
-- ErgodixDocs is a tool for any author who writes Ergodic-text fiction. It uses AI as architectural co-author and continuity engine.
+- ErgodixDocs is a tool for any author who writes Ergodic-text fiction. AI as architectural co-author + continuity engine.
 - AI's role is **Architectural Analysis only** — never edits prose chapters; tracks plotlines, flags plot holes, builds summaries/storyboards, supports worldbuilding.
 
-**Architecture phase (Story 0.8) is DONE as of 2026-05-03.** ADRs 0001–0008 and spikes 0001–0006 merged to main. Don't revisit unless explicitly asked.
+**Architecture phase complete.** ADRs 0001–0010 and Spikes 0001–0008 are merged on `main`. Don't revisit unless explicitly asked.
 
 **Locked architectural decisions (read these in `adrs/` to fully load context):**
 
 - **ADR 0001** — Click subcommand groups, plugin registries (later collapsed by 0005).
-- **ADR 0002** — Two-repo topology: public `ErgodixDocs` (tooling) + private corpus repo (per opus). Editor sections later partly superseded by 0006.
-- **ADR 0003** — Cantilever bootstrap orchestrator with 22 operations. Idempotent. Abort-fast with detailed remediation. Connectivity auto-detected. Settings paths simplified by 0005.
-- **ADR 0004** — Continuous polling job (every 5 min, persona-aware, no-op when offline). LaunchAgent on macOS for v1.
-- **ADR 0005** — All roles as floaters in single registry. `--writer`, `--editor`, `--developer`, `--publisher`, `--focus-reader`, plus behavior floaters (`--dry-run`, `--verbose`, `--ci`). focus-reader is mutex with the others via declarative `exclusive_with`. Multi-corpus container named **opus** (plural **opera**).
-- **ADR 0006** — Editor collaboration via sliced git repos with baseline-tracked resync. Master + per-editor slice repos. `ergodix publish` / `ergodix ingest`. Signed commits required.
-- **ADR 0007** — `bootstrap.sh` (macOS/Linux) + `bootstrap.ps1` (Windows). Each prereq op is an importable Python module exposing `def check() -> CheckResult`. `pyproject.toml` console-script entry registers `ergodix` on PATH.
-- **ADR 0008** — `ergodix sync` rename: `sync-out` (editor save) + `sync-in` (poller fetch). `local_config.py` (per-machine, gitignored) vs `settings/*.toml` (per-repo, committed) ownership rule. Auto-fix iterative bound (one retry, no recursion). ruff + mypy adopted.
+- **ADR 0002** — Two-repo topology (later partly superseded by 0006).
+- **ADR 0003** — Cantilever bootstrap orchestrator with 25 operations (later refined by 0010).
+- **ADR 0004** — Continuous polling job (every 5 min, persona-aware, no-op when offline).
+- **ADR 0005** — All roles as floaters in single registry. `--writer`, `--editor`, `--developer`, `--publisher`, `--focus-reader`. Multi-corpus container named "opus" (plural "opera").
+- **ADR 0006** — Editor collaboration via sliced git repositories with baseline-tracked resync.
+- **ADR 0007** — Bootstrap scripts (sh + ps1), prereqs as importable Python modules, console-script entry in pyproject.toml.
+- **ADR 0008** — `ergodix sync` rename to `sync-out`/`sync-in`; local_config vs settings/* ownership rule; ruff + mypy adopted.
+- **ADR 0009** — CI workflow + dependency-pin policy. Locked vs latest two-job CI; uv as lockfile tool; reactive capping pre-Story-0.7, proactive capping post-Story-0.7.
+- **ADR 0010** — Pre-flight scan + consent gate + apply + verify four-phase installer model. Replaces `check() -> CheckResult` from ADR 0007 with separate `inspect()` and `apply()` per prereq.
+
+**Branch model**: trunk-based. Only `main` plus feature branches.
 
 **Format decisions (Story 0.2, locked):**
-
-- Pandoc Markdown + raw LaTeX passthrough.
-- `.md` extension with mandatory YAML frontmatter (`format: pandoc-markdown`, `pandoc-extensions: [...]`).
-- One `.md` file per Chapter (smallest creative unit).
-- LaTeX preamble cascade: optional `_preamble.tex` at every folder level (Epoch / Compendium / Book / Section); render walks up the tree, concatenates most-general-first.
-- Three scopes for font/style changes: inline (`{\fontfamily{...}\selectfont ...}`), per-chapter (frontmatter `extra-preamble:`), per-folder (`_preamble.tex`).
+- Pandoc Markdown + raw LaTeX passthrough; `.md` extension with mandatory YAML frontmatter (`format: pandoc-markdown`).
+- One `.md` file per Chapter.
+- LaTeX preamble cascade: optional `_preamble.tex` at every folder level; render walks up the tree, concatenates most-general-first.
 - Render pipeline: Pandoc → XeLaTeX → PDF.
 
-**Branch model:** trunk-based. Only `main` plus feature branches. `develop` was deleted 2026-05-03; we'll reintroduce when there are outside contributors. PR-then-merge via the GitHub web UI (gh CLI is broken on user's machine due to corporate integration; will be addressed Monday).
+**Pacing**: ~1 year of private development by author (`--writer --developer` floater combination) before inviting other authors.
 
-**Distribution / pacing:**
+**Working partnership norms** (now in CLAUDE.md):
+- Push back on principle violations in one sentence; let user decide.
+- Late-arriving principles are normal — apply forward, accept rework.
+- Course corrections cost cycles but are healthy; capture in the right doc.
+- The persistent record (CLAUDE.md, ADRs, spikes, WorkingContext, ai.summary) is how partnership survives sessions. Capture insights before moving on.
+- **Always ask before pushing to remote.**
 
-- Tool naming is generic ("ergodix"); the corpus name "tapestry" should not bleed into the tool surface.
-- Author intends ~1 year of private development in `--writer --developer` floater combination before inviting other authors. Story 0.7 (intuitive installers, app-store packaging) covers eventual non-technical onboarding; not urgent.
+**Where work paused (2026-05-06 early morning):**
 
-**Where work paused (2026-05-03 evening):**
+- On branch `feature/installer-redesign`. **Story 0.11 (installer redesign per ADR 0010) in flight.**
+- **7 commits pushed to origin.** Should be reviewed by Copilot before adding more code on top.
+- Implementation completed: prereq types (`InspectResult`, `ApplyResult`), cantilever phases 1–4 with sudo grouping, abort-fast, verify-on-no-changes, op_id uniqueness, PATH-derived ergodix smoke, local_config sanity check.
+- Two Copilot reviews already absorbed and addressed in-branch.
+- **Tests: 110 passing, 1 skipped. Coverage 75%. ruff + mypy strict clean.**
 
-- On branch `feature/test-scaffolding`. **Story 0.10 (TDD scaffolding) is in flight.**
-- One commit landed locally on this branch (not yet pushed): `pyproject.toml` + `ergodix/` package skeleton with `auth.py` and `version.py` moved in + `tests/` with conftest + test_version + test_auth.
-- **22 tests pass, 1 skipped** (PEP 440 strict-version test gated until 1.0).
-- **Bug found and fixed during TDD red phase**: `auth.py` was resolving `Path.home()` at import time, baking module-level constants. Tests that monkeypatch HOME got stale values. Fixed via `_LazyPath` descriptor that evaluates `Path.home()` on attribute access.
-- `.venv` was recreated with Python 3.13.12 (system Python 3.9.6 was too old for `>=3.11`).
-- `.gitignore` extended for `*.egg-info`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.coverage`, `htmlcov`.
+**Story 0.11 remaining steps:**
 
-**Story 0.10 remaining work:**
-
-- Stub failing tests for every planned module (~40 test files): cli, cantilever, 22 prereqs, 8 floaters, 2 importers, publish, ingest, connectivity, runrecord.
-- Confirm all stubbed tests are RED for the right reasons.
-- Begin GREEN phase: minimal implementations, smallest module first.
-
-**Open architectural concern**: ADR 0009 (CI workflow design) — lint, typecheck, test, coverage, multi-platform matrix, what blocks merge. Story 0.10's CI task waits on this. Decide whether to write ADR 0009 first or stub more tests first when work resumes.
+- **Step 3** (next): First real prereq — `ergodix/prereqs/check_platform.py` (A1, simplest of the 25 ops). Validates inspect/apply contract against real code. Smallest piece next.
+- **Step 4**: Wire `ergodix cantilever` Click subcommand to `run_cantilever()`.
+- **Step 5**: Thin `bootstrap.sh` (and `bootstrap.ps1` later) + integration smoke test in fresh deploy directory.
+- **Step 6**: Remaining 24 prereqs — cookie-cutter against the established pattern.
 
 **Tomorrow's first move:**
 
-1. Push `feature/test-scaffolding` (1 commit) to remote for review.
-2. Decide: stub more tests vs. draft ADR 0009 (CI design).
-3. Continue Story 0.10 work toward GREEN phase.
+1. Open PR for `feature/installer-redesign` against `main` (7 commits).
+2. Ask Copilot for a third review of this branch — prior two each caught real bugs; marginal value of another review remains high.
+3. Absorb findings, then begin Story 0.11 step 3 (`check_platform.py`).
 
-Please start by asking the user whether they want to (a) keep stubbing failing tests for the unimplemented modules, or (b) draft ADR 0009 first, before resuming work. Then proceed accordingly.
+Please start by asking the user whether they want to (a) wait for Copilot's review of the now-pushed branch before continuing, or (b) start step 3 in parallel. Then proceed accordingly.
+
+Important context:
+- `.claude/settings.json` was added with read-only auto-allows for `pytest`, `ruff check`, `ruff format --check`, `mypy` to reduce permission prompts during long Bash-heavy sessions.
+- `.claude/settings.local.json` has a stale `chmod +x deploy.sh` entry (deploy.sh was deleted weeks ago); harmless but worth cleaning up.

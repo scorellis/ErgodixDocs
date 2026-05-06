@@ -25,14 +25,19 @@ from ergodix.version import __version__
 
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name="ergodix")
-@click.option("--writer", "writer", is_flag=True, help="Writer role floater (placeholder; see ADR 0005).")
-@click.option("--editor", "editor", is_flag=True, help="Editor role floater (placeholder).")
-@click.option("--developer", "developer", is_flag=True, help="Developer floater (placeholder).")
-@click.option("--publisher", "publisher", is_flag=True, help="Publisher floater (placeholder).")
-@click.option("--focus-reader", "focus_reader", is_flag=True, help="Focus-reader floater (mutex with the others).")
-@click.option("--dry-run", "dry_run", is_flag=True, help="Behavior modifier (placeholder).")
-@click.option("--verbose", "verbose", is_flag=True, help="Behavior modifier (placeholder).")
-@click.option("--ci", "ci", is_flag=True, help="Behavior modifier — non-interactive (placeholder).")
+@click.option("--writer", "writer", is_flag=True, help="Writer role floater (see ADR 0005).")
+@click.option("--editor", "editor", is_flag=True, help="Editor role floater.")
+@click.option("--developer", "developer", is_flag=True, help="Developer floater.")
+@click.option("--publisher", "publisher", is_flag=True, help="Publisher floater.")
+@click.option(
+    "--focus-reader",
+    "focus_reader",
+    is_flag=True,
+    help="Focus-reader floater (mutex with the others).",
+)
+@click.option("--dry-run", "dry_run", is_flag=True, help="Preview only.")
+@click.option("--verbose", "verbose", is_flag=True, help="Detailed output.")
+@click.option("--ci", "ci", is_flag=True, help="Non-interactive mode.")
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -78,7 +83,13 @@ def cantilever_cmd() -> None:
 
 
 @main.command(name="migrate")
-@click.option("--from", "from_", type=str, required=True, help="Importer name (e.g. gdocs, scrivener).")
+@click.option(
+    "--from",
+    "from_",
+    type=str,
+    required=True,
+    help="Importer name (e.g. gdocs, scrivener).",
+)
 def migrate_cmd(from_: str) -> None:
     """Import an existing corpus (ADR 0001). Not yet implemented."""
     _not_yet_implemented(f"migrate --from {from_}")

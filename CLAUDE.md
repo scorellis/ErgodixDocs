@@ -50,8 +50,8 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - **CLI framework**: Click subcommand groups. Console-script entry in `pyproject.toml` registers `ergodix` on PATH.
 - **Roles as floaters**: `--writer`, `--editor`, `--developer`, `--publisher`, `--focus-reader`. Composable. `focus-reader` is mutex with the others. Behavior floaters: `--dry-run`, `--verbose`, `--ci`.
 - **Plugin registries**: `ergodix/floaters/`, `ergodix/importers/`, `ergodix/prereqs/`. Adding a new entry = drop a file. No central enum.
-- **Cantilever**: 25-operation orchestrator (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2). Idempotent. Abort-fast with detailed remediation. Connectivity auto-detected.
-- **Auto-fix iterative bound**: at most one retry per operation. Recursion is forbidden.
+- **Cantilever**: 25-operation orchestrator (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2). Four-phase execution per [ADR 0010](adrs/0010-installer-preflight-consent-gate.md): inspect (read-only) → plan + single consent gate → apply (mutative, with grouped sudo) → verify (smoke checks). Idempotent. Abort-fast with detailed remediation. Connectivity auto-detected.
+- **Prereq contract** (per ADR 0010): each prereq module exposes `inspect() -> InspectResult` (read-only) and `apply() -> ApplyResult` (mutative). The earlier `check() -> CheckResult` contract from ADR 0007 is partially superseded; `auto_fix` callable is removed entirely (every mutative action goes through consent).
 - **Auth**: three-tier credential lookup — env var → OS keyring (service `ergodix`) → fallback file `~/.config/ergodix/secrets.json` (mode 600).
 - **Scopes**: `drive.readonly` and `documents.readonly` only. Broader scopes require an explicit ADR.
 - **Repo topology**: public `ErgodixDocs` (tooling) + private corpus repo per opus + per-editor slice repos (signed commits, baseline-tracked resync via `ergodix publish` / `ergodix ingest`).
@@ -107,6 +107,7 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 
 - **Proceed**: any tested change that satisfies an existing ADR or SprintLog task.
 - **Ask**: any change that conflicts with an ADR (would require supersession), introduces a new dependency, or expands scope beyond the current story.
+- **Always ask before pushing to remote.** Local commits are fine; pushes go through user approval every time. The user may have reasons (timing, account context, work boundaries) for wanting visibility into when public-repo activity happens.
 - **Always ask**: anything destructive (force-push, branch deletion, history rewrite). Never run a destructive git command without explicit user approval.
 
 ## Communication norms with the user
@@ -116,3 +117,12 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - Lead with the recommendation; offer alternatives only when load-bearing.
 - When the user asks "what next?", propose a concrete next step rather than restating options.
 - If you're not sure, say so. Don't manufacture confidence.
+
+## Working partnership norms
+
+The collaboration on this project is treated as a partnership, not a transactional service. A few norms keep that healthy:
+
+- **Push back on principle violations.** When the user directs an action that contradicts a CLAUDE.md rule or a locked ADR, name the conflict in one sentence and let the user decide. Don't lecture. "I'm violating it on purpose, here's why" is a fine answer — the check is just that both parties know.
+- **Late-arriving principles are normal.** A working principle (like TDD-first) might be declared partway through a story, after some code has already shipped without it. Apply the principle forward and accept that prior code may need rework. Capture the "why now" in a doc edit so the rationale survives.
+- **Course corrections cost cycles but are healthy.** Reopening a topic mid-discussion, introducing a new concern, switching priorities mid-implementation — all expected. Absorb the change; capture it in the right doc (spike for design discussion, ADR for locked decisions, SprintLog for story re-prioritization). Future readers should see the reasoning, not just the result.
+- **The persistent record is how partnership survives sessions.** Each new AI session rebuilds context from CLAUDE.md, the ADRs, the spikes, WorkingContext.md, and ai.summary.md. Treat additions to those documents as durable. Treat the conversation itself as ephemeral. Capture insights *before* moving on.
