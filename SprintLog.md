@@ -250,8 +250,44 @@ Tasks:
   - [ ] All choices (MacTeX option, Drive launch) move into the phase 2 plan, not mid-execute
   - [ ] `HOMEBREW_NO_AUTO_UPDATE=1` set for cantilever's brew calls
   - [ ] Final next-steps message generated from the run record, not hardcoded
-- [ ] Re-run cantilever in `~/Documents/Scorellient/Applications/ErgodixDocs/` to validate. Should produce a working install with `ergodix` on PATH and `pytest` passing — without manual intervention.
-- [ ] Update CHANGELOG `[Unreleased]` with the contract change and refer to ADR 0010.
+- [x] Re-run cantilever in `~/Documents/Scorellient/Applications/ErgodixDocs/` to validate. Should produce a working install with `ergodix` on PATH and `pytest` passing — without manual intervention. **[DONE 2026-05-07]** — three self-smokes after C4 / consent fix / C5 commits, all green; placeholder `<YOUR-CORPUS-FOLDER>` correctly substitutes for the original "Tapestry of the Mind" hardcode.
+- [x] Update CHANGELOG `[Unreleased]` with the contract change and refer to ADR 0010. **[DONE 2026-05-07]** — running entries kept in sync per commit.
+
+#### Story 0.11 phase 2 — implementation plan (2026-05-07, from `Plan` subagent)
+
+**Recommended next 3 (in order):**
+
+1. **C1 — `gh auth login`** — highest value to the Installer persona: clone (C2) and editor signing (D6) both block on it. Idempotency cheap (`gh auth status` exit code). Network-only, no admin. The interactive `gh auth login` itself is a subprocess hand-off, not a mid-flow prompt — fits the apply contract cleanly.
+2. **C2 — clone corpus repo** — direct successor to C1; together they unblock the entire C-tier. Trivial idempotency (`.git` dir present). Pure subprocess + path check, no admin. Ships momentum.
+3. **A2 — install / verify Homebrew** — gateway dependency for A3, A4, A7, B1. Well-known idempotent check (`brew --version`). First Tier-2 op; landing it proves the network/admin pattern that the next four installers will copy.
+
+Rationale: C1+C2 are short and high-leverage and unblock the most downstream ops. A2 then opens the entire A-tier without yet committing to MacTeX (the gnarliest install).
+
+**Complexity tiers (22 remaining ops):**
+
+- **Tier 1 — trivial / cookie-cutter (C4/C5 shape):** C2, C3, D1, D2, D4, F2.
+- **Tier 2 — network / package-install:** A2, A3, A4, A5, A6, A7, B1, D3.
+- **Tier 3 — interactive / cross-cutting:** C1, C6, D6, C3.
+- **Tier 4 — persona-gated / orchestration:** D5, B2, E1, E2, F1.
+
+**Key dependencies:**
+
+- A2 → A3, A4, A7, B1 (brew is the installer)
+- A5 → A6 (venv before pip)
+- C1 → C2, D6 (auth before clone, before pushing signing key to GitHub)
+- C5 → C6 (dir before secrets file)
+- C4 → B2 (B2 patches the generated `local_config.py`)
+
+**Design decisions to resolve before phase-2 implementation:**
+
+- **C3 (git config interactive)** — does `apply()` prompt mid-flow for name/email, or surface `git config --global ...` as `proposed_action` for the user to run manually? ADR 0010 consent gate suggests the latter.
+- **C6 (credential prompts)** — same question scaled: looping `getpass` prompts inside `apply()` violates the "consent gate already happened" model. Likely needs a sub-contract or moves to a post-apply interactive phase.
+- **A4 (MacTeX vs BasicTeX)** — which does default Installer get? 4GB vs 100MB. Settings flag in `bootstrap.toml`?
+- **D6 (editor signing key)** — needs `gh api` write scope; does C1's auth flow request it, or does D6 re-auth?
+- **F1** — is this a prereq module at all, or orchestrator code in `cantilever.py`? ADR 0010 frames inspect/apply as per-op; F1 is meta.
+- **`needs_admin` escalation semantics** — `ApplyResult` has no admin-escalation field. How does A4/B1 surface a sudo prompt mid-apply?
+
+These should be addressed in a short spike or ADR before phase-2 work begins, NOT discovered ad-hoc per prereq.
 
 ### Story 0.10 - Test-driven development scaffolding **[IN FLIGHT — branch `feature/test-scaffolding`; PAUSED until Story 0.11 lands]**
 
