@@ -98,7 +98,7 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - **`CLAUDE.md`** (this file): persistent conventions for AI sessions. Steady-state, not session-specific.
 - **`WorkingContext.md`**: running session log. Updated when sessions pause or pivot.
 - **`ai.summary.md`**: resume prompt for the next AI session. Re-written every time work pauses for the day.
-- **`SprintLog.md`**: SVRAT stories (So that, Value, Risk, Assumptions, Tasks). Sprint planning + status.
+- **`SprintLog.md`**: ASVRAT stories (As a [persona], So that, Value, Risk, Assumptions, Tasks). The "As a" lead-in names the floater/persona perspective the story serves (writer, editor, developer, publisher, focus-reader, or a system actor like "the cantilever orchestrator"). Stories without a meaningful persona may omit the "A" line and fall back to SVRAT, but persona-driven stories must lead with it. Sprint planning + status.
 - **`CHANGELOG.md`**: Keep-a-Changelog format. `[Unreleased]` section gets the in-flight work; release entries get added at version bumps.
 - **`Hierarchy.md`**: the narrative-content model (EPOCH → Compendium → Book → Section → Chapter).
 - **`docs/`**: external-facing reference docs (`gcp-setup.md`, `comments-explained.md`, future `vscode-setup.md`).
