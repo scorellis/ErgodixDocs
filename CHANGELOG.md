@@ -23,6 +23,7 @@ Versioning policy: while the tool is pre-1.0, **0.MINOR.PATCH** — minor bumps 
 - `ergodix/prereqs/types.py` — `InspectResult` and `ApplyResult` dataclasses per ADR 0010.
 - `ergodix/prereqs/check_platform.py` — first real prereq (operation A1), validating the inspect/apply contract against running code.
 - `ergodix/prereqs/check_local_config.py` — operation C4: bootstraps `local_config.py` from `local_config.example.py` at the repo root, preserving an existing file (never overwrites). Sets mode 0o600. First mutative prereq with real behavior; closes the smoke-test verify gap surfaced on 2026-05-07.
+- `ergodix/prereqs/check_credential_store.py` — operation C5: ensures `~/.config/ergodix/` exists with mode 0o700 (the file-fallback tier of auth.py's three-tier credential lookup). Three inspect outcomes: `ok` (dir present at 0o700), `needs-update` (dir present but mode wider — apply chmods to 0o700), `needs-install` (dir absent — apply mkdir + chmod). Idempotent. Per ADR 0003, the matching `secrets.json` template is auth.py's concern (auto-created when the user saves a credential via the file fallback); C5's job is the directory + mode invariant only.
 - `ergodix cantilever` CLI subcommand wired to `run_cantilever()`.
 
 ### Changed

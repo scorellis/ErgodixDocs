@@ -16,15 +16,20 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from ergodix.prereqs import check_local_config, check_platform
+from ergodix.prereqs import (
+    check_credential_store,
+    check_local_config,
+    check_platform,
+)
 from ergodix.prereqs.types import ApplyResult, InspectResult
 
-# Registration order = cantilever execution order. A1 first (platform
-# detection halts early on unsupported systems), then C4 (bootstrap
-# local_config.py — the only other prereq implemented today).
+# Registration order = cantilever execution order. A1 (platform) runs
+# first because it halts cantilever on unsupported systems; the C-tier
+# prereqs (repo + auth scaffolding per ADR 0003) follow.
 _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
     check_local_config,
+    check_credential_store,
 ]
 
 

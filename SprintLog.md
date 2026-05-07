@@ -240,7 +240,7 @@ Tasks:
 - [x] **Inspect-failed first-class outcome** (Copilot review 2026-05-05 finding #2) — failed inspects no longer disappear into no-changes-needed or get rewritten to deferred-offline. **[DONE 2026-05-06]**
 - [x] **op_id uniqueness validation** at run_cantilever entry (Copilot finding #3) — duplicate op_ids raise ValueError before any work happens. **[DONE 2026-05-06]**
 - [x] **Verify runs on no-changes-needed path** (Copilot finding #5) — catches false greens from a too-permissive inspect. **[DONE 2026-05-06]**
-- [ ] For each of the 25 cantilever operations from ADR 0003, write the corresponding `ergodix/prereqs/check_<op>.py` with split `inspect()` / `apply()` functions. Tests come first per CLAUDE.md TDD norm. **Progress: A1 (platform) + C4 (local_config bootstrap) landed; 23 remaining as of 2026-05-07.**
+- [ ] For each of the 25 cantilever operations from ADR 0003, write the corresponding `ergodix/prereqs/check_<op>.py` with split `inspect()` / `apply()` functions. Tests come first per CLAUDE.md TDD norm. **Progress: A1 (platform) + C4 (local_config bootstrap) + C5 (credential-store dir) landed; 22 remaining as of 2026-05-07.**
 - [ ] Address every gap from Spike 0008's intel:
   - [ ] `pip install -e .` is an explicit phase-3 step
   - [ ] Python ≥3.11 enforced in inspect; plan adds Homebrew python@3.13 install if missing
