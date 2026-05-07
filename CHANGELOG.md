@@ -22,12 +22,15 @@ Versioning policy: while the tool is pre-1.0, **0.MINOR.PATCH** — minor bumps 
 - Story 0.11 cantilever orchestrator (`ergodix/cantilever.py`): four-phase execution per ADR 0010 — inspect → plan + consent → apply (with grouped sudo + abort-fast remediation) → verify (smoke checks: package import, ergodix-script-on-PATH, local_config sanity).
 - `ergodix/prereqs/types.py` — `InspectResult` and `ApplyResult` dataclasses per ADR 0010.
 - `ergodix/prereqs/check_platform.py` — first real prereq (operation A1), validating the inspect/apply contract against running code.
+- `ergodix/prereqs/check_local_config.py` — operation C4: bootstraps `local_config.py` from `local_config.example.py` at the repo root, preserving an existing file (never overwrites). Sets mode 0o600. First mutative prereq with real behavior; closes the smoke-test verify gap surfaced on 2026-05-07.
 - `ergodix cantilever` CLI subcommand wired to `run_cantilever()`.
 
 ### Changed
 - `auth.py` central paths now resolve `Path.home()` lazily via a `_LazyPath` descriptor (bug found during TDD: tests that monkeypatched HOME got stale paths because module-level constants resolved at import time).
 - Branch model simplified to trunk-based on 2026-05-03 — `develop` deleted; only `main` plus feature branches.
 - **`install_dependencies.sh` replaced by `bootstrap.sh`** (per ADR 0007 + ADR 0010). The new script does only: locate a Python ≥3.11 interpreter, create `.venv`, `pip install -e ".[dev]"`, hand off to `ergodix cantilever`. Everything the old monolith did inline (Pandoc / MacTeX / Drive / VS Code extensions / `local_config.py` generation) moves into the cantilever orchestrator's inspect/plan/apply/verify phases. The `ergodix` console-script is now on PATH after first run.
+- Cantilever's inspect-failed branch now emits a user-facing message (which prereqs failed and their `current_state`) before halting. Previously silent — a `verify-failed` -style outcome with no surfacing of *what* failed. Surfaced during 2026-05-07 self-smoke at the test deploy directory.
+- `tests/test_cli.py::test_cantilever_no_args_invokes_orchestrator` removed and replaced by two focused, host-state-controlled tests (`test_cantilever_inspect_failed_exits_1`, `test_cantilever_consent_declined_exits_0`). The old test asserted `exit_code in (0, 1)` — too permissive to catch a real wiring regression.
 
 ### Removed
 - Stale `feature/gcp-setup-playbook` branch (content was cherry-picked to a fresh branch off post-architecture main; original branch had become unmergeable).

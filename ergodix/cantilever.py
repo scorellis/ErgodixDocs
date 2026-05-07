@@ -473,6 +473,11 @@ def run_cantilever(
     # silently fall through to no-changes-needed (because needs_action is
     # False) or be rewritten to deferred-offline.
     if any(ir.status == "failed" for ir in inspect_results):
+        output_fn("\nInspect phase found unresolvable issues:")
+        for ir in inspect_results:
+            if ir.status == "failed":
+                output_fn(f"  ✗ {ir.op_id} — {ir.description}: {ir.current_state}")
+        output_fn("Cantilever halted before any changes were made.")
         return CantileverResult(
             outcome="inspect-failed",
             inspect_results=inspect_results,

@@ -17,6 +17,7 @@ The CLI is deliberately a stub today. These tests assert the *contract*:
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -151,19 +152,39 @@ def test_cantilever_dry_run_exits_zero(runner: CliRunner) -> None:
     assert result.exit_code == 0
 
 
-def test_cantilever_no_args_invokes_orchestrator(runner: CliRunner) -> None:
+def test_cantilever_inspect_failed_exits_1(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """
-    `cantilever` without --dry-run runs the real orchestrator. With only
-    check_platform registered today, on any supported host (macOS / Linux
-    / Windows), inspect returns ok and the plan is empty. Verify runs
-    against defaults — exit code 0 means success path; exit code 1 means
-    a real check (e.g. local_config.py sanity) caught a real issue.
+    Running cantilever in a directory with no ``local_config.example.py``
+    drives C4's inspect to ``failed`` (broken-repo state). Cantilever
+    halts via the inspect-failed path; cli.py maps that to exit 1.
 
-    We assert exit_code is 0 OR 1 (the only outcomes the wiring should
-    produce); a non-zero exit code other than 1 indicates a wiring bug.
+    Pins the cli.py exit-code mapping for verify/inspect-failure outcomes,
+    which the prior ``in (0, 1)`` assertion was too loose to catch.
     """
+    monkeypatch.chdir(tmp_path)  # empty dir → C4 inspect fails
+
     result = runner.invoke(main, ["--writer", "cantilever"])
-    assert result.exit_code in (0, 1)
+
+    assert result.exit_code == 1
+    assert "C4" in result.output or "local_config" in result.output.lower()
+
+
+def test_cantilever_consent_declined_exits_0(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Plan presented + user declines consent. cli.py treats
+    ``consent-declined`` as a clean exit (the user explicitly said no
+    changes; that's not a failure).
+    """
+    (tmp_path / "local_config.example.py").write_text("# template\n")
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(main, ["--writer", "cantilever"], input="n\n")
+
+    assert result.exit_code == 0
 
 
 def test_cantilever_focus_reader_dry_run(runner: CliRunner) -> None:
