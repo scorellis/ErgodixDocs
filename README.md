@@ -43,24 +43,20 @@ Clone one repo, run the installer there, and keep local machine-specific files g
    git clone <your-ergodixdocs-repo-url> ~/Documents/source/ErgodixDocs
    cd ~/Documents/source/ErgodixDocs
    ```
-2. **Run the v1 installer from the repo directory:**
+2. **Run the bootstrap script from the repo directory:**
    ```bash
-   ./install_dependencies.sh
+   ./bootstrap.sh
    ```
-   The installer:
-   - installs Homebrew, Pandoc, Python, MacTeX/BasicTeX (optional), and Google Drive for Desktop
-   - sets up `.venv/` and Python packages (Google API client, Anthropic SDK, etc.)
-   - detects whether Drive is in **Stream** or **Mirror** mode and finds your `My Drive` and corpus folder paths
-   - generates `local_config.py` from `local_config.example.py` with detected paths filled in
-   - prepares fallback secrets location at `~/.config/ergodix/secrets.json` (mode 600 when created)
-   - **never overwrites** an existing `local_config.py` or `secrets.json`
+   `bootstrap.sh` is intentionally minimal (per [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md)): it finds a Python ≥3.11 interpreter, creates `.venv/`, runs `pip install -e ".[dev]"` so the `ergodix` console-script lands on PATH, and hands off to `ergodix cantilever`.
 
-   **Note**: this v1 installer does *not* run `pip install -e .`, so the `ergodix` console-script command is not registered yet. Use `python -m ergodix.cli …` and `python -m ergodix.auth …` until [Story 0.11](SprintLog.md) ships the new `bootstrap.sh` per [ADR 0007](adrs/0007-bootstrap-prereqs-cli-entry.md) and [ADR 0010](adrs/0010-installer-preflight-consent-gate.md). After that, plain `ergodix` works.
+   `ergodix cantilever` then runs the four-phase orchestrator from [ADR 0010](adrs/0010-installer-preflight-consent-gate.md): **inspect** the system (read-only) → show a **plan** and ask for consent once → **apply** the changes (admin password requested at most once) → **verify** the install with smoke checks. Pandoc, MacTeX, Google Drive for Desktop, `local_config.py` generation, the credential-store layout, and VS Code extension installs all happen here, not in `bootstrap.sh`.
 
-3. **Manual one-time Drive steps** (the script can't automate these):
+   `bootstrap.sh` is re-runnable: a second run is fast when the venv already exists and cantilever's inspect phase reports everything as already-satisfied. Pass `--dry-run` to preview without applying, `--ci` to bypass the consent prompt for non-interactive use.
+
+3. **Manual one-time Drive steps** (cantilever surfaces the prompt; sign-in itself is outside the script):
    - Sign in to Google Drive for Desktop in the menu-bar app.
    - In Drive Preferences, choose **Mirror files** (recommended) or **Stream files**.
-   - Re-run `./install_dependencies.sh` once Drive is signed in if paths weren't detected on the first pass.
+   - Re-run `./bootstrap.sh` once Drive is signed in if paths weren't detected on the first pass.
 
 ### Daily workflow
 
@@ -74,7 +70,7 @@ Clone one repo, run the installer there, and keep local machine-specific files g
 ### What's tracked vs. ignored
 
 **Tracked in git** (safe for GitHub):
-- `install_dependencies.sh`, `auth.py`
+- `bootstrap.sh`, `ergodix/auth.py`
 - `local_config.example.py` (template, only `Path.home()`-relative defaults — no real values)
 - `README.md`, `Hierarchy.md`, `WorkingContext.md`, `SprintLog.md`, `ai.summary.md`
 - Future tooling code

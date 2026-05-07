@@ -233,7 +233,7 @@ Assumptions: the four-phase model (inspect → plan + consent → apply → veri
 **Why elevated above remaining Story 0.10 work:** the prereq-module contract changes from `check() -> CheckResult` (ADR 0007) to separate `inspect()` and `apply()` (ADR 0010). Test stubs written against the old contract would have to be rewritten. Doing Story 0.11 first means Story 0.10's remaining stub work targets the correct contract.
 
 Tasks:
-- [ ] Rewrite `install_dependencies.sh` to a minimal `bootstrap.sh` (and `bootstrap.ps1`) that does only: detect Python ≥3.11, create `.venv` with it, `pip install -e ".[dev]"`, run `ergodix cantilever`. Per ADR 0007.
+- [x] Rewrite `install_dependencies.sh` to a minimal `bootstrap.sh` that does only: detect Python ≥3.11, create `.venv` with it, `pip install -e ".[dev]"`, run `ergodix cantilever`. Per ADR 0007. **[DONE 2026-05-06]** `bootstrap.ps1` deferred to a follow-up step.
 - [ ] Define `InspectResult` and `ApplyResult` dataclasses in `ergodix/prereqs/types.py` per ADR 0010.
 - [x] Implement `ergodix/cantilever.py` with the four-phase orchestrator: inspect → plan + consent → apply (with grouped sudo) → verify. **[DONE 2026-05-06]**
 - [x] Implement the verify-phase smoke checks: import package, `ergodix --version` (interpreter-dir-derived path), `local_config.py` sanity (mode 600 + non-empty CORPUS_FOLDER). pytest verify check is conditional on `--developer` floater and lands when that floater's adds_operations are wired. **[DONE 2026-05-06]**
