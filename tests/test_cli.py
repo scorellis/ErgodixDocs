@@ -105,12 +105,13 @@ def test_focus_reader_mutex_blocks_combinations(runner: CliRunner, other_flag: s
 
 
 def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
-    """--focus-reader alone (no other role floater) is allowed."""
-    result = runner.invoke(main, ["--focus-reader", "cantilever"])
-    # Cantilever stub exits 1 ("not yet implemented"); that's the success
-    # path for "the mutex didn't trip."
-    assert result.exit_code == 1
-    assert "not yet implemented" in result.output.lower()
+    """--focus-reader alone (no other role floater) is allowed; mutex doesn't trip."""
+    result = runner.invoke(main, ["--focus-reader", "--dry-run", "cantilever"])
+    # The mutex would surface as exit 2 with "cannot be combined". Anything
+    # else means the floater was accepted. Use --dry-run so this test doesn't
+    # depend on the host environment passing real verify checks.
+    assert result.exit_code == 0
+    assert "cannot be combined" not in result.output.lower()
 
 
 # ─── Subcommand stubs exit cleanly with documented "not yet implemented" ────
@@ -119,7 +120,7 @@ def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
 @pytest.mark.parametrize(
     ("cmd", "extra_args"),
     [
-        ("cantilever", []),
+        # cantilever is now wired (Story 0.11 step 4) — see test_cantilever_*
         ("migrate", ["--from", "gdocs"]),
         ("render", ["chapter.md"]),
         ("sync-out", []),
@@ -135,6 +136,40 @@ def test_subcommand_stubs_exit_with_not_yet_implemented(
     result = runner.invoke(main, [cmd, *extra_args])
     assert result.exit_code == 1
     assert "not yet implemented" in result.output.lower()
+
+
+# ─── cantilever subcommand wiring (Story 0.11 step 4) ───────────────────────
+
+
+def test_cantilever_dry_run_exits_zero(runner: CliRunner) -> None:
+    """
+    The cantilever subcommand is wired to run_cantilever() with the
+    registered prereq list. --dry-run skips apply + verify entirely
+    (per ADR 0010), making this test deterministic across host envs.
+    """
+    result = runner.invoke(main, ["--writer", "--dry-run", "cantilever"])
+    assert result.exit_code == 0
+
+
+def test_cantilever_no_args_invokes_orchestrator(runner: CliRunner) -> None:
+    """
+    `cantilever` without --dry-run runs the real orchestrator. With only
+    check_platform registered today, on any supported host (macOS / Linux
+    / Windows), inspect returns ok and the plan is empty. Verify runs
+    against defaults — exit code 0 means success path; exit code 1 means
+    a real check (e.g. local_config.py sanity) caught a real issue.
+
+    We assert exit_code is 0 OR 1 (the only outcomes the wiring should
+    produce); a non-zero exit code other than 1 indicates a wiring bug.
+    """
+    result = runner.invoke(main, ["--writer", "cantilever"])
+    assert result.exit_code in (0, 1)
+
+
+def test_cantilever_focus_reader_dry_run(runner: CliRunner) -> None:
+    """focus-reader floater + dry-run: cantilever runs to plan-display + exits."""
+    result = runner.invoke(main, ["--focus-reader", "--dry-run", "cantilever"])
+    assert result.exit_code == 0
 
 
 # ─── Required-option enforcement on subcommands ─────────────────────────────

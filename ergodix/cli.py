@@ -77,9 +77,28 @@ def main(
 
 
 @main.command(name="cantilever")
-def cantilever_cmd() -> None:
-    """Bootstrap orchestrator (ADR 0003). Not yet implemented."""
-    _not_yet_implemented("cantilever")
+@click.pass_context
+def cantilever_cmd(ctx: click.Context) -> None:
+    """Bootstrap orchestrator (ADR 0003) — inspect, plan, consent, apply, verify."""
+    from ergodix.cantilever import run_cantilever
+    from ergodix.prereqs import all_prereqs
+
+    floaters: dict[str, bool] = ctx.obj.get("floaters", {})
+    result = run_cantilever(
+        floaters=floaters,
+        prereqs=list(all_prereqs()),
+    )
+
+    # Outcomes that represent a clean exit (user got what they asked for, no work
+    # left undone in error). Everything else is exit 1 so cron / CI / wrappers
+    # see the failure.
+    success_outcomes = {
+        "applied",
+        "no-changes-needed",
+        "dry-run",
+        "consent-declined",
+    }
+    sys.exit(0 if result.outcome in success_outcomes else 1)
 
 
 @main.command(name="migrate")

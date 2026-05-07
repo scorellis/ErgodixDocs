@@ -482,6 +482,18 @@ def run_cantilever(
     # Phase 2: Plan.
     plan = _build_plan(inspect_results)
 
+    # Dry-run wins over both empty-plan and consent paths. Even when the
+    # plan is empty, the user asked for "show me what cantilever would do
+    # without committing"; we honor that by emitting the (possibly empty)
+    # plan and exiting cleanly without running verify.
+    if floaters.get("dry-run"):
+        output_fn(_render_plan(plan))
+        return CantileverResult(
+            outcome="dry-run",
+            inspect_results=inspect_results,
+            plan=plan,
+        )
+
     if not plan.items:
         # Per Copilot review 2026-05-05 finding #5: still run verify on the
         # no-changes path. If inspect was too permissive, verify is the
@@ -495,16 +507,6 @@ def run_cantilever(
             inspect_results=inspect_results,
             plan=plan,
             verify_results=verify_results,
-        )
-
-    # Phase 2: Consent gate (or floater bypass).
-    if floaters.get("dry-run"):
-        # Dry-run: show plan, do not apply.
-        output_fn(_render_plan(plan))
-        return CantileverResult(
-            outcome="dry-run",
-            inspect_results=inspect_results,
-            plan=plan,
         )
 
     if not floaters.get("ci"):
