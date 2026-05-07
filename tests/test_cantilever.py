@@ -927,6 +927,59 @@ def test_verify_local_config_sane_fails_when_corpus_folder_empty(tmp_path, monke
     assert "CORPUS_FOLDER" in result.message
 
 
+# ─── Default consent function — interactive UX ────────────────────────────
+
+
+def test_default_consent_fn_terminates_with_newline_so_apply_starts_clean(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    Regression for the 2026-05-07 self-smoke finding: consent prompt and
+    apply progress visually collided. ``input()`` does not append a newline
+    when stdin is piped (no interactive Enter to echo), so the next
+    ``output_fn`` call landed on the same line as the prompt — making the
+    consent question and answer effectively invisible to the user.
+
+    Invariant: after ``_default_consent_fn`` returns, anything subsequently
+    written to stdout starts on a fresh line. Operationally that means the
+    captured output ends with ``\\n``.
+    """
+    from ergodix.cantilever import Plan, _default_consent_fn
+    from ergodix.prereqs.types import InspectResult
+
+    # Mirror real input() behavior: it writes the prompt to stdout (with no
+    # trailing newline) before reading. A bare ``lambda _: "y"`` would skip
+    # that write and hide the bug.
+    def fake_input(prompt: str) -> str:
+        import sys
+
+        sys.stdout.write(prompt)
+        return "y"
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    plan = Plan(
+        items=[
+            InspectResult(
+                op_id="X1",
+                status="needs-install",
+                description="fake op",
+                current_state="absent",
+                proposed_action="install fake op",
+            )
+        ]
+    )
+
+    accepted = _default_consent_fn(plan)
+    captured = capsys.readouterr().out
+
+    assert accepted is True
+    assert captured.endswith("\n"), (
+        "consent prompt did not terminate with a newline; subsequent "
+        "output will collide with the prompt line. "
+        f"trailing chars: {captured[-60:]!r}"
+    )
+
+
 def test_verify_emits_fail_marker_and_remediation() -> None:
     from ergodix.cantilever import VerifyResult, run_cantilever
 

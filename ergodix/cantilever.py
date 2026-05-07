@@ -107,9 +107,16 @@ def _default_consent_fn(plan: Plan) -> bool:
     """
     Real interactive consent. Tests inject their own. Implementation here
     is intentionally minimal until phase 2's plan-display UI is designed.
+
+    The trailing ``print()`` is load-bearing: ``input()`` writes the prompt
+    without a newline and, when stdin is piped (non-tty), no newline is
+    appended on read either. Without the explicit ``print()``, the next
+    ``output_fn`` call (apply progress) collides with the prompt line and
+    the user never sees the consent question.
     """
     print(_render_plan(plan))
     answer = input("Apply these changes? [y/N]: ").strip().lower()
+    print()
     return answer in {"y", "yes"}
 
 
