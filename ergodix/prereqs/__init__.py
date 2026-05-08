@@ -21,15 +21,19 @@ from ergodix.prereqs import (
     check_credential_store,
     check_git_config,
     check_local_config,
+    check_pandoc,
     check_platform,
 )
 from ergodix.prereqs.types import ApplyResult, InspectResult
 
 # Registration order = cantilever execution order. A1 (platform) runs
-# first because it halts cantilever on unsupported systems; the C-tier
-# prereqs (repo + auth scaffolding per ADR 0003) follow.
+# first because it halts cantilever on unsupported systems. A3 (Pandoc)
+# follows A2 (Homebrew) — assumed registered between them in branches
+# that include A2; this branch lands A3 standalone and order is set
+# alphabetically within the A-tier.
 _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
+    check_pandoc,
     check_local_config,
     check_credential_store,
     check_git_config,
