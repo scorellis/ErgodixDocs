@@ -20,16 +20,20 @@ from types import ModuleType
 from ergodix.prereqs import (
     check_credential_store,
     check_git_config,
+    check_homebrew,
     check_local_config,
     check_platform,
 )
 from ergodix.prereqs.types import ApplyResult, InspectResult
 
 # Registration order = cantilever execution order. A1 (platform) runs
-# first because it halts cantilever on unsupported systems; the C-tier
-# prereqs (repo + auth scaffolding per ADR 0003) follow.
+# first because it halts cantilever on unsupported systems. A2 (Homebrew)
+# follows because every other Tier-2 prereq (A3 Pandoc, A4 MacTeX, A7
+# VS Code, B1 Drive Desktop) installs via brew. C-tier prereqs (repo +
+# auth scaffolding) are independent of brew and run after.
 _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
+    check_homebrew,
     check_local_config,
     check_credential_store,
     check_git_config,
