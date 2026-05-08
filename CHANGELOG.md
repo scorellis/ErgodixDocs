@@ -8,9 +8,11 @@ Versioning policy: while the tool is pre-1.0, **0.MINOR.PATCH** — minor bumps 
 
 ## [Unreleased]
 
-### Added (Story 0.11 phase 2 — in flight on `feature/phase-2-design-decisions`)
+### Added (Story 0.11 phase 2 — in flight)
 - **Spike 0009** — phase-2 design decisions resolved (six decisions: C3 git-config interactive, C6 credentials, A4 MacTeX default, D6 signing-key auth scope, F1 framing, sudo-cache assumption).
 - **ADR 0012** — codifies the new five-phase orchestrator (inspect → plan + consent → apply → **configure** → verify), the new `InspectResult.status = "needs-interactive"` value, F1 reframed as orchestrator code (not a prereq module — drops the remaining-prereq count from 22 to 21), A4 MacTeX `full` hard-coded in v1, D6 signing-key scope refresh on demand.
+- **Configure phase implementation** (`feature/phase-2-configure-phase`): cantilever now runs an interactive collection phase between apply and verify. New `PromptFn` callable type (`(prompt: str, hidden: bool) -> str | None`), new `_run_configure_phase` orchestrator, `_default_prompt_fn` using `input` / `getpass`. Configure phase iterates `inspect_results` filtered to `status == "needs-interactive"`; each prereq's `interactive_complete(prompt_fn)` runs its own prompt loop (one prereq may issue multiple prompts — e.g., C3 wants user.name AND user.email). `--ci` floater skips the entire configure phase. New `CantileverOutcome = "configure-failed"` value; outcome ladder updated. `CantileverResult.configure_results` field added. `_apply_consented` skips needs-interactive ops cleanly so their `apply()` is never called. `_render_plan` marks needs-interactive ops with `[interactive]` so the consent gate explicitly previews "you will be prompted later."
+- **PrereqSpec protocol extended** with `interactive_complete(prompt_fn) -> ApplyResult`. `ModulePrereq` adapter forwards to the underlying module's `interactive_complete` if defined; if absent, returns a "prereq-module bug" `ApplyResult(status='failed', ...)` rather than `AttributeError`-ing mid-orchestration. Modules that never report `needs-interactive` don't need to define it.
 - **Note added to ADR 0003** — F1 removed from prereq-module count (now 24); B2's "Tapestry path" wording flagged as pre-pivot leftover.
 - **Note added to ADR 0006** — editor signing-key flow uses scope-refresh-on-demand via the configure phase, not upfront max-scope grant on C1.
 - **Note added to ADR 0010** — four-phase model partially superseded by ADR 0012's five-phase model; sudo-cache assumption documented.

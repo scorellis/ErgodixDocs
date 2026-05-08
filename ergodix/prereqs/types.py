@@ -14,8 +14,16 @@ Two types:
 Status vocabularies are intentionally narrow:
 
     InspectResult.status ∈ {ok, needs-install, needs-update,
-                            deferred-offline, failed}
+                            needs-interactive, deferred-offline, failed}
     ApplyResult.status   ∈ {ok, skipped, failed}
+
+The ``needs-interactive`` status (added by ADR 0012) signals that an op
+needs user input that ADR 0010's pre-apply consent gate cannot collect
+in advance — the new five-phase orchestrator's *configure* phase
+(between apply and verify) handles these ops. The op's ``apply()`` is a
+no-op (returns ``skipped`` with a "awaiting configure phase" message);
+the op's ``interactive_complete()`` method (per the PrereqSpec protocol
+extension) is called by the configure phase with the user's input.
 
 The literals are enforced by mypy (strict) at compile time. Runtime
 validation is deliberately not added — the cost outweighs the benefit
@@ -31,6 +39,7 @@ InspectStatus = Literal[
     "ok",
     "needs-install",
     "needs-update",
+    "needs-interactive",
     "deferred-offline",
     "failed",
 ]
@@ -73,15 +82,20 @@ class InspectResult:
     @property
     def needs_action(self) -> bool:
         """
-        True iff apply() should be called for this op.
+        True iff the op should appear in the plan (and therefore in the
+        consent gate's display).
 
-        Maps the five-valued status into a binary: needs-install and
-        needs-update mean the plan should include this op; ok,
-        deferred-offline, and failed mean it should not (the first
-        because nothing to do, the latter two because the op is
-        currently un-applyable).
+        Maps the six-valued status into a binary: needs-install,
+        needs-update, and needs-interactive all mean the plan should
+        include this op; ok, deferred-offline, and failed mean it should
+        not (the first because nothing to do, the latter two because the
+        op is currently un-applyable).
+
+        Note: ``needs-interactive`` ops appear in the plan but their
+        ``apply()`` is a no-op — actual work happens in the configure
+        phase (per ADR 0012) via ``interactive_complete()``.
         """
-        return self.status in {"needs-install", "needs-update"}
+        return self.status in {"needs-install", "needs-update", "needs-interactive"}
 
 
 @dataclass

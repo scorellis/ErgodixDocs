@@ -28,14 +28,46 @@ from ergodix.prereqs.types import ApplyResult, InspectResult
 # ─── Protocol that real prereqs and test fakes both satisfy ────────────────
 
 
+PromptFn = Callable[[str, bool], "str | None"]
+"""Callback the configure phase hands to interactive prereqs.
+
+Args:
+    prompt: text to display to the user (no trailing newline expected;
+        the prompt_fn handles input/getpass which renders the prompt).
+    hidden: if True, use ``getpass`` (credentials, tokens); if False,
+        use plain ``input`` (git config, paths, free-form strings).
+
+Returns the trimmed user answer, or None if the user pressed Enter
+without typing anything (interpreted as "skip this prompt").
+"""
+
+
 class PrereqSpec(Protocol):
-    """Anything cantilever can drive: an op_id plus inspect() and apply()."""
+    """Anything cantilever can drive: an op_id plus the three lifecycle methods.
+
+    Per ADR 0010 and ADR 0012, the lifecycle is:
+
+    - ``inspect()`` (read-only) — what's the current state? Drives the plan.
+    - ``apply()`` (mutative, no-op for needs-interactive ops) — make changes.
+    - ``interactive_complete()`` (per ADR 0012) — when inspect returned
+      ``needs-interactive``, the configure phase calls this with a prompt
+      callback. The prereq runs its own prompt loop (one prereq may need
+      multiple prompts, e.g., C3 wants user.name AND user.email) and
+      reports back via an ApplyResult.
+
+    Prereqs that never report ``needs-interactive`` may implement
+    ``interactive_complete()`` as a no-op stub (e.g., return
+    ``ApplyResult(status="skipped", message="not interactive")``).
+    The ModulePrereq adapter handles modules that omit it entirely.
+    """
 
     op_id: str
 
     def inspect(self) -> InspectResult: ...
 
     def apply(self) -> ApplyResult: ...
+
+    def interactive_complete(self, prompt_fn: PromptFn) -> ApplyResult: ...
 
 
 # ─── Plan ──────────────────────────────────────────────────────────────────
@@ -67,6 +99,7 @@ CantileverOutcome = Literal[
     "applied",
     "applied-with-failures",
     "admin-denied",
+    "configure-failed",
     "verify-failed",
     "inspect-failed",
 ]
@@ -97,6 +130,7 @@ class CantileverResult:
     inspect_results: list[InspectResult]
     plan: Plan
     apply_results: list[ApplyResult] = field(default_factory=list)
+    configure_results: list[ApplyResult] = field(default_factory=list)
     verify_results: list[VerifyResult] = field(default_factory=list)
 
 
@@ -125,14 +159,49 @@ def _render_plan(plan: Plan) -> str:
     lines = [f"\nPlan: {len(plan.items)} change(s) to apply"]
     if plan.has_admin_ops:
         lines.append("(Some steps require admin access; you'll be prompted once.)")
+    interactive_count = sum(1 for it in plan.items if it.status == "needs-interactive")
+    if interactive_count:
+        lines.append(
+            f"({interactive_count} step(s) marked [interactive] will prompt you for input "
+            "after the install steps complete.)"
+        )
     for i, item in enumerate(plan.items, 1):
         admin_marker = " [admin]" if item.needs_admin else ""
+        interactive_marker = " [interactive]" if item.status == "needs-interactive" else ""
         eta = f" (~{item.estimated_seconds}s)" if item.estimated_seconds is not None else ""
         lines.append(
-            f"  [{i}/{len(plan.items)}]{admin_marker}{eta} "
+            f"  [{i}/{len(plan.items)}]{admin_marker}{interactive_marker}{eta} "
             f"{item.description}: {item.proposed_action}"
         )
     return "\n".join(lines)
+
+
+# ─── Default prompt function (configure phase, per ADR 0012) ───────────────
+
+
+def _default_prompt_fn(prompt: str, hidden: bool) -> str | None:
+    """
+    Real interactive prompt for the configure phase. Tests inject their own.
+
+    Uses ``getpass`` for hidden input (credentials, tokens) and plain
+    ``input`` otherwise (git config, paths). A blank answer (just Enter)
+    is interpreted as "skip this prompt" and returns None — the prereq
+    can decide what to do with a None answer (skip the entire op vs.
+    prompt again with rephrased text vs. fall back to a default).
+
+    The trailing ``print()`` mirrors the consent-fn fix from 2026-05-07:
+    when stdin is piped, neither input() nor getpass() emits a newline
+    after the response, so subsequent output_fn calls would collide.
+    """
+    if hidden:
+        from getpass import getpass
+
+        raw = getpass(prompt)
+    else:
+        raw = input(prompt)
+    print()
+    answer = raw.strip()
+    return answer or None
 
 
 # ─── Default connectivity probe ────────────────────────────────────────────
@@ -384,9 +453,12 @@ def _apply_consented(
     output_fn: Callable[[str], None],
 ) -> tuple[list[ApplyResult], bool]:
     """
-    Phase 3 (apply): walk the plan in order, call apply() on each prereq.
+    Phase 3 (apply): walk the plan in order, call apply() on each prereq
+    EXCEPT needs-interactive ops (those are handled by the configure
+    phase per ADR 0012 — apply() is a no-op for them and we skip the call
+    entirely so non-implementing prereqs don't see a spurious invocation).
 
-    - Emits a `[k/total] description...` progress line per op.
+    - Emits a `[k/total] description...` progress line per applied op.
     - Emits a check or cross marker line per op.
     - On the first failure, emits a remediation block (with the prereq's
       remediation_hint if present) and returns immediately. Subsequent
@@ -398,9 +470,13 @@ def _apply_consented(
     """
     by_op_id = {p.op_id: p for p in prereqs}
     results: list[ApplyResult] = []
-    total = len(plan.items)
+    # Apply-eligible items: anything except needs-interactive (those go
+    # through the configure phase). Indexes shown to the user reflect the
+    # apply-eligible count, not the full plan length.
+    apply_items = [it for it in plan.items if it.status != "needs-interactive"]
+    total = len(apply_items)
 
-    for index, item in enumerate(plan.items, start=1):
+    for index, item in enumerate(apply_items, start=1):
         prereq = by_op_id[item.op_id]
         output_fn(f"[{index}/{total}] {item.description}…")
         result = prereq.apply()
@@ -422,6 +498,53 @@ def _apply_consented(
     return results, True
 
 
+def _run_configure_phase(
+    prereqs: list[PrereqSpec],
+    inspect_results: list[InspectResult],
+    *,
+    prompt_fn: PromptFn,
+    output_fn: Callable[[str], None],
+) -> list[ApplyResult]:
+    """
+    Phase 4 (configure, per ADR 0012): collect interactive user input for
+    needs-interactive ops via the injected ``prompt_fn``. Each prereq's
+    ``interactive_complete()`` runs its own prompt loop (one prereq may
+    request multiple prompts — e.g., C3 asks for both user.name and
+    user.email).
+
+    Always runs every needs-interactive op (no abort-fast) — the user
+    needs to see and skip-or-fill each one independently. A failed
+    interactive_complete is recorded but doesn't block subsequent ones,
+    matching the "verify always runs" contract from ADR 0010.
+
+    Returns the list of ApplyResults from each interactive_complete call,
+    in inspect-result order. Empty list if no needs-interactive ops.
+    """
+    interactive_items = [ir for ir in inspect_results if ir.status == "needs-interactive"]
+    if not interactive_items:
+        return []
+
+    by_op_id = {p.op_id: p for p in prereqs}
+    results: list[ApplyResult] = []
+
+    output_fn("\nConfiguration:")
+    for item in interactive_items:
+        prereq = by_op_id[item.op_id]
+        result = prereq.interactive_complete(prompt_fn)
+        results.append(result)
+        if result.status == "ok":
+            marker = "✓"
+        elif result.status == "skipped":
+            marker = "⊝"
+        else:
+            marker = "✗"
+        output_fn(f"  {marker} {item.op_id}: {result.message}")
+        if result.status == "failed" and result.remediation_hint:
+            output_fn(f"    Suggested fix: {result.remediation_hint}")
+
+    return results
+
+
 # ─── Public entry point ────────────────────────────────────────────────────
 
 
@@ -433,10 +556,13 @@ def run_cantilever(
     is_online_fn: Callable[[], bool] = _default_is_online_fn,
     output_fn: Callable[[str], None] = print,
     request_admin_fn: Callable[[], bool] = _default_request_admin_fn,
+    prompt_fn: PromptFn = _default_prompt_fn,
     verify_checks: list[Callable[[], VerifyResult]] | None = None,
 ) -> CantileverResult:
     """
-    Top-level entrypoint. Per ADR 0010.
+    Top-level entrypoint. Per ADR 0010 (four-phase model) + ADR 0012
+    (extends to five phases: inspect → plan + consent → apply → configure
+    → verify).
 
     Args:
         floaters: dict of floater names → enabled. Recognized: 'dry-run', 'ci'.
@@ -448,13 +574,17 @@ def run_cantilever(
         request_admin_fn: prompts for admin (sudo) credentials once, returning
             True if granted. Called only when the plan contains an op marked
             ``needs_admin``.
+        prompt_fn: callback the configure phase hands to interactive prereqs.
+            Signature ``(prompt: str, hidden: bool) -> str | None``. Default
+            uses ``input``/``getpass``. ``--ci`` floater skips the entire
+            configure phase, so the prompt_fn is never called in CI mode.
         verify_checks: list of phase-4 verify functions. Defaults to the
             built-in checks (``_verify_import_package`` and
             ``_verify_ergodix_command``). Tests inject explicit lists.
 
     Returns:
         CantileverResult describing the outcome, the inspections, the plan,
-        and any apply / verify results.
+        and any apply / configure / verify results.
     """
     checks = verify_checks if verify_checks is not None else _DEFAULT_VERIFY_CHECKS
 
@@ -550,16 +680,31 @@ def run_cantilever(
 
     apply_results, completed = _apply_consented(prereqs, plan, output_fn=output_fn)
 
-    # Phase 4: Verify. Always runs after apply (whether apply succeeded or
-    # aborted) — the user needs the end-state picture either way.
+    # Phase 4: Configure (per ADR 0012). Runs after apply, before verify.
+    # Skipped under --ci (CI must provide interactive values via env). Also
+    # skipped (silently) when no needs-interactive ops are in the plan.
+    configure_results: list[ApplyResult] = []
+    if not floaters.get("ci"):
+        configure_results = _run_configure_phase(
+            prereqs,
+            inspect_results,
+            prompt_fn=prompt_fn,
+            output_fn=output_fn,
+        )
+
+    # Phase 5: Verify. Always runs (whether apply or configure succeeded
+    # or not) — the user needs the end-state picture either way.
     verify_results = _run_verify_phase(checks, output_fn=output_fn)
 
-    # Outcome ladder:
-    #   apply failed at all → "applied-with-failures" (apply failure dominates)
-    #   apply succeeded, any verify failed → "verify-failed"
-    #   both apply and verify clean → "applied"
+    # Outcome ladder (ADR 0012 extends ADR 0010's):
+    #   apply failed at all                       → "applied-with-failures"
+    #   apply ok, any configure failed            → "configure-failed"
+    #   apply ok, configure ok, any verify failed → "verify-failed"
+    #   apply ok, configure ok, verify ok         → "applied"
     if not completed:
         outcome = "applied-with-failures"
+    elif any(cr.status == "failed" for cr in configure_results):
+        outcome = "configure-failed"
     elif any(not vr.passed for vr in verify_results):
         outcome = "verify-failed"
     else:
@@ -570,5 +715,6 @@ def run_cantilever(
         inspect_results=inspect_results,
         plan=plan,
         apply_results=apply_results,
+        configure_results=configure_results,
         verify_results=verify_results,
     )

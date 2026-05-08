@@ -114,7 +114,14 @@ def test_inspect_result_equality_is_value_based() -> None:
 
 @pytest.mark.parametrize(
     "status",
-    ["ok", "needs-install", "needs-update", "deferred-offline", "failed"],
+    [
+        "ok",
+        "needs-install",
+        "needs-update",
+        "needs-interactive",
+        "deferred-offline",
+        "failed",
+    ],
 )
 def test_inspect_result_accepts_documented_status_values(status: str) -> None:
     from ergodix.prereqs.types import InspectResult
@@ -132,8 +139,8 @@ def test_inspect_result_accepts_documented_status_values(status: str) -> None:
 def test_inspect_result_needs_action_when_status_indicates_change() -> None:
     """
     Convenience check: cantilever needs to know whether an op should be
-    included in the plan. needs-install and needs-update mean yes; ok,
-    deferred-offline, and failed mean no plan entry.
+    included in the plan. needs-install / needs-update / needs-interactive
+    all mean yes; ok, deferred-offline, and failed mean no plan entry.
     """
     from ergodix.prereqs.types import InspectResult
 
@@ -153,6 +160,48 @@ def test_inspect_result_needs_action_when_status_indicates_change() -> None:
     )
     assert needs_change.needs_action is True
     assert no_change.needs_action is False
+
+
+def test_inspect_result_needs_interactive_marks_op_as_needs_action() -> None:
+    """
+    Per ADR 0012, ops with status='needs-interactive' must appear in the
+    plan (so the user is informed at the consent gate) but their apply()
+    is a no-op — actual work happens in the new configure phase.
+    """
+    from ergodix.prereqs.types import InspectResult
+
+    interactive = InspectResult(
+        op_id="C3",
+        status="needs-interactive",
+        description="Configure git user identity",
+        current_state="user.name and user.email both unset",
+        proposed_action="Prompt for git user.name and user.email",
+    )
+    assert interactive.needs_action is True
+
+
+@pytest.mark.parametrize(
+    "non_action_status",
+    ["ok", "deferred-offline", "failed"],
+)
+def test_inspect_result_non_action_statuses_dont_plan(non_action_status: str) -> None:
+    """
+    Negative side of the needs_action contract: ok / deferred-offline /
+    failed never produce a plan entry. Failed is handled by the inspect-
+    failed halt path, not by appearing in the plan; deferred-offline ops
+    are deferred (handled by the network-down rewrite); ok ops have
+    nothing to do.
+    """
+    from ergodix.prereqs.types import InspectResult
+
+    result = InspectResult(
+        op_id="X",
+        status=non_action_status,  # type: ignore[arg-type]
+        description="x",
+        current_state="x",
+        proposed_action=None,
+    )
+    assert result.needs_action is False
 
 
 # ─── ApplyResult ────────────────────────────────────────────────────────────
