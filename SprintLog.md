@@ -392,6 +392,52 @@ Tasks (when activated):
 - [ ] decide whether `ergodix ingest` should auto-extract CriticMarkup `{>> <<}` blocks into review-comment metadata vs. leave them in-prose
 - [ ] update [docs/comments-explained.md](docs/comments-explained.md) with the resolved convention
 
+### Story — Plot-Planner: AI-assisted authoring-analysis tool suite (Sprint 2+ when activated)
+
+As a writer, so that the author has a cadre of focused, narrow-purpose AI tools that surface specific craft issues across a chapter or the whole corpus — pacing, originality, repetition, tone — without conflating them into one monolithic "review" that's hard to act on,
+
+Value: each tool answers a single, named question and produces a focused report; the author iterates against one craft dimension at a time rather than drowning in a generic "make this better" pass; "hook to get authors using this tool" — a memorable, action-named tool surface (writing-score, copyright-quest, duplicate-smasher, PC-placator) is the thing that builds adoption habits; respects the AI-prose boundary because every tool *flags* / *scores*, never edits prose,
+
+Risk: scope creep — 20+ tools is a lot of surface to design, document, and maintain; without a strong umbrella concept the suite fragments; tool overlap (e.g. duplicate-smasher vs. writing-score's repetition signal) creates user confusion; tool quality drops if each tool is a thin LLM wrapper without a real scoring methodology behind it,
+
+Assumptions: the author has a defined scoring methodology (Fibonacci peaks, dynamics, show-vs-tell, etc.) that can be encoded; per-chapter analysis with cross-chapter context is tractable using the prompt-caching strategy from Story 0.Z2; tools are best invoked via Claude Code's skill/slash-command surface (`.claude/skills/` or `.claude/commands/`) so they live close to the corpus repo, with the option of also surfacing them as `ergodix` subcommands; an umbrella "plot-planner" name is the right grouping primitive,
+
+Tools known so far (more TBD):
+
+- **`writing-score`** — scores a chapter (or the whole corpus) using the author's methodology; flags pacing, dynamics, show-vs-tell, Fibonacci peaks, weak verbs, dialogue-vs-narration ratio, etc.
+- **`copyright-quest`** — searches across known works (corpus + author's prior drafts + a curated public-domain index?) to flag accidental copy/paste, residual placeholder text, or inadvertent close-paraphrase that could read as infringement.
+- **`duplicate-smasher`** — finds repeated patterns: copy-paste duplicates, excessive same-word/same-phrase clusters, structural repetition across chapters.
+- **`PC-placator`** — detects the full tone spectrum, from hate-speech / triggering / incendiary / rage-baiting at one end through edgy / raw / extreme, past kind / saccharine / boring / explainery, to raunchy / sensual / heart-pounding-action / page-turning / re-read-inducing at the other. Reports where each chapter sits and where the author may want to push or pull.
+- **+ ~16 more** to be enumerated when the story activates.
+
+Tasks (when activated):
+
+- [ ] Decide implementation surface: Claude Code skills/commands (`.claude/skills/<name>/`) vs. `ergodix` subcommands vs. both. Likely both — slash-commands for in-editor use, `ergodix` subcommand mirrors for CI/scripts.
+- [ ] Name the umbrella concept (`plot-planner` is the working name; could be `authoring-suite`, `craft-tools`, etc.).
+- [ ] Encode the author's scoring methodology in a stable, testable form (probably a TOML/YAML rubric).
+- [ ] Settle on per-chapter analysis index + cross-chapter retrieval pattern — cross-references Story 0.Z2.
+- [ ] Build the first three tools (`writing-score`, `duplicate-smasher`, `PC-placator`) end-to-end — establish the cookie-cutter pattern, then enumerate the remaining ~16.
+- [ ] Decide adoption hook: which tool is the "first one a new author tries" that demonstrates value in <5 minutes?
+- [ ] Documentation page mapping each tool's question / inputs / outputs / scoring methodology.
+
+### Story — Sell-My-Book: book-marketing assistance suite (way later, after the corpus is finished)
+
+As a publisher (and as the author wearing the publisher floater), so that there is a tool surface for the post-writing phase — turning a finished corpus into something readers actually find and buy — without bolting marketing concerns onto the authoring tools,
+
+Value: the tool's value continues past "draft is done" into the part of writing that most authors find hardest (selling); creates a complete pipeline from blank page to launched book; tools live in their own namespace so they don't pollute the writing workflow,
+
+Risk: huge surface (audience research, blurb generation, cover design feedback, price-point analysis, launch-platform comparison, ad copy, review-funnel design, social media seeding, etc.); easy to wander into commodity ad-tech territory; ethical concerns about AI-generated promotional content need their own handling; doing this *before* the author's own book launch validates the approach risks building features that don't survive contact with real publication realities,
+
+Assumptions: the author's own book ships first and surfaces concrete needs; lessons from that launch flow back into the tooling rather than the tooling being designed in the abstract; a clean separation between authoring tools (Plot-Planner) and marketing tools (Sell-My-Book) is maintained; some tools may share infrastructure with Plot-Planner (corpus indexing, character extraction) without sharing tool surface,
+
+Tasks (when activated — *after the author's own book has shipped*):
+
+- [ ] Run the author's own launch and harvest "what tools would have made this 10x easier" intel.
+- [ ] Decide the Sell-My-Book tool surface (likely separate slash-command/skill namespace from Plot-Planner).
+- [ ] Enumerate concrete tools based on the launch retrospective.
+- [ ] Address ethical guardrails on AI-generated marketing content (transparency, disclosure norms).
+- [ ] Decide whether Sell-My-Book ships with Plot-Planner or as a separate phase / package.
+
 ### Story — Phil-trained custom prose linter (Sprint 1+ when activated)
 
 So that a custom linter trained on the human editor's repeated corrections becomes a first-pass automatic editor — catching the things the editor consistently fixes (specific verb-tense patterns, comma habits, clichés the author falls into) so the human editor can focus on higher-level work,
