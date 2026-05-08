@@ -14,6 +14,7 @@ real OS.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import pytest
@@ -33,7 +34,8 @@ class FakePrereq:
     """
     Test-only prereq. Satisfies the PrereqSpec protocol the orchestrator
     expects: an op_id, inspect() returning an InspectResult, apply()
-    returning an ApplyResult.
+    returning an ApplyResult, interactive_complete() (per ADR 0012) for
+    needs-interactive ops.
     """
 
     op_id: str
@@ -47,8 +49,21 @@ class FakePrereq:
     apply_status: ApplyStatus = "ok"
     apply_message: str = "fake applied"
 
+    # Interactive-complete configuration (only relevant when inspect_status
+    # is "needs-interactive"; ignored otherwise).
+    interactive_complete_status: ApplyStatus = "ok"
+    interactive_complete_message: str = "fake configured"
+    # Each entry is a list of (prompt, hidden) tuples that the prereq
+    # asked the prompt_fn for during a single interactive_complete call.
+    interactive_prompts_to_request: list[tuple[str, bool]] = field(
+        default_factory=lambda: [("Fake prompt: ", False)]
+    )
+
     inspect_call_count: int = field(default=0, init=False)
     apply_call_count: int = field(default=0, init=False)
+    # Records what was answered for each prompt in the order it was requested.
+    interactive_complete_answers: list[str | None] = field(default_factory=list, init=False)
+    interactive_complete_call_count: int = field(default=0, init=False)
 
     def inspect(self) -> InspectResult:
         self.inspect_call_count += 1
@@ -71,6 +86,20 @@ class FakePrereq:
             message=self.apply_message,
         )
 
+    def interactive_complete(
+        self,
+        prompt_fn: Callable[[str, bool], str | None],
+    ) -> ApplyResult:
+        self.interactive_complete_call_count += 1
+        for prompt, hidden in self.interactive_prompts_to_request:
+            answer = prompt_fn(prompt, hidden)
+            self.interactive_complete_answers.append(answer)
+        return ApplyResult(
+            op_id=self.op_id,
+            status=self.interactive_complete_status,
+            message=self.interactive_complete_message,
+        )
+
 
 def _ok_prereq(op_id: str = "A1") -> FakePrereq:
     return FakePrereq(op_id=op_id, inspect_status="ok")
@@ -82,6 +111,22 @@ def _needs_install_prereq(op_id: str = "A3", needs_admin: bool = False) -> FakeP
         inspect_status="needs-install",
         proposed_action=f"Install {op_id}",
         needs_admin=needs_admin,
+    )
+
+
+def _needs_interactive_prereq(
+    op_id: str = "C3",
+    prompts: list[tuple[str, bool]] | None = None,
+) -> FakePrereq:
+    """
+    Helper for needs-interactive prereqs (per ADR 0012). Default prompts to
+    a single non-hidden input.
+    """
+    return FakePrereq(
+        op_id=op_id,
+        inspect_status="needs-interactive",
+        proposed_action=f"Configure {op_id}",
+        interactive_prompts_to_request=prompts or [(f"Enter value for {op_id}: ", False)],
     )
 
 
@@ -925,6 +970,235 @@ def test_verify_local_config_sane_fails_when_corpus_folder_empty(tmp_path, monke
     result = _verify_local_config_sane()
     assert not result.passed
     assert "CORPUS_FOLDER" in result.message
+
+
+# ─── Phase 4: Configure (per ADR 0012) ──────────────────────────────────────
+
+
+def test_configure_phase_runs_after_apply_before_verify() -> None:
+    """
+    Per ADR 0012, the new five-phase orchestrator runs configure between
+    apply and verify. Pin the order via call counters across two prereqs:
+    one mutative (apply) and one interactive (configure).
+    """
+    from ergodix.cantilever import run_cantilever
+
+    install = _needs_install_prereq("A3")
+    configure = _needs_interactive_prereq("C3")
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[install, configure],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        prompt_fn=lambda _p, _h: "answer",
+        verify_checks=[],
+    )
+
+    assert install.apply_call_count == 1
+    assert configure.interactive_complete_call_count == 1
+    # configure.apply() should NOT be called for needs-interactive ops
+    # (apply() is a no-op stub for these per ADR 0012).
+    assert configure.apply_call_count == 0
+
+
+def test_configure_phase_skipped_when_no_needs_interactive_ops() -> None:
+    """
+    All ops are needs-install or ok → configure phase is silently skipped.
+    No prompts emitted; no configure_results in the report.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    install = _needs_install_prereq("A3")
+
+    prompt_calls: list[tuple[str, bool]] = []
+
+    def recording_prompt(p: str, h: bool) -> str | None:
+        prompt_calls.append((p, h))
+        return "should-not-be-called"
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[install],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        prompt_fn=recording_prompt,
+        verify_checks=[],
+    )
+
+    assert prompt_calls == []
+    assert result.configure_results == []
+
+
+def test_configure_phase_calls_prereq_interactive_complete_with_prompt_fn() -> None:
+    """
+    The configure phase passes the prompt_fn to each needs-interactive
+    prereq's interactive_complete() method so the prereq controls its own
+    prompt loop (one prereq may need multiple prompts — e.g., C3 wants
+    user.name AND user.email).
+    """
+    from ergodix.cantilever import run_cantilever
+
+    multi_prompt = _needs_interactive_prereq(
+        "C3",
+        prompts=[
+            ("Enter your git user.name: ", False),
+            ("Enter your git user.email: ", False),
+        ],
+    )
+
+    answer_iter = iter(["Stephen Corellis", "scorellis@example.com"])
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[multi_prompt],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        prompt_fn=lambda _p, _h: next(answer_iter),
+        verify_checks=[],
+    )
+
+    assert multi_prompt.interactive_complete_call_count == 1
+    assert multi_prompt.interactive_complete_answers == [
+        "Stephen Corellis",
+        "scorellis@example.com",
+    ]
+
+
+def test_configure_phase_skipped_when_ci_floater_set() -> None:
+    """
+    Per ADR 0012, --ci skips the configure phase entirely. CI environments
+    must provide config via env vars (auth.py's tier-1 lookup; CI's git
+    config setup), not via interactive prompts.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    configure = _needs_interactive_prereq("C3")
+
+    prompt_calls: list[tuple[str, bool]] = []
+
+    result = run_cantilever(
+        floaters={"writer": True, "ci": True},
+        prereqs=[configure],
+        consent_fn=lambda _plan: True,  # ignored under --ci
+        is_online_fn=lambda: True,
+        prompt_fn=lambda p, h: prompt_calls.append((p, h)) or "should-not-be-called",
+        verify_checks=[],
+    )
+
+    assert configure.interactive_complete_call_count == 0
+    assert prompt_calls == []
+    assert result.configure_results == []
+
+
+def test_configure_phase_emits_results_per_prereq() -> None:
+    """
+    configure_results lists one ApplyResult per needs-interactive prereq
+    that ran, in inspect-order, with the prereq's reported status.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    a = _needs_interactive_prereq("C3")
+    b = _needs_interactive_prereq("C6")
+    b.interactive_complete_status = "skipped"
+    b.interactive_complete_message = "user skipped credential entry"
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[a, b],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        prompt_fn=lambda _p, _h: "answer",
+        verify_checks=[],
+    )
+
+    assert len(result.configure_results) == 2
+    assert [r.op_id for r in result.configure_results] == ["C3", "C6"]
+    assert result.configure_results[0].status == "ok"
+    assert result.configure_results[1].status == "skipped"
+
+
+def test_needs_interactive_op_appears_in_plan_and_in_consent() -> None:
+    """
+    ADR 0012 requires that needs-interactive ops show up in the plan
+    (so the user is informed at the consent gate that input will be
+    requested later in the run).
+    """
+    from ergodix.cantilever import run_cantilever
+
+    configure = _needs_interactive_prereq("C3")
+
+    captured_plans: list[int] = []
+
+    def consent(plan):
+        captured_plans.append(len(plan.items))
+        return False  # decline so we can assert without progressing
+
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[configure],
+        consent_fn=consent,
+        is_online_fn=lambda: True,
+        prompt_fn=lambda _p, _h: "answer",
+        verify_checks=[],
+    )
+
+    assert captured_plans == [1], "needs-interactive op must appear in the plan"
+
+
+def test_configure_phase_on_no_changes_path_does_not_run() -> None:
+    """
+    When the plan is empty (no needs-* ops at all), there's nothing for
+    configure to do either — it should be silently skipped on the
+    no-changes-needed path.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    ok = _ok_prereq("A1")
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[ok],
+        consent_fn=lambda _plan: pytest.fail("consent should not run"),
+        is_online_fn=lambda: True,
+        prompt_fn=lambda _p, _h: pytest.fail("prompt should not run"),
+        verify_checks=[],
+    )
+
+    assert result.configure_results == []
+    assert result.outcome == "no-changes-needed"
+
+
+def test_configure_failure_does_not_block_verify() -> None:
+    """
+    A configure prereq returning status='failed' is recorded but doesn't
+    prevent verify from running — the user still needs to see the full
+    end-state picture, same contract as apply-failed (per ADR 0010's
+    "Verify always runs" Note from 2026-05-06 finding #5).
+    """
+    from ergodix.cantilever import VerifyResult, run_cantilever
+
+    configure = _needs_interactive_prereq("C3")
+    configure.interactive_complete_status = "failed"
+    configure.interactive_complete_message = "could not run git config"
+
+    verify_calls = []
+
+    def verify_check() -> VerifyResult:
+        verify_calls.append(1)
+        return VerifyResult(name="x", passed=True, message="ok")
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[configure],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        prompt_fn=lambda _p, _h: "answer",
+        verify_checks=[verify_check],
+    )
+
+    assert verify_calls == [1]
+    assert result.configure_results[0].status == "failed"
 
 
 # ─── Default consent function — interactive UX ────────────────────────────

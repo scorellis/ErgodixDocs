@@ -14,6 +14,7 @@ changing the public API.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from types import ModuleType
 
 from ergodix.prereqs import (
@@ -34,7 +35,16 @@ _REGISTERED_MODULES: list[ModuleType] = [
 
 
 class ModulePrereq:
-    """Adapt a prereq module (OP_ID + inspect + apply) to the PrereqSpec protocol."""
+    """Adapt a prereq module (OP_ID + inspect + apply [+ interactive_complete])
+    to the PrereqSpec protocol used by ``ergodix.cantilever``.
+
+    Interactive (configure-phase) support is opt-in per module: a module
+    that ever returns ``status="needs-interactive"`` from ``inspect()``
+    must also define an ``interactive_complete(prompt_fn)`` function. The
+    adapter detects its absence and surfaces a clear failure rather than
+    raising ``AttributeError`` mid-orchestration. Modules that never
+    report needs-interactive don't need to define the function at all.
+    """
 
     def __init__(self, module: ModuleType) -> None:
         self.op_id: str = module.OP_ID
@@ -46,6 +56,24 @@ class ModulePrereq:
 
     def apply(self) -> ApplyResult:
         result: ApplyResult = self._module.apply()
+        return result
+
+    def interactive_complete(self, prompt_fn: Callable[[str, bool], str | None]) -> ApplyResult:
+        fn = getattr(self._module, "interactive_complete", None)
+        if fn is None:
+            return ApplyResult(
+                op_id=self.op_id,
+                status="failed",
+                message=(
+                    f"prereq {self.op_id} reported needs-interactive but the module "
+                    "does not define interactive_complete(prompt_fn)"
+                ),
+                remediation_hint=(
+                    "Prereq-module bug: add an interactive_complete(prompt_fn) function "
+                    "or change inspect() to return a non-interactive status."
+                ),
+            )
+        result: ApplyResult = fn(prompt_fn)
         return result
 
 

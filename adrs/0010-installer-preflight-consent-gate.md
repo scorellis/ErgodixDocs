@@ -1,9 +1,13 @@
 # ADR 0010: Installer pre-flight scan, single consent gate, atomic execute
 
-- **Status**: Accepted
+- **Status**: Partially Superseded by [ADR 0012](0012-phase-2-patterns-configure-phase-and-five-phase-orchestrator.md)
 - **Date**: 2026-05-05
 - **Spike**: [Spike 0008 — Installer redesign: pre-flight scan + consent gate](../spikes/0008-installer-redesign-preflight-consent.md)
 - **Touches**: [ADR 0003](0003-cantilever-bootstrap-orchestrator.md) — refines failure / consent semantics. [ADR 0007](0007-bootstrap-prereqs-cli-entry.md) — partially supersedes the prereq contract.
+
+> **Note (2026-05-07 — added by ADR 0012):** the four-phase model below becomes a **five-phase** model with the addition of a **Configure** phase between Apply and Verify. Configure is a dedicated interactive-input collection phase covering ops that need user input (git config, credentials, scope refresh) without violating the "one Y/n consent" intent. A new `InspectResult.status = "needs-interactive"` value drives the new phase. The four-phase diagram and phase descriptions in this ADR remain the v1 surface of phase 1 (already shipped in PR #6); read [ADR 0012](0012-phase-2-patterns-configure-phase-and-five-phase-orchestrator.md) for the five-phase shape that phase-2 work targets.
+
+> **Note (2026-05-07 — sudo-cache assumption, per ADR 0012):** Phase 3 — Apply, below, says admin operations are grouped so the user is prompted for their password "once, not per-op." The mechanism is `sudo -v` followed by reliance on macOS's default `timestamp_timeout` of 5 minutes. Plans whose total apply time exceeds this window may surface a one-time `sudo` re-prompt mid-apply; treated as non-blocking. If real-world plans bust the cache, the escalation path is a `sudo -n -v` precheck inside each `apply()` doing mutative system work.
 
 ## Context
 
