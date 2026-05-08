@@ -17,6 +17,7 @@ rather than crashing on a missing module.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import click
 
@@ -115,10 +116,43 @@ def migrate_cmd(from_: str) -> None:
 
 
 @main.command(name="render")
-@click.argument("target", type=click.Path())
-def render_cmd(target: str) -> None:
-    """Render a chapter or book to PDF via Pandoc → XeLaTeX."""
-    _not_yet_implemented(f"render {target}")
+@click.argument("target", type=click.Path(path_type=Path))
+@click.option(
+    "--output",
+    "-o",
+    "output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output PDF path. Defaults to <chapter>.pdf next to the source.",
+)
+@click.option(
+    "--corpus-root",
+    "corpus_root",
+    type=click.Path(path_type=Path),
+    default=None,
+    help=(
+        "Ceiling for the preamble-cascade walk. Defaults to the chapter's "
+        "filesystem path (no boundary). Provide this when the chapter is "
+        "deep inside a known corpus folder."
+    ),
+)
+def render_cmd(target: Path, output: Path | None, corpus_root: Path | None) -> None:
+    """Render a chapter to PDF via Pandoc → XeLaTeX (Story 0.2 pipeline).
+
+    Walks up from the chapter collecting ``_preamble.tex`` files
+    (most-general-first); passes them to Pandoc via repeated
+    ``--include-in-header`` flags so LaTeX's later-wins semantics give
+    leaf-most preambles override authority.
+    """
+    from ergodix import render as render_module
+
+    try:
+        result = render_module.render(target, output=output, corpus_root=corpus_root)
+    except render_module.RenderError as exc:
+        click.echo(f"error: {exc}", err=True)
+        sys.exit(1)
+
+    click.echo(f"Rendered: {result}")
 
 
 @main.command(name="sync-out")

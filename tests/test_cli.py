@@ -121,9 +121,9 @@ def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
 @pytest.mark.parametrize(
     ("cmd", "extra_args"),
     [
-        # cantilever is now wired (Story 0.11 step 4) — see test_cantilever_*
+        # cantilever is wired (Story 0.11 step 4) — see test_cantilever_*
+        # render is wired (Story 0.2) — see tests/test_render.py
         ("migrate", ["--from", "gdocs"]),
-        ("render", ["chapter.md"]),
         ("sync-out", []),
         ("sync-in", []),
         ("status", []),
