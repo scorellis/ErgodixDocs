@@ -1,21 +1,28 @@
 # ErgodixDocs
 
+> **License: [PolyForm Strict 1.0.0](https://polyformproject.org/licenses/strict/1.0.0).** Source-available, **not** open source. Personal / hobby / academic / nonprofit use is permitted; **any commercial use requires a separate written commercial license** from the copyright holder. Reading the source as a model or architectural reference is encouraged. See [LICENSE](LICENSE) for full terms. Commercial licensing inquiries: scorellis@gmail.com.
+
 ## Origin of the Name
 
 The name supports the author's effort to create **Xience Fixtion** (yes, with the X's — creative licence) in the form of an **Ergodic text**: a work that requires nontrivial effort from the reader to traverse, where structure, branching, and navigation are part of the storytelling itself.
 
 "Ergodix" = **Ergod**ic + the author's playful **X**, with **Docs** for the document tooling that supports it.
 
+## What ErgodixDocs Does
+
+In one paragraph: **ErgodixDocs takes a manuscript from Google Docs or Scrivener, converts it into a versioned Pandoc-Markdown corpus organized as opus → compendium → book → section → chapter (per [Hierarchy.md](Hierarchy.md)), supports footnotes and ergodic-text features (rotation, special fonts, landscape pages, TikZ), and synchronizes between collaborators via Google Drive. An AI layer (eventually exposed via an MCP-like interface) reads the corpus and generates non-creative supporting material — glossaries, character sketches, tables of contents, storyboards, timelines, plot-hole flags — and answers the author's questions about the work. The AI never edits prose; that boundary is load-bearing for the project's identity (see [AI Boundaries](#ai-boundaries--prose-is-human-written) below).**
+
 ## Goal
 
-Build a system that uses AI as a co-author and continuity engine for a fictional universe larger than any single human can hold in their head. The tooling here is meant to:
+Build a system that uses AI as a co-author and continuity engine for a fictional universe larger than any single human can hold in their head. The tooling is meant to:
 
 - track plotlines across books, sections, and chapters
 - detect plot holes and continuity errors
-- generate summary documents and storyboards on demand
+- generate summary documents, glossaries, character sketches, timelines, and storyboards on demand
 - support worldbuilding for a universe far more complex than one author can manage alone
+- let the author ask questions of the corpus and get grounded answers
 
-The repository itself hosts the tooling and non-sensitive planning docs. Creative source material lives outside the tracked tree.
+The repository hosts the tooling and non-sensitive planning docs. Creative source material lives outside the tracked tree.
 
 ## AI Boundaries — Prose Is Human-Written
 

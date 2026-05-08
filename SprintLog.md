@@ -392,6 +392,43 @@ Tasks (when activated):
 - [ ] decide whether `ergodix ingest` should auto-extract CriticMarkup `{>> <<}` blocks into review-comment metadata vs. leave them in-prose
 - [ ] update [docs/comments-explained.md](docs/comments-explained.md) with the resolved convention
 
+### Story — Continuity-Engine: AI-assisted story-logic analysis suite (Sprint 1+ when activated)
+
+As a writer, so that the author can ask focused, named questions about whether the *story* holds together (not whether the *prose* is good — that's Plot-Planner's job) — Does this timeline make sense? Where did this character disappear from chapter 4? What promise did chapter 1 make that I haven't paid off? — and get grounded, evidence-backed answers from an AI that has read the whole corpus, without that AI ever writing a word of prose,
+
+Value: this is the project's stated raison d'être ("AI as architectural co-author and continuity engine"); concretely-named tools turn vague "the AI helps you" into "I just ran timeline-continuity-analyzer on Compendium 2 and it flagged three conflicting season references"; respects the AI-prose boundary (every tool *flags* and *cites*, never edits); the named-tool surface makes the value teachable to other authors during distribution,
+
+Risk: scope explosion — there are infinite "story-logic checks" you could imagine; the methodology behind each tool needs to be defensible (an AI saying "this is a plot hole" without grounded evidence is worse than no tool); cross-chapter context windows are expensive without smart retrieval; tool overlap with Plot-Planner needs clear boundaries (Plot-Planner = *prose mechanics*; Continuity-Engine = *story logic*); some tools depend on hierarchy decisions still in flux (multi-opus, sliced-repo collaboration),
+
+Assumptions: per-chapter analysis with cross-chapter retrieval is tractable using the prompt-caching strategy from Story 0.Z2; tools are best invoked via Claude Code's skill / slash-command surface (`.claude/skills/<name>/`) so they live close to the corpus repo, with `ergodix` subcommand mirrors for CI / scripting; an umbrella `continuity-engine` namespace separates these from `plot-planner` (craft) and from `sell-my-book` (marketing); evidence-citation is non-negotiable — every flag must point at the chapter / line that triggered it,
+
+Tools known so far (per the author's framing — list grows when activated):
+
+- **`timeline-continuity-analyzer`** — extracts every temporal anchor (dates, seasons, "three weeks later", character ages) and flags conflicts across the corpus.
+- **`plot-hole-finder`** — surfaces internal logical contradictions (character knows X in ch.3 but acts surprised by X in ch.7; an event is described as "unprecedented" when ch.2 shows precedent).
+- **`character-arc-tracker`** — extracts each character's appearances + decisions + emotional state; flags inconsistencies, abrupt shifts without setup, and disappearances.
+- **`worldbuilding-consistency-checker`** — checks magic-system rules, geography, technology level, currency, languages — every named worldbuilding fact tracked across chapters.
+- **`foreshadowing-tracker`** — pairs planted seeds (chekov's guns) with their payoffs; flags unresolved seeds and unsetup payoffs.
+- **`promise-and-payoff-tracker`** — chapter-level: what did this chapter promise the reader, was it paid off later, by whom, and how cleanly?
+- **`POV-leak-detector`** — tags POV per scene; flags information leaks (third-person-limited POV reveals knowledge the POV character couldn't have).
+- **`name-disambiguator`** — flags same-named or near-same-named characters / places / objects that may confuse readers.
+- **`relationship-graph-walker`** — who knows what about whom? Who has met whom? Tracks secrets, disclosures, alliances, betrayals, and surfaces "this character shouldn't know that yet" violations.
+- **`death-and-resurrection-ledger`** — who died, who came back, intentional or continuity error?
+- **`question-the-corpus`** — open-ended Q&A: "Why does Aria distrust the council?" — AI grounds the answer in citations; the answer is a *summary of evidence*, never a creative interpretation that wasn't in the prose.
+- **+ more** when the story activates.
+
+Tasks (when activated):
+
+- [ ] Decide implementation surface: Claude Code skills (`.claude/skills/<name>/`) vs `ergodix` subcommands vs both. Likely both — slash-commands for in-editor use, `ergodix` subcommand mirrors for CI/scripting/headless.
+- [ ] Lock the namespace: `continuity-engine` (working name) — distinguishes from `plot-planner` (craft) and `sell-my-book` (marketing). Could collapse if architecturally cleaner.
+- [ ] Settle on per-chapter analysis index + cross-chapter retrieval pattern — cross-references Story 0.Z2; prompt-caching strategy is load-bearing.
+- [ ] **Evidence-citation contract**: every flag points at chapter / paragraph / line. Non-negotiable. No "trust me, AI says so."
+- [ ] Build the first three tools (`timeline-continuity-analyzer`, `plot-hole-finder`, `character-arc-tracker`) end-to-end — establish the cookie-cutter pattern, then enumerate the rest.
+- [ ] AI-prose boundary enforcement: every tool emits flags / citations / artifacts in `_AI/` subfolders, *never* mutates chapter prose. The MCP server (parking-lot) inherits this constraint.
+- [ ] Documentation page mapping each tool's question / inputs / outputs / methodology. The methodology is the moat — vague "I asked the AI" beats nothing, but a defensible methodology is what makes Continuity-Engine valuable.
+
+This story partially supersedes / consolidates Sprint 1 stories 1.1 (plotline tracking), 1.2 (plot-hole detection), and 1.5 (worldbuilding support) — those are conceptually subsumed under specific Continuity-Engine tools. Decide at activation time whether to retire Sprint 1.1/1.2/1.5 or keep them as sub-stories.
+
 ### Story — Plot-Planner: AI-assisted authoring-analysis tool suite (Sprint 2+ when activated)
 
 As a writer, so that the author has a cadre of focused, narrow-purpose AI tools that surface specific craft issues across a chapter or the whole corpus — pacing, originality, repetition, tone — without conflating them into one monolithic "review" that's hard to act on,
@@ -437,6 +474,90 @@ Tasks (when activated — *after the author's own book has shipped*):
 - [ ] Enumerate concrete tools based on the launch retrospective.
 - [ ] Address ethical guardrails on AI-generated marketing content (transparency, disclosure norms).
 - [ ] Decide whether Sell-My-Book ships with Plot-Planner or as a separate phase / package.
+
+### Story — IP strategy: trademark "ErgodixDocs" + patent decision (talk to attorney)
+
+As a publisher, so that the name, brand, and any patentable architecture decisions are protected before commercial launch — without over-spending on IP before the product has a real audience,
+
+Value: trademarks protect the user-facing brand cheaply and durably; patents protect novel architecture but cost real money and have hard deadlines that started ticking when the repo went public; doing both right before commercialization is the difference between a defensible launch and a launch that gets copied by someone with a bigger budget,
+
+Risk: NOT consulting a real IP attorney is the biggest risk — software patent strategy in particular is non-DIY territory; the US 12-month grace period on first public disclosure (started ~2026-05-02 when this repo was first made public) caps when you can still file a US utility application that claims novelty; most non-US jurisdictions require absolute novelty so the public-disclosure window has likely already foreclosed those countries; spending $5K–$25K on a patent that gets rejected for prior art (decades of installer / configuration tools — Chef, Puppet, Ansible, Nix, Homebrew formulae, MacPorts, dpkg, etc. — set a high prior-art bar for "multi-phase orchestrator with consent gate") is real money wasted,
+
+Assumptions: the author has the financial position to pursue real IP protection; an IP attorney is the right next step; trademark protection is high-value-low-cost (good ROI) regardless of whether patents make sense; the architecture-level concepts (cantilever orchestrator, configure phase, preamble cascade) are novel-feeling but face real prior-art questions that a search would surface,
+
+Tasks (when activated — talk to an IP attorney first):
+
+- [ ] **Trademark "ErgodixDocs"** (and potentially "Ergodix" and any related marks) at USPTO via TEAS — ~$350 filing fee + attorney costs; protects the brand which is what users actually associate with the product. High value, low cost, fast.
+- [ ] **Provisional patent application** if patenting is pursued — ~$65 USPTO fee + ~$1.5K attorney for drafting. Locks in priority for 12 months while deciding whether to commit to a full non-provisional application. **Hard deadline: ~2027-05-02 to file in the US** (12-month grace period from first public disclosure ~2026-05-02; outside US is likely already too late).
+- [ ] **Prior-art search** before any non-provisional commitment — patent attorney runs this. Architecture-level patents face decades of installer / configuration / build-tool prior art. Likely candidates: cantilever's 5-phase orchestrator + needs-interactive configure phase; ergodic-typesetting preamble cascade; AI-prose-boundary enforcement model.
+- [ ] **Non-provisional patent application** if the prior-art search clears it and the business case justifies $5K–$25K + 18–36 months of prosecution. Otherwise drop the patent path.
+- [ ] **Domain name protection** — register `ergodix.com` / `ergodix.app` / `ergodixdocs.com` / etc. before someone else does (cheap, ~$15/yr each).
+- [ ] **Copyright** — already automatic on every commit; nothing to file. The PolyForm Strict license already establishes copyright posture.
+
+**Key dates:**
+- ~2026-05-02 — first public disclosure (repo went public). US patent grace period clock started.
+- ~2027-05-02 — US patent application deadline if pursuing the grace-period filing.
+
+**Key counsel question:** "Given decades of installer / configuration-management prior art, is there a defensible novel claim worth filing on the multi-phase orchestrator + configure-phase pattern, or should we focus on trademark + brand + the actual product instead?"
+
+### Story — Licensing + monetization framework (way later — pre-distribution)
+
+As a publisher (and the author wearing the publisher floater), so that ErgodixDocs can be sold as a commercial product when it ships out of the ~1-year solo-dev window — license-key validation, expiry handling, "trial / expired" UX, payment integration, and distribution channels (DMG, App Store, brew tap, web download) need a coherent design before anyone pays for it,
+
+Value: a defensible monetization path that survives common piracy patterns, integrates with whatever payment platform we pick, and degrades gracefully when payment lapses (read-only? grace period? hard block?); also blocks the obvious "anyone can run it for free forever" failure mode that would foreclose the publisher persona's reason to exist,
+
+Risk: getting this wrong creates support load, alienates legitimate users, or leaves obvious workarounds; over-engineering it before any users exist is also waste; license-validation that phones home creates a privacy story that needs to match the rest of the project's "local and frugal" stance,
+
+Assumptions: ~1 year of pre-commercial dev gives time to learn how the tool is actually used; the licensing layer will be a separate concern from cantilever (a wrapper / decorator pattern rather than a hard cantilever dep); the eventual distribution mode (DMG, App Store, web download, brew tap, etc.) shapes how the license-check integrates,
+
+Tasks (when activated):
+- [ ] Choose license-validation model — server-validated keys vs offline-signed certs vs hybrid; decide phone-home cadence (session-start? daily? never?)
+- [ ] Decide grace-period / hard-cutoff behavior on expiry (read-only mode? N-day grace? feature-gating?)
+- [ ] Pick payment platform (Stripe, App Store, Paddle, Lemon Squeezy, etc.) and wire it
+- [ ] Decide trial mechanics (free for X days, free with N chapters, free forever for personal non-commercial, etc.)
+- [ ] Build the licensing layer as an opt-in wrapper around the CLI — not a hard dep that breaks the existing dev workflow
+- [ ] Distribution: DMG signing + notarization (macOS), App Store packaging, brew tap, possibly Microsoft Store + apt repo
+- [ ] Privacy: no telemetry beyond license-validation pings; document clearly; respect the "local and frugal" posture from README
+- [ ] Decide whether existing open-source-licensed bits (any third-party deps) constrain commercial distribution; license-compatibility audit
+
+### Story — MCP server + AI-user persona (Sprint 2+ when activated)
+
+As an **AI-user** (a Claude or other LLM instance acting on behalf of a human author), so that an AI assistant can read this repo's documentation (ADRs, spikes, README, CLAUDE.md), understand the tool's architecture, and run ergodix commands on the user's behalf — turning "Claude, render chapter 3" or "Claude, what plotlines are unresolved?" into actual ergodix invocations,
+
+Value: amplifies the "AI as architectural co-author" thesis that drives the project; lets users who don't want a CLI experience still benefit from ergodix; centralizes documentation as the AI's context source rather than scattered prompt engineering; opens a distribution channel where the user's existing AI subscription (Claude, ChatGPT, etc.) drives the experience; introduces a new persona (AI-user) as a proper floater alongside writer / editor / developer / publisher / focus-reader,
+
+Risk: AI-user must NOT cross the AI-prose boundary (per CLAUDE.md and ADR 0006 — the AI never edits chapter prose, never acts as the writer); the tool's existing safeguards need an MCP-layer enforcement so an AI-user can't bypass them via the MCP surface; expanding the floater set introduces another persona that needs careful scoping; MCP itself is a relatively new spec, so betting on it has stability risk; users may expect the AI-user to write chapters and we have to enforce "no" gracefully,
+
+Assumptions: MCP (Model Context Protocol) is a stable enough surface to build against; the existing ADRs / spikes / README provide enough context for an AI to operate ergodix without runtime training; an AI-user is a real persona (per ADR 0011 the story leads with "As an AI-user"); the ethical stance "AI flags, human decides" extends cleanly to "AI invokes the analysis tools, never the prose-mutating ones,"
+
+Tasks (when activated):
+- [ ] New ADR locking the AI-user persona + floater + scope (alongside writer/editor/developer/publisher/focus-reader from ADR 0005)
+- [ ] Add `--ai-user` floater (or `--mcp` server-mode) to the CLI
+- [ ] Build `ergodix-mcp` (or similar) MCP server exposing a curated tool surface to a Claude/AI client — render, status, plotline-tracking, summaries, etc.
+- [ ] Lock the AI-user out of any operation that would edit prose chapters (extends ADR 0006's AI-prose boundary; explicit deny list in the MCP surface)
+- [ ] Decide whether the MCP server reads the live filesystem or a snapshot — Drive sync + concurrency interactions
+- [ ] Documentation surface for the MCP tools (so the AI knows what's available); auto-generate from CLI?
+- [ ] User flow for pointing Claude (or other) at the MCP server; auth model for the MCP
+
+### Story — In-app AI editor with BYO-key + Drive sync (way later — after distribution + Plot-Planner)
+
+As a writer using the polished consumer ErgodixDocs app (DMG / App Store), so that the writing experience itself happens *inside* ergodix rather than VS Code — on-the-fly AI assistance the user pays for via their own API key (BYO-AI), with chapter content auto-syncing to Google Drive as plain `.md` files in the background,
+
+Value: lowers the barrier for non-developer authors who don't want VS Code; user-pays-AI keeps the cost model honest (we don't markup AI calls and the user's privacy stance with their AI provider stays their own); plain-`.md`-in-Drive preserves the "tool for any author, no lock-in" principle from ADR 0005 — the user can walk away with their corpus as portable Markdown anytime,
+
+Risk: building a custom editor is a huge surface (rich text + Markdown rendering, syntax highlighting, find/replace, version history, conflict resolution, accessibility); user-pays-AI requires good key management UX (already half-solved by `auth.py`'s three-tier credential lookup but the editor adds new prompts); "background sync" is the same hard concurrency problem as Story 0.Z1; investing in a custom editor before the writer audience exists may be premature; competing against entrenched editors (Scrivener, Ulysses, Obsidian) needs a real differentiator,
+
+Assumptions: users will accept BYO-API-key (anthropic / openai / etc.); Drive's filesystem-mirror remains a reliable sync surface; the editor can ship as an Electron / Tauri / native app once monetization is sorted; the existing CLI surface keeps working in parallel for power users (the editor and CLI are not mutually exclusive — the CLI is the engine, the editor is the front end),
+
+Tasks (when activated — way after the licensing framework + Plot-Planner have shipped):
+- [ ] Decide editor framework — Tauri (smaller / faster, Rust+web), Electron (heavier / familiar), web-only (no install but offline-fragile), native macOS (best UX, single-platform)
+- [ ] BYO-API-key flow — store via OS keychain (already wired in `auth.py`'s tier-2); UI for entering / rotating / removing keys
+- [ ] Markdown editor experience — mode + extensions + preview + render; CriticMarkup-aware comment surface
+- [ ] Background Drive sync — leverages existing Mirror infrastructure; debounce; conflict UI (extends Story 0.Z1's solution)
+- [ ] On-the-fly AI assistance hooks — which Plot-Planner tools surface inline as the author writes? (writing-score, duplicate-smasher in real-time as a side panel?)
+- [ ] Distribution as a separate package from the CLI, OR unified app that bundles both — decide
+- [ ] Privacy story for the BYO-key + Drive sync stack documented in the App Store listing
+- [ ] Accessibility audit — screen reader support, keyboard navigation, contrast
 
 ### Story — Phil-trained custom prose linter (Sprint 1+ when activated)
 
