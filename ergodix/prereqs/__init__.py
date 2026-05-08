@@ -19,6 +19,7 @@ from types import ModuleType
 
 from ergodix.prereqs import (
     check_credential_store,
+    check_drive_desktop,
     check_git_config,
     check_local_config,
     check_platform,
@@ -26,10 +27,13 @@ from ergodix.prereqs import (
 from ergodix.prereqs.types import ApplyResult, InspectResult
 
 # Registration order = cantilever execution order. A1 (platform) runs
-# first because it halts cantilever on unsupported systems; the C-tier
-# prereqs (repo + auth scaffolding per ADR 0003) follow.
+# first because it halts cantilever on unsupported systems. B1 (Drive
+# Desktop) is registered after the A-tier installers when present;
+# this branch lands B1 standalone with a temporary placement that
+# gets corrected during rebase against the merged A-tier.
 _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
+    check_drive_desktop,
     check_local_config,
     check_credential_store,
     check_git_config,
