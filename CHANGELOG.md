@@ -16,13 +16,28 @@ Versioning policy: while the tool is pre-1.0, **0.MINOR.PATCH** — minor bumps 
 - `pyproject.toml` (Story 0.10) — Python >=3.11, console-script entry, pytest/ruff/mypy config per ADR 0008.
 - `ergodix/` package skeleton (Story 0.10) — `auth.py` and `version.py` moved from repo root.
 - `tests/` directory with `conftest.py` + first failing test files for `version` and `auth`. 22 passing, 1 skipped (PEP 440 strict-version test gated until 1.0).
+- ADR 0009 — CI workflow + dependency-pin policy (locked vs. latest two-job CI; uv as lockfile tool; reactive capping pre-Story-0.7).
+- ADR 0010 — installer pre-flight scan + single consent gate + atomic execute + verify. Splits the prereq contract into `inspect()` and `apply()`, replacing ADR 0007's `check() -> CheckResult` + `auto_fix` callable.
+- ADR 0011 — ASVRAT story format required for persona-driven sprint stories; infrastructure stories may keep SVRAT. Forward-only convention (no retroactive migration).
+- Story 0.11 cantilever orchestrator (`ergodix/cantilever.py`): four-phase execution per ADR 0010 — inspect → plan + consent → apply (with grouped sudo + abort-fast remediation) → verify (smoke checks: package import, ergodix-script-on-PATH, local_config sanity).
+- `ergodix/prereqs/types.py` — `InspectResult` and `ApplyResult` dataclasses per ADR 0010.
+- `ergodix/prereqs/check_platform.py` — first real prereq (operation A1), validating the inspect/apply contract against running code.
+- `ergodix/prereqs/check_local_config.py` — operation C4: bootstraps `local_config.py` from `local_config.example.py` at the repo root, preserving an existing file (never overwrites). Sets mode 0o600. First mutative prereq with real behavior; closes the smoke-test verify gap surfaced on 2026-05-07.
+- `ergodix/prereqs/check_credential_store.py` — operation C5: ensures `~/.config/ergodix/` exists with mode 0o700 (the file-fallback tier of auth.py's three-tier credential lookup). Three inspect outcomes: `ok` (dir present at 0o700), `needs-update` (dir present but mode wider — apply chmods to 0o700), `needs-install` (dir absent — apply mkdir + chmod). Idempotent. Per ADR 0003, the matching `secrets.json` template is auth.py's concern (auto-created when the user saves a credential via the file fallback); C5's job is the directory + mode invariant only.
+- `ergodix cantilever` CLI subcommand wired to `run_cantilever()`.
 
 ### Changed
 - `auth.py` central paths now resolve `Path.home()` lazily via a `_LazyPath` descriptor (bug found during TDD: tests that monkeypatched HOME got stale paths because module-level constants resolved at import time).
 - Branch model simplified to trunk-based on 2026-05-03 — `develop` deleted; only `main` plus feature branches.
+- **`install_dependencies.sh` replaced by `bootstrap.sh`** (per ADR 0007 + ADR 0010). The new script does only: locate a Python ≥3.11 interpreter, create `.venv`, `pip install -e ".[dev]"`, hand off to `ergodix cantilever`. Everything the old monolith did inline (Pandoc / MacTeX / Drive / VS Code extensions / `local_config.py` generation) moves into the cantilever orchestrator's inspect/plan/apply/verify phases. The `ergodix` console-script is now on PATH after first run.
+- Cantilever's inspect-failed branch now emits a user-facing message (which prereqs failed and their `current_state`) before halting. Previously silent — a `verify-failed` -style outcome with no surfacing of *what* failed. Surfaced during 2026-05-07 self-smoke at the test deploy directory.
+- Cantilever's default consent function now appends a newline after the user's response so the next apply-progress line starts on a fresh line. Previously, when stdin was piped (non-tty), the consent prompt and apply progress collided on a single line and the user couldn't tell consent had been requested. Surfaced during 2026-05-07 self-smoke ("I never saw the consent prompt").
+- `local_config.example.py` no longer hardcodes the original author's corpus name. The `CORPUS_FOLDER` default is now an obvious placeholder (`<YOUR-CORPUS-FOLDER>`, angle-bracketed) with a clear "REQUIRED EDIT" comment block. Pre-pivot leftover from before [ADR 0005](adrs/0005-roles-as-floaters-and-opus-naming.md) reframed the project as "tool for any author" — install_dependencies.sh's auto-detect path was scorellis-specific, and C4's verbatim-copy in the new world meant every fresh install landed with the original author's corpus name pre-populated. Auto-substitution of detected paths is deferred to operation B2.
+- `tests/test_cli.py::test_cantilever_no_args_invokes_orchestrator` removed and replaced by two focused, host-state-controlled tests (`test_cantilever_inspect_failed_exits_1`, `test_cantilever_consent_declined_exits_0`). The old test asserted `exit_code in (0, 1)` — too permissive to catch a real wiring regression.
 
 ### Removed
 - Stale `feature/gcp-setup-playbook` branch (content was cherry-picked to a fresh branch off post-architecture main; original branch had become unmergeable).
+- `install_dependencies.sh` — superseded by `bootstrap.sh` + cantilever (see Changed above).
 
 ## [0.1.0] - 2026-05-02
 

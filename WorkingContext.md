@@ -88,31 +88,41 @@ When work resumes, append a short dated note covering:
 - Keep creative/source materials out of GitHub by storing them in an untracked local folder or otherwise ignored path
 - Track implementation work using a Markdown sprint log with SVRAT stories
 
+## 2026-05-07 (mid-morning checkpoint)
+
+### What changed
+- **Story 0.11 phase 1 complete and reviewed clean.** Branch `feature/installer-redesign` is 17 commits ahead of `main` and Copilot-recommended for PR + merge.
+- Today's commits: ADR 0011 (ASVRAT), C4 prereq (`check_local_config`), C5 prereq (`check_credential_store`), inspect-failed UX message, consent-prompt newline fix, `local_config.example.py` genericized (Tapestry leak removed → `<YOUR-CORPUS-FOLDER>` placeholder), permissions overhaul (broad allowlist + targeted deny + bash-log hook).
+- Tests: 158 passing, 1 skipped, 80% coverage. ruff + mypy strict clean. Three real-machine self-smokes at the test deploy directory all green.
+- Two working norms hardened into memory: (a) self-smoke as the Installer persona instead of delegating, (b) every "OK to push?" ask pairs with a brief reason.
+
+### What was decided
+- Phase-1-vs-phase-2 split: ship cantilever foundation + first 3 prereqs as a single PR rather than waiting for all 25 prereqs to land. Smaller PRs, validated pattern, easier review.
+- Permission floor: `git push *` stays in the prompt zone (CLAUDE.md "always ask before pushing"); destructive variants (force-push, hard-reset, branch -D, sudo, system installs, raw-disk ops) explicitly denied.
+- Bash audit log: every command Claude runs lands in `ai.bashcommands.log` (gitignored, project root) with UTC timestamps. Local backtrack only, never reaches origin.
+
+### What remains next
+- **Open the PR** for `feature/installer-redesign` against `main` (17 commits, Copilot-clean).
+- **Phase 2 first wave** (next 3 prereqs, per Plan-subagent output 2026-05-07): C1 (`gh auth login`), C2 (clone corpus repo), A2 (install/verify Homebrew). Full Plan output in [SprintLog Story 0.11](SprintLog.md).
+- **Design decisions to resolve before phase 2:** C3/C6 interactive-in-apply pattern, A4 MacTeX-vs-BasicTeX default, D6 signing-key auth scope, F1 prereq-vs-orchestrator framing, `needs_admin` escalation semantics in `ApplyResult`. These are captured in SprintLog.
+
 ## Immediate Next Step
 
-**Session paused 2026-05-06 (early morning). Pick up next session.**
+**Mid-session as of 2026-05-07 ~08:30. Story 0.11 phase 1 ready for PR.**
 
-State at pause:
-- **Story 0.8 (architecture)** — DONE. ADRs 0001–0010 + Spikes 0001–0008 merged to main.
-- **Story 0.10 (TDD scaffolding)** — paused; partial work (pyproject.toml, package skeleton, test_version + test_auth + test_cli) is on `main` from the prior merged PR. Remaining ~40 test stubs are paused pending Story 0.11 finish.
-- **Story 0.11 (Installer redesign per ADR 0010)** — in flight on `feature/installer-redesign`. **7 commits, pushed**. Substantial work done:
-  - ADR 0010 + Spike 0008 + Story 0.11 added
-  - Copilot review #1 fix-now batch (auth path repaired, ruff/mypy strict clean, CLI tests pinning the surface, README + ADR 0007 status updates)
-  - Step 1: prereq types (`InspectResult`, `ApplyResult`)
-  - Step 2a: cantilever phases 1+2 (inspect, plan, consent gate, dry-run, ci)
-  - Step 2b: cantilever phase 3 (apply, sudo grouping, abort-fast, remediation)
-  - Step 2c: cantilever phase 4 (verify with default smoke checks)
-  - Copilot review #2 fix batch (inspect-failed first-class outcome, op_id uniqueness validation, PATH-derived ergodix smoke check, verify-on-no-changes, _verify_local_config_sane)
-- **Tests: 110 passing, 1 skipped. Coverage 75%. ruff + mypy strict clean.**
+State now:
+- **Story 0.8 (architecture)** — DONE. ADRs 0001–0011 + Spikes 0001–0008 merged to main.
+- **Story 0.10 (TDD scaffolding)** — partial work merged via prior PR; remaining ~40 test stubs paused pending Story 0.11 phase 2.
+- **Story 0.11 phase 1 (cantilever foundation + first 3 prereqs + UX + permissions)** — DONE on `feature/installer-redesign`, 17 commits pushed, Copilot review clean (zero blockers).
+  - Cantilever orchestrator (4 phases: inspect → plan + consent → apply → verify) with sudo grouping, abort-fast, op_id-uniqueness validation, inspect-failed first-class outcome, verify-on-no-changes path.
+  - Three prereqs landed: A1 (platform), C4 (local_config bootstrap), C5 (credential-store dir).
+  - Bootstrap.sh replaces install_dependencies.sh: minimal Python-detect / venv-create / pip-install / hand-off-to-cantilever.
+  - UX: consent-prompt newline visible, inspect-failed surfaces what failed, `local_config.example.py` genericized (no more "Tapestry of the Mind" leak).
+  - Permissions: broad allowlist + targeted deny + bash-log hook.
+- **Tests: 158 passing, 1 skipped, 80% coverage. ruff + mypy strict clean.**
 
-Story 0.11 remaining steps:
-- **Step 3**: First real prereq — `ergodix/prereqs/check_platform.py` (A1, simplest of the 25 ops). Validates the inspect/apply contract against real code. Smallest piece next.
-- **Step 4**: Wire `ergodix cantilever` Click subcommand to `run_cantilever()` (currently a stub).
-- **Step 5**: Thin `bootstrap.sh` + integration smoke test in fresh deploy directory.
-- **Step 6**: Remaining 24 prereqs — cookie-cutter against the established pattern.
+Story 0.11 phase 2 remaining (per Plan subagent 2026-05-07):
+- Recommended next 3 in order: **C1** (`gh auth login`), **C2** (clone corpus repo), **A2** (install/verify Homebrew). Full plan + design-decision list in [SprintLog Story 0.11](SprintLog.md).
+- 19 more prereqs after that — see SprintLog for tier grouping and dependencies.
 
-Other notable session artifacts:
-- **CLAUDE.md** gained "Working partnership norms" section: pushback on principle violations, late-arriving principles are normal, course corrections are healthy, persistent record carries partnership across sessions.
-- **`.claude/settings.json`** added with read-only auto-allows for `pytest`, `ruff check`, `ruff format --check`, `mypy` to reduce permission prompts.
-
-Next-session opening move: open the PR against `main` for `feature/installer-redesign`, ask Copilot to review (third review of this branch), absorb findings, then proceed to Story 0.11 step 3.
+Next-session opening move: open the PR for `feature/installer-redesign` against `main`. After merge, start phase 2 from a fresh branch off main, opening with the design-decisions resolution (C3/C6 interactivity, A4 MacTeX default, D6 auth scope, F1 framing, `needs_admin` escalation) — likely a short spike or ADR — before any new prereq code.

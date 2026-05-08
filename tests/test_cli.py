@@ -17,6 +17,7 @@ The CLI is deliberately a stub today. These tests assert the *contract*:
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -105,12 +106,13 @@ def test_focus_reader_mutex_blocks_combinations(runner: CliRunner, other_flag: s
 
 
 def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
-    """--focus-reader alone (no other role floater) is allowed."""
-    result = runner.invoke(main, ["--focus-reader", "cantilever"])
-    # Cantilever stub exits 1 ("not yet implemented"); that's the success
-    # path for "the mutex didn't trip."
-    assert result.exit_code == 1
-    assert "not yet implemented" in result.output.lower()
+    """--focus-reader alone (no other role floater) is allowed; mutex doesn't trip."""
+    result = runner.invoke(main, ["--focus-reader", "--dry-run", "cantilever"])
+    # The mutex would surface as exit 2 with "cannot be combined". Anything
+    # else means the floater was accepted. Use --dry-run so this test doesn't
+    # depend on the host environment passing real verify checks.
+    assert result.exit_code == 0
+    assert "cannot be combined" not in result.output.lower()
 
 
 # ─── Subcommand stubs exit cleanly with documented "not yet implemented" ────
@@ -119,7 +121,7 @@ def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
 @pytest.mark.parametrize(
     ("cmd", "extra_args"),
     [
-        ("cantilever", []),
+        # cantilever is now wired (Story 0.11 step 4) — see test_cantilever_*
         ("migrate", ["--from", "gdocs"]),
         ("render", ["chapter.md"]),
         ("sync-out", []),
@@ -135,6 +137,60 @@ def test_subcommand_stubs_exit_with_not_yet_implemented(
     result = runner.invoke(main, [cmd, *extra_args])
     assert result.exit_code == 1
     assert "not yet implemented" in result.output.lower()
+
+
+# ─── cantilever subcommand wiring (Story 0.11 step 4) ───────────────────────
+
+
+def test_cantilever_dry_run_exits_zero(runner: CliRunner) -> None:
+    """
+    The cantilever subcommand is wired to run_cantilever() with the
+    registered prereq list. --dry-run skips apply + verify entirely
+    (per ADR 0010), making this test deterministic across host envs.
+    """
+    result = runner.invoke(main, ["--writer", "--dry-run", "cantilever"])
+    assert result.exit_code == 0
+
+
+def test_cantilever_inspect_failed_exits_1(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Running cantilever in a directory with no ``local_config.example.py``
+    drives C4's inspect to ``failed`` (broken-repo state). Cantilever
+    halts via the inspect-failed path; cli.py maps that to exit 1.
+
+    Pins the cli.py exit-code mapping for verify/inspect-failure outcomes,
+    which the prior ``in (0, 1)`` assertion was too loose to catch.
+    """
+    monkeypatch.chdir(tmp_path)  # empty dir → C4 inspect fails
+
+    result = runner.invoke(main, ["--writer", "cantilever"])
+
+    assert result.exit_code == 1
+    assert "C4" in result.output or "local_config" in result.output.lower()
+
+
+def test_cantilever_consent_declined_exits_0(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Plan presented + user declines consent. cli.py treats
+    ``consent-declined`` as a clean exit (the user explicitly said no
+    changes; that's not a failure).
+    """
+    (tmp_path / "local_config.example.py").write_text("# template\n")
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(main, ["--writer", "cantilever"], input="n\n")
+
+    assert result.exit_code == 0
+
+
+def test_cantilever_focus_reader_dry_run(runner: CliRunner) -> None:
+    """focus-reader floater + dry-run: cantilever runs to plan-display + exits."""
+    result = runner.invoke(main, ["--focus-reader", "--dry-run", "cantilever"])
+    assert result.exit_code == 0
 
 
 # ─── Required-option enforcement on subcommands ─────────────────────────────

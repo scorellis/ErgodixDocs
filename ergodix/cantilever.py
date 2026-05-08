@@ -107,9 +107,16 @@ def _default_consent_fn(plan: Plan) -> bool:
     """
     Real interactive consent. Tests inject their own. Implementation here
     is intentionally minimal until phase 2's plan-display UI is designed.
+
+    The trailing ``print()`` is load-bearing: ``input()`` writes the prompt
+    without a newline and, when stdin is piped (non-tty), no newline is
+    appended on read either. Without the explicit ``print()``, the next
+    ``output_fn`` call (apply progress) collides with the prompt line and
+    the user never sees the consent question.
     """
     print(_render_plan(plan))
     answer = input("Apply these changes? [y/N]: ").strip().lower()
+    print()
     return answer in {"y", "yes"}
 
 
@@ -473,6 +480,11 @@ def run_cantilever(
     # silently fall through to no-changes-needed (because needs_action is
     # False) or be rewritten to deferred-offline.
     if any(ir.status == "failed" for ir in inspect_results):
+        output_fn("\nInspect phase found unresolvable issues:")
+        for ir in inspect_results:
+            if ir.status == "failed":
+                output_fn(f"  ✗ {ir.op_id} — {ir.description}: {ir.current_state}")
+        output_fn("Cantilever halted before any changes were made.")
         return CantileverResult(
             outcome="inspect-failed",
             inspect_results=inspect_results,
@@ -481,6 +493,18 @@ def run_cantilever(
 
     # Phase 2: Plan.
     plan = _build_plan(inspect_results)
+
+    # Dry-run wins over both empty-plan and consent paths. Even when the
+    # plan is empty, the user asked for "show me what cantilever would do
+    # without committing"; we honor that by emitting the (possibly empty)
+    # plan and exiting cleanly without running verify.
+    if floaters.get("dry-run"):
+        output_fn(_render_plan(plan))
+        return CantileverResult(
+            outcome="dry-run",
+            inspect_results=inspect_results,
+            plan=plan,
+        )
 
     if not plan.items:
         # Per Copilot review 2026-05-05 finding #5: still run verify on the
@@ -495,16 +519,6 @@ def run_cantilever(
             inspect_results=inspect_results,
             plan=plan,
             verify_results=verify_results,
-        )
-
-    # Phase 2: Consent gate (or floater bypass).
-    if floaters.get("dry-run"):
-        # Dry-run: show plan, do not apply.
-        output_fn(_render_plan(plan))
-        return CantileverResult(
-            outcome="dry-run",
-            inspect_results=inspect_results,
-            plan=plan,
         )
 
     if not floaters.get("ci"):

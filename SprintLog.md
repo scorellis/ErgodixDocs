@@ -233,14 +233,14 @@ Assumptions: the four-phase model (inspect → plan + consent → apply → veri
 **Why elevated above remaining Story 0.10 work:** the prereq-module contract changes from `check() -> CheckResult` (ADR 0007) to separate `inspect()` and `apply()` (ADR 0010). Test stubs written against the old contract would have to be rewritten. Doing Story 0.11 first means Story 0.10's remaining stub work targets the correct contract.
 
 Tasks:
-- [ ] Rewrite `install_dependencies.sh` to a minimal `bootstrap.sh` (and `bootstrap.ps1`) that does only: detect Python ≥3.11, create `.venv` with it, `pip install -e ".[dev]"`, run `ergodix cantilever`. Per ADR 0007.
+- [x] Rewrite `install_dependencies.sh` to a minimal `bootstrap.sh` that does only: detect Python ≥3.11, create `.venv` with it, `pip install -e ".[dev]"`, run `ergodix cantilever`. Per ADR 0007. **[DONE 2026-05-06]** `bootstrap.ps1` deferred to a follow-up step.
 - [ ] Define `InspectResult` and `ApplyResult` dataclasses in `ergodix/prereqs/types.py` per ADR 0010.
 - [x] Implement `ergodix/cantilever.py` with the four-phase orchestrator: inspect → plan + consent → apply (with grouped sudo) → verify. **[DONE 2026-05-06]**
 - [x] Implement the verify-phase smoke checks: import package, `ergodix --version` (interpreter-dir-derived path), `local_config.py` sanity (mode 600 + non-empty CORPUS_FOLDER). pytest verify check is conditional on `--developer` floater and lands when that floater's adds_operations are wired. **[DONE 2026-05-06]**
 - [x] **Inspect-failed first-class outcome** (Copilot review 2026-05-05 finding #2) — failed inspects no longer disappear into no-changes-needed or get rewritten to deferred-offline. **[DONE 2026-05-06]**
 - [x] **op_id uniqueness validation** at run_cantilever entry (Copilot finding #3) — duplicate op_ids raise ValueError before any work happens. **[DONE 2026-05-06]**
 - [x] **Verify runs on no-changes-needed path** (Copilot finding #5) — catches false greens from a too-permissive inspect. **[DONE 2026-05-06]**
-- [ ] For each of the 25 cantilever operations from ADR 0003, write the corresponding `ergodix/prereqs/check_<op>.py` with split `inspect()` / `apply()` functions. Tests come first per CLAUDE.md TDD norm.
+- [ ] For each of the 25 cantilever operations from ADR 0003, write the corresponding `ergodix/prereqs/check_<op>.py` with split `inspect()` / `apply()` functions. Tests come first per CLAUDE.md TDD norm. **Progress: A1 (platform) + C4 (local_config bootstrap) + C5 (credential-store dir) landed; 22 remaining as of 2026-05-07.**
 - [ ] Address every gap from Spike 0008's intel:
   - [ ] `pip install -e .` is an explicit phase-3 step
   - [ ] Python ≥3.11 enforced in inspect; plan adds Homebrew python@3.13 install if missing
@@ -250,8 +250,44 @@ Tasks:
   - [ ] All choices (MacTeX option, Drive launch) move into the phase 2 plan, not mid-execute
   - [ ] `HOMEBREW_NO_AUTO_UPDATE=1` set for cantilever's brew calls
   - [ ] Final next-steps message generated from the run record, not hardcoded
-- [ ] Re-run cantilever in `~/Documents/Scorellient/Applications/ErgodixDocs/` to validate. Should produce a working install with `ergodix` on PATH and `pytest` passing — without manual intervention.
-- [ ] Update CHANGELOG `[Unreleased]` with the contract change and refer to ADR 0010.
+- [x] Re-run cantilever in `~/Documents/Scorellient/Applications/ErgodixDocs/` to validate. Should produce a working install with `ergodix` on PATH and `pytest` passing — without manual intervention. **[DONE 2026-05-07]** — three self-smokes after C4 / consent fix / C5 commits, all green; placeholder `<YOUR-CORPUS-FOLDER>` correctly substitutes for the original "Tapestry of the Mind" hardcode.
+- [x] Update CHANGELOG `[Unreleased]` with the contract change and refer to ADR 0010. **[DONE 2026-05-07]** — running entries kept in sync per commit.
+
+#### Story 0.11 phase 2 — implementation plan (2026-05-07, from `Plan` subagent)
+
+**Recommended next 3 (in order):**
+
+1. **C1 — `gh auth login`** — highest value to the Installer persona: clone (C2) and editor signing (D6) both block on it. Idempotency cheap (`gh auth status` exit code). Network-only, no admin. The interactive `gh auth login` itself is a subprocess hand-off, not a mid-flow prompt — fits the apply contract cleanly.
+2. **C2 — clone corpus repo** — direct successor to C1; together they unblock the entire C-tier. Trivial idempotency (`.git` dir present). Pure subprocess + path check, no admin. Ships momentum.
+3. **A2 — install / verify Homebrew** — gateway dependency for A3, A4, A7, B1. Well-known idempotent check (`brew --version`). First Tier-2 op; landing it proves the network/admin pattern that the next four installers will copy.
+
+Rationale: C1+C2 are short and high-leverage and unblock the most downstream ops. A2 then opens the entire A-tier without yet committing to MacTeX (the gnarliest install).
+
+**Complexity tiers (22 remaining ops):**
+
+- **Tier 1 — trivial / cookie-cutter (C4/C5 shape):** C2, C3, D1, D2, D4, F2.
+- **Tier 2 — network / package-install:** A2, A3, A4, A5, A6, A7, B1, D3.
+- **Tier 3 — interactive / cross-cutting:** C1, C6, D6, C3.
+- **Tier 4 — persona-gated / orchestration:** D5, B2, E1, E2, F1.
+
+**Key dependencies:**
+
+- A2 → A3, A4, A7, B1 (brew is the installer)
+- A5 → A6 (venv before pip)
+- C1 → C2, D6 (auth before clone, before pushing signing key to GitHub)
+- C5 → C6 (dir before secrets file)
+- C4 → B2 (B2 patches the generated `local_config.py`)
+
+**Design decisions to resolve before phase-2 implementation:**
+
+- **C3 (git config interactive)** — does `apply()` prompt mid-flow for name/email, or surface `git config --global ...` as `proposed_action` for the user to run manually? ADR 0010 consent gate suggests the latter.
+- **C6 (credential prompts)** — same question scaled: looping `getpass` prompts inside `apply()` violates the "consent gate already happened" model. Likely needs a sub-contract or moves to a post-apply interactive phase.
+- **A4 (MacTeX vs BasicTeX)** — which does default Installer get? 4GB vs 100MB. Settings flag in `bootstrap.toml`?
+- **D6 (editor signing key)** — needs `gh api` write scope; does C1's auth flow request it, or does D6 re-auth?
+- **F1** — is this a prereq module at all, or orchestrator code in `cantilever.py`? ADR 0010 frames inspect/apply as per-op; F1 is meta.
+- **`needs_admin` escalation semantics** — `ApplyResult` has no admin-escalation field. How does A4/B1 surface a sudo prompt mid-apply?
+
+These should be addressed in a short spike or ADR before phase-2 work begins, NOT discovered ad-hoc per prereq.
 
 ### Story 0.10 - Test-driven development scaffolding **[IN FLIGHT — branch `feature/test-scaffolding`; PAUSED until Story 0.11 lands]**
 
@@ -355,6 +391,52 @@ Tasks (when activated):
 - [ ] decide rendering precedence in `--track-changes=all` mode when both diff and CriticMarkup are present
 - [ ] decide whether `ergodix ingest` should auto-extract CriticMarkup `{>> <<}` blocks into review-comment metadata vs. leave them in-prose
 - [ ] update [docs/comments-explained.md](docs/comments-explained.md) with the resolved convention
+
+### Story — Plot-Planner: AI-assisted authoring-analysis tool suite (Sprint 2+ when activated)
+
+As a writer, so that the author has a cadre of focused, narrow-purpose AI tools that surface specific craft issues across a chapter or the whole corpus — pacing, originality, repetition, tone — without conflating them into one monolithic "review" that's hard to act on,
+
+Value: each tool answers a single, named question and produces a focused report; the author iterates against one craft dimension at a time rather than drowning in a generic "make this better" pass; "hook to get authors using this tool" — a memorable, action-named tool surface (writing-score, copyright-quest, duplicate-smasher, PC-placator) is the thing that builds adoption habits; respects the AI-prose boundary because every tool *flags* / *scores*, never edits prose,
+
+Risk: scope creep — 20+ tools is a lot of surface to design, document, and maintain; without a strong umbrella concept the suite fragments; tool overlap (e.g. duplicate-smasher vs. writing-score's repetition signal) creates user confusion; tool quality drops if each tool is a thin LLM wrapper without a real scoring methodology behind it,
+
+Assumptions: the author has a defined scoring methodology (Fibonacci peaks, dynamics, show-vs-tell, etc.) that can be encoded; per-chapter analysis with cross-chapter context is tractable using the prompt-caching strategy from Story 0.Z2; tools are best invoked via Claude Code's skill/slash-command surface (`.claude/skills/` or `.claude/commands/`) so they live close to the corpus repo, with the option of also surfacing them as `ergodix` subcommands; an umbrella "plot-planner" name is the right grouping primitive,
+
+Tools known so far (more TBD):
+
+- **`writing-score`** — scores a chapter (or the whole corpus) using the author's methodology; flags pacing, dynamics, show-vs-tell, Fibonacci peaks, weak verbs, dialogue-vs-narration ratio, etc.
+- **`copyright-quest`** — searches across known works (corpus + author's prior drafts + a curated public-domain index?) to flag accidental copy/paste, residual placeholder text, or inadvertent close-paraphrase that could read as infringement.
+- **`duplicate-smasher`** — finds repeated patterns: copy-paste duplicates, excessive same-word/same-phrase clusters, structural repetition across chapters.
+- **`PC-placator`** — detects the full tone spectrum, from hate-speech / triggering / incendiary / rage-baiting at one end through edgy / raw / extreme, past kind / saccharine / boring / explainery, to raunchy / sensual / heart-pounding-action / page-turning / re-read-inducing at the other. Reports where each chapter sits and where the author may want to push or pull.
+- **+ ~16 more** to be enumerated when the story activates.
+
+Tasks (when activated):
+
+- [ ] Decide implementation surface: Claude Code skills/commands (`.claude/skills/<name>/`) vs. `ergodix` subcommands vs. both. Likely both — slash-commands for in-editor use, `ergodix` subcommand mirrors for CI/scripts.
+- [ ] Name the umbrella concept (`plot-planner` is the working name; could be `authoring-suite`, `craft-tools`, etc.).
+- [ ] Encode the author's scoring methodology in a stable, testable form (probably a TOML/YAML rubric).
+- [ ] Settle on per-chapter analysis index + cross-chapter retrieval pattern — cross-references Story 0.Z2.
+- [ ] Build the first three tools (`writing-score`, `duplicate-smasher`, `PC-placator`) end-to-end — establish the cookie-cutter pattern, then enumerate the remaining ~16.
+- [ ] Decide adoption hook: which tool is the "first one a new author tries" that demonstrates value in <5 minutes?
+- [ ] Documentation page mapping each tool's question / inputs / outputs / scoring methodology.
+
+### Story — Sell-My-Book: book-marketing assistance suite (way later, after the corpus is finished)
+
+As a publisher (and as the author wearing the publisher floater), so that there is a tool surface for the post-writing phase — turning a finished corpus into something readers actually find and buy — without bolting marketing concerns onto the authoring tools,
+
+Value: the tool's value continues past "draft is done" into the part of writing that most authors find hardest (selling); creates a complete pipeline from blank page to launched book; tools live in their own namespace so they don't pollute the writing workflow,
+
+Risk: huge surface (audience research, blurb generation, cover design feedback, price-point analysis, launch-platform comparison, ad copy, review-funnel design, social media seeding, etc.); easy to wander into commodity ad-tech territory; ethical concerns about AI-generated promotional content need their own handling; doing this *before* the author's own book launch validates the approach risks building features that don't survive contact with real publication realities,
+
+Assumptions: the author's own book ships first and surfaces concrete needs; lessons from that launch flow back into the tooling rather than the tooling being designed in the abstract; a clean separation between authoring tools (Plot-Planner) and marketing tools (Sell-My-Book) is maintained; some tools may share infrastructure with Plot-Planner (corpus indexing, character extraction) without sharing tool surface,
+
+Tasks (when activated — *after the author's own book has shipped*):
+
+- [ ] Run the author's own launch and harvest "what tools would have made this 10x easier" intel.
+- [ ] Decide the Sell-My-Book tool surface (likely separate slash-command/skill namespace from Plot-Planner).
+- [ ] Enumerate concrete tools based on the launch retrospective.
+- [ ] Address ethical guardrails on AI-generated marketing content (transparency, disclosure norms).
+- [ ] Decide whether Sell-My-Book ships with Plot-Planner or as a separate phase / package.
 
 ### Story — Phil-trained custom prose linter (Sprint 1+ when activated)
 
