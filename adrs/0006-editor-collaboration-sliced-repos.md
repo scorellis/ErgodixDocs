@@ -7,6 +7,8 @@
 - **Supersedes (in part)**: [ADR 0002](0002-repo-topology-and-editor-onboarding.md) — corpus repo topology section and editor workflow section. The credentials-storage and `gh auth login` portions of ADR 0002 stand unchanged.
 - **Touches**: [ADR 0001](0001-click-cli-with-persona-floater-registries.md) — `publish` and `ingest` added as new top-level subcommands. [ADR 0003](0003-cantilever-bootstrap-orchestrator.md) — editor-floater cantilever operations gain SSH-key generation + GitHub-key registration steps. [ADR 0005](0005-roles-as-floaters-and-opus-naming.md) — editor floater's `adds_operations` extended.
 
+> **Note (2026-05-07 — added by [ADR 0012](0012-phase-2-patterns-configure-phase-and-five-phase-orchestrator.md)):** the editor signing-key registration flow described below assumes the user's `gh` token has `admin:public_key` scope. Per ADR 0012's least-privilege resolution, C1 (`gh auth login`) does **not** request this scope upfront — it would burden every Installer (writer / developer / publisher / focus-reader) with a scope only the editor floater needs. Instead, D6 (editor signing key) detects insufficient scope at inspect time, marks itself `needs-interactive`, and the configure phase (new in ADR 0012) prompts: "Editor floater needs `admin:public_key` scope on your `gh` token; refresh now? [y/N]" before running `gh auth refresh -s admin:public_key`. The downstream `gh ssh-key add --type signing` step then works against the refreshed token. If the user declines the refresh, D6's verify check fails with a clear remediation pointing at the manual `gh auth refresh` command.
+
 ---
 
 ## Context
