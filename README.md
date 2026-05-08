@@ -1,6 +1,6 @@
 # ErgodixDocs
 
-> **License: proprietary.** This software is **not** open source. Reading the source code on this public repository is permitted for evaluation only. No license is granted for use, modification, distribution, or sublicensing without explicit written permission. Commercial licensing options will be announced separately. See [LICENSE](LICENSE) for full terms. Inquiries: scorellis@gmail.com.
+> **License: [PolyForm Strict 1.0.0](https://polyformproject.org/licenses/strict/1.0.0).** Source-available, **not** open source. Personal / hobby / academic / nonprofit use is permitted; **any commercial use requires a separate written commercial license** from the copyright holder. Reading the source as a model or architectural reference is encouraged. See [LICENSE](LICENSE) for full terms. Commercial licensing inquiries: scorellis@gmail.com.
 
 ## Origin of the Name
 

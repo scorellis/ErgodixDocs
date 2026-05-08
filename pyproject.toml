@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Architectural co-authoring tool for ergodic-text fiction. Reads, indexes, and analyzes a corpus; never edits prose."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Proprietary; see LICENSE" }
+license = { text = "PolyForm Strict 1.0.0; commercial use requires separate license" }
 authors = [
     { name = "Scott Corellis" },
 ]
