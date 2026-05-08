@@ -1201,6 +1201,70 @@ def test_configure_failure_does_not_block_verify() -> None:
     assert result.configure_results[0].status == "failed"
 
 
+# ─── Pre-flight: settings loading + warnings (per ADR 0012 / F1 reframe) ──
+
+
+def test_run_cantilever_loads_settings_at_preflight_with_defaults_when_no_file(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """
+    Pre-flight loads settings/bootstrap.toml; when no settings/ directory
+    exists, defaults are used and the run completes normally. The loaded
+    settings end up on the CantileverResult for downstream visibility.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    monkeypatch.chdir(tmp_path)
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: pytest.fail("consent should not run"),
+        is_online_fn=lambda: True,
+        verify_checks=[],
+    )
+
+    assert result.settings is not None
+    # Documented default per ADR 0012.
+    assert result.settings.mactex_install_size == "full"
+    # No warnings on the no-file path.
+    assert result.settings.warnings == []
+
+
+def test_run_cantilever_surfaces_settings_warnings_to_user(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    """
+    Malformed bootstrap.toml → defaults take over (no abort) AND warnings
+    are emitted via output_fn before the plan-display phase, so the user
+    sees their config typo without losing the run.
+    """
+    from ergodix.cantilever import run_cantilever
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "bootstrap.toml").write_text("not = valid TOML at all [")
+    monkeypatch.chdir(tmp_path)
+
+    captured: list[str] = []
+
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: pytest.fail("consent should not run"),
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    output = "\n".join(captured)
+    assert "settings" in output.lower() or "warning" in output.lower()
+    assert result.settings.warnings
+    # Run still completes; settings just default.
+    assert result.settings.mactex_install_size == "full"
+
+
 # ─── Default consent function — interactive UX ────────────────────────────
 
 
