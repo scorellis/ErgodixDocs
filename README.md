@@ -1,5 +1,7 @@
 # ErgodixDocs
 
+> **License: proprietary.** This software is **not** open source. Reading the source code on this public repository is permitted for evaluation only. No license is granted for use, modification, distribution, or sublicensing without explicit written permission. Commercial licensing options will be announced separately. See [LICENSE](LICENSE) for full terms. Inquiries: scorellis@gmail.com.
+
 ## Origin of the Name
 
 The name supports the author's effort to create **Xience Fixtion** (yes, with the X's — creative licence) in the form of an **Ergodic text**: a work that requires nontrivial effort from the reader to traverse, where structure, branching, and navigation are part of the storytelling itself.

@@ -438,6 +438,65 @@ Tasks (when activated — *after the author's own book has shipped*):
 - [ ] Address ethical guardrails on AI-generated marketing content (transparency, disclosure norms).
 - [ ] Decide whether Sell-My-Book ships with Plot-Planner or as a separate phase / package.
 
+### Story — Licensing + monetization framework (way later — pre-distribution)
+
+As a publisher (and the author wearing the publisher floater), so that ErgodixDocs can be sold as a commercial product when it ships out of the ~1-year solo-dev window — license-key validation, expiry handling, "trial / expired" UX, payment integration, and distribution channels (DMG, App Store, brew tap, web download) need a coherent design before anyone pays for it,
+
+Value: a defensible monetization path that survives common piracy patterns, integrates with whatever payment platform we pick, and degrades gracefully when payment lapses (read-only? grace period? hard block?); also blocks the obvious "anyone can run it for free forever" failure mode that would foreclose the publisher persona's reason to exist,
+
+Risk: getting this wrong creates support load, alienates legitimate users, or leaves obvious workarounds; over-engineering it before any users exist is also waste; license-validation that phones home creates a privacy story that needs to match the rest of the project's "local and frugal" stance,
+
+Assumptions: ~1 year of pre-commercial dev gives time to learn how the tool is actually used; the licensing layer will be a separate concern from cantilever (a wrapper / decorator pattern rather than a hard cantilever dep); the eventual distribution mode (DMG, App Store, web download, brew tap, etc.) shapes how the license-check integrates,
+
+Tasks (when activated):
+- [ ] Choose license-validation model — server-validated keys vs offline-signed certs vs hybrid; decide phone-home cadence (session-start? daily? never?)
+- [ ] Decide grace-period / hard-cutoff behavior on expiry (read-only mode? N-day grace? feature-gating?)
+- [ ] Pick payment platform (Stripe, App Store, Paddle, Lemon Squeezy, etc.) and wire it
+- [ ] Decide trial mechanics (free for X days, free with N chapters, free forever for personal non-commercial, etc.)
+- [ ] Build the licensing layer as an opt-in wrapper around the CLI — not a hard dep that breaks the existing dev workflow
+- [ ] Distribution: DMG signing + notarization (macOS), App Store packaging, brew tap, possibly Microsoft Store + apt repo
+- [ ] Privacy: no telemetry beyond license-validation pings; document clearly; respect the "local and frugal" posture from README
+- [ ] Decide whether existing open-source-licensed bits (any third-party deps) constrain commercial distribution; license-compatibility audit
+
+### Story — MCP server + AI-user persona (Sprint 2+ when activated)
+
+As an **AI-user** (a Claude or other LLM instance acting on behalf of a human author), so that an AI assistant can read this repo's documentation (ADRs, spikes, README, CLAUDE.md), understand the tool's architecture, and run ergodix commands on the user's behalf — turning "Claude, render chapter 3" or "Claude, what plotlines are unresolved?" into actual ergodix invocations,
+
+Value: amplifies the "AI as architectural co-author" thesis that drives the project; lets users who don't want a CLI experience still benefit from ergodix; centralizes documentation as the AI's context source rather than scattered prompt engineering; opens a distribution channel where the user's existing AI subscription (Claude, ChatGPT, etc.) drives the experience; introduces a new persona (AI-user) as a proper floater alongside writer / editor / developer / publisher / focus-reader,
+
+Risk: AI-user must NOT cross the AI-prose boundary (per CLAUDE.md and ADR 0006 — the AI never edits chapter prose, never acts as the writer); the tool's existing safeguards need an MCP-layer enforcement so an AI-user can't bypass them via the MCP surface; expanding the floater set introduces another persona that needs careful scoping; MCP itself is a relatively new spec, so betting on it has stability risk; users may expect the AI-user to write chapters and we have to enforce "no" gracefully,
+
+Assumptions: MCP (Model Context Protocol) is a stable enough surface to build against; the existing ADRs / spikes / README provide enough context for an AI to operate ergodix without runtime training; an AI-user is a real persona (per ADR 0011 the story leads with "As an AI-user"); the ethical stance "AI flags, human decides" extends cleanly to "AI invokes the analysis tools, never the prose-mutating ones,"
+
+Tasks (when activated):
+- [ ] New ADR locking the AI-user persona + floater + scope (alongside writer/editor/developer/publisher/focus-reader from ADR 0005)
+- [ ] Add `--ai-user` floater (or `--mcp` server-mode) to the CLI
+- [ ] Build `ergodix-mcp` (or similar) MCP server exposing a curated tool surface to a Claude/AI client — render, status, plotline-tracking, summaries, etc.
+- [ ] Lock the AI-user out of any operation that would edit prose chapters (extends ADR 0006's AI-prose boundary; explicit deny list in the MCP surface)
+- [ ] Decide whether the MCP server reads the live filesystem or a snapshot — Drive sync + concurrency interactions
+- [ ] Documentation surface for the MCP tools (so the AI knows what's available); auto-generate from CLI?
+- [ ] User flow for pointing Claude (or other) at the MCP server; auth model for the MCP
+
+### Story — In-app AI editor with BYO-key + Drive sync (way later — after distribution + Plot-Planner)
+
+As a writer using the polished consumer ErgodixDocs app (DMG / App Store), so that the writing experience itself happens *inside* ergodix rather than VS Code — on-the-fly AI assistance the user pays for via their own API key (BYO-AI), with chapter content auto-syncing to Google Drive as plain `.md` files in the background,
+
+Value: lowers the barrier for non-developer authors who don't want VS Code; user-pays-AI keeps the cost model honest (we don't markup AI calls and the user's privacy stance with their AI provider stays their own); plain-`.md`-in-Drive preserves the "tool for any author, no lock-in" principle from ADR 0005 — the user can walk away with their corpus as portable Markdown anytime,
+
+Risk: building a custom editor is a huge surface (rich text + Markdown rendering, syntax highlighting, find/replace, version history, conflict resolution, accessibility); user-pays-AI requires good key management UX (already half-solved by `auth.py`'s three-tier credential lookup but the editor adds new prompts); "background sync" is the same hard concurrency problem as Story 0.Z1; investing in a custom editor before the writer audience exists may be premature; competing against entrenched editors (Scrivener, Ulysses, Obsidian) needs a real differentiator,
+
+Assumptions: users will accept BYO-API-key (anthropic / openai / etc.); Drive's filesystem-mirror remains a reliable sync surface; the editor can ship as an Electron / Tauri / native app once monetization is sorted; the existing CLI surface keeps working in parallel for power users (the editor and CLI are not mutually exclusive — the CLI is the engine, the editor is the front end),
+
+Tasks (when activated — way after the licensing framework + Plot-Planner have shipped):
+- [ ] Decide editor framework — Tauri (smaller / faster, Rust+web), Electron (heavier / familiar), web-only (no install but offline-fragile), native macOS (best UX, single-platform)
+- [ ] BYO-API-key flow — store via OS keychain (already wired in `auth.py`'s tier-2); UI for entering / rotating / removing keys
+- [ ] Markdown editor experience — mode + extensions + preview + render; CriticMarkup-aware comment surface
+- [ ] Background Drive sync — leverages existing Mirror infrastructure; debounce; conflict UI (extends Story 0.Z1's solution)
+- [ ] On-the-fly AI assistance hooks — which Plot-Planner tools surface inline as the author writes? (writing-score, duplicate-smasher in real-time as a side panel?)
+- [ ] Distribution as a separate package from the CLI, OR unified app that bundles both — decide
+- [ ] Privacy story for the BYO-key + Drive sync stack documented in the App Store listing
+- [ ] Accessibility audit — screen reader support, keyboard navigation, contrast
+
 ### Story — Phil-trained custom prose linter (Sprint 1+ when activated)
 
 So that a custom linter trained on the human editor's repeated corrections becomes a first-pass automatic editor — catching the things the editor consistently fixes (specific verb-tense patterns, comma habits, clichés the author falls into) so the human editor can focus on higher-level work,

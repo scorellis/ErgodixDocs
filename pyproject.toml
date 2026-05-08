@@ -8,15 +8,15 @@ dynamic = ["version"]
 description = "Architectural co-authoring tool for ergodic-text fiction. Reads, indexes, and analyzes a corpus; never edits prose."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "Proprietary; see LICENSE" }
 authors = [
-    { name = "Scott Ellis" },
+    { name = "Scott Corellis" },
 ]
 keywords = ["writing", "ergodic", "fiction", "pandoc", "latex", "ai-assisted"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
