@@ -1,6 +1,6 @@
 # AI Session Summary
 
-## 2026-05-07 (mid-morning checkpoint, pre-PR)
+## 2026-05-07 (end-of-day-marathon — long crazy night)
 
 ### Prompt To Resume Conversation
 
@@ -10,75 +10,87 @@ You are an AI in the ErgodixDocs workspace. Continue from this saved state.
 - ErgodixDocs is a tool for any author who writes Ergodic-text fiction. AI as architectural co-author + continuity engine.
 - AI's role is **Architectural Analysis only** — never edits prose chapters; tracks plotlines, flags plot holes, builds summaries/storyboards, supports worldbuilding.
 
-**Architecture phase complete.** ADRs 0001–0011 and Spikes 0001–0008 are merged on `main` (or in flight on `feature/installer-redesign`). Don't revisit unless explicitly asked.
+**Architecture phase complete.** ADRs 0001–0012 + Spikes 0001–0009 merged on `main`. Don't revisit unless explicitly asked.
 
-**Locked architectural decisions (read in `adrs/` to fully load context):**
+**Locked architectural decisions** (read in `adrs/` to fully load context):
 
 - **ADR 0001** — Click subcommand groups, plugin registries (later collapsed by 0005).
 - **ADR 0002** — Two-repo topology (later partly superseded by 0006).
-- **ADR 0003** — Cantilever bootstrap orchestrator with 25 operations (later refined by 0010). **Note:** ADR 0003's B2 description still contains a "Tapestry path" pre-pivot leftover; treat the implementation as generic "corpus path" detection. Worth a one-line Note added to ADR 0003 when B2 lands.
-- **ADR 0004** — Continuous polling job (every 5 min, persona-aware, no-op when offline).
-- **ADR 0005** — All roles as floaters in single registry. `--writer`, `--editor`, `--developer`, `--publisher`, `--focus-reader`. Multi-corpus container named "opus" (plural "opera").
-- **ADR 0006** — Editor collaboration via sliced git repositories with baseline-tracked resync.
-- **ADR 0007** — Bootstrap scripts (sh + ps1), prereqs as importable Python modules, console-script entry in pyproject.toml.
-- **ADR 0008** — `ergodix sync` rename to `sync-out`/`sync-in`; local_config vs settings/* ownership rule; ruff + mypy adopted.
-- **ADR 0009** — CI workflow + dependency-pin policy. Locked vs latest two-job CI; uv as lockfile tool; reactive capping pre-Story-0.7, proactive capping post-Story-0.7.
-- **ADR 0010** — Pre-flight scan + consent gate + apply + verify four-phase installer model. Replaces `check() -> CheckResult` from ADR 0007 with separate `inspect()` and `apply()` per prereq.
-- **ADR 0011** — ASVRAT story format required for persona-driven sprint stories; infrastructure stories may keep SVRAT. Forward-only convention; existing stories not migrated.
+- **ADR 0003** — Cantilever bootstrap orchestrator with 25 ops (later refined by 0010 + 0012).
+- **ADR 0004** — Continuous polling job.
+- **ADR 0005** — All roles as floaters; opus naming.
+- **ADR 0006** — Editor collaboration via sliced git repositories.
+- **ADR 0007** — Bootstrap scripts; prereqs as Python modules; console-script entry.
+- **ADR 0008** — sync rename; local_config vs settings/* ownership; ruff + mypy.
+- **ADR 0009** — CI workflow + dependency-pin policy.
+- **ADR 0010** — Pre-flight scan + consent gate + apply + verify (4-phase, partially superseded by 0012's 5-phase).
+- **ADR 0011** — ASVRAT story format for persona-driven stories; SVRAT OK for infrastructure.
+- **ADR 0012** — Phase-2 patterns: **5-phase orchestrator** (inspect → plan + consent → apply → **configure** → verify); `needs-interactive` InspectStatus; F1 reframed as orchestrator code (not a prereq); A4 MacTeX hard-coded `full` for v1; D6 signing-key scope refresh on demand; sudo-cache trust assumption.
 
-**Branch model**: trunk-based. Only `main` plus feature branches.
+**Branch model**: trunk-based.
 
 **Format decisions (Story 0.2, locked):**
-- Pandoc Markdown + raw LaTeX passthrough; `.md` extension with mandatory YAML frontmatter (`format: pandoc-markdown`).
-- One `.md` file per Chapter.
-- LaTeX preamble cascade: optional `_preamble.tex` at every folder level; render walks up the tree, concatenates most-general-first.
+- Pandoc Markdown + raw LaTeX passthrough; `.md` with mandatory YAML frontmatter (`format: pandoc-markdown`).
+- One `.md` per Chapter.
+- LaTeX preamble cascade: optional `_preamble.tex` at every folder level; **render walks up most-general-first** and concatenates via `--include-in-header` flags.
 - Render pipeline: Pandoc → XeLaTeX → PDF.
 
-**Pacing**: ~1 year of private development by author (`--writer --developer` floater combination) before inviting other authors.
+**Pacing**: ~1 year of solo `--writer --developer` use before inviting other authors.
 
-**Working partnership norms** (now in CLAUDE.md):
-- Push back on principle violations in one sentence; let user decide.
-- Late-arriving principles are normal — apply forward, accept rework.
-- Course corrections cost cycles but are healthy; capture in the right doc.
-- The persistent record (CLAUDE.md, ADRs, spikes, WorkingContext, ai.summary) is how partnership survives sessions. Capture insights before moving on.
-- **Always ask before pushing to remote** AND **always pair the ask with a brief one- or two-sentence reason** so the user can decide quickly.
-- **Self-smoke as Installer persona:** when validating bootstrap/cantilever changes, the AI runs `./bootstrap.sh` directly at `/Users/scorellis/Documents/Scorellient/Applications/ErgodixDocs/` (re-cloning fresh) and reads the output, instead of asking the user to run-and-paste.
+**Working partnership norms** (in CLAUDE.md):
+- Push back on principle violations.
+- Late-arriving principles apply forward.
+- Course corrections cost cycles but are healthy.
+- Persistent record (CLAUDE.md, ADRs, spikes, WorkingContext, ai.summary) carries partnership across sessions.
+- **Always ask before pushing to remote**, paired with a brief reason.
+- **Self-smoke as Installer persona** — run `./bootstrap.sh` directly at `~/Documents/Scorellient/Applications/ErgodixDocs/`, don't delegate.
 
-**Where work paused (2026-05-07 mid-morning, pre-PR):**
+**Where work paused (2026-05-07 end of marathon):**
 
-- On branch `feature/installer-redesign`. **Story 0.11 phase 1 complete and Copilot-reviewed clean — recommended for PR + merge.**
-- **17 commits pushed to origin** (yesterday's 11 + today's 6).
-- Today's commits:
-  - **ADR 0011 + CLAUDE.md** — ASVRAT story-format convention.
-  - **C4 prereq** (`check_local_config`) — bootstraps `local_config.py` from `local_config.example.py`, mode 0o600, preserves existing.
-  - **Cantilever inspect-failed UX** — emits which prereqs failed before halting; previously silent.
-  - **Cantilever consent-prompt UX** — `print()` after `input()` so consent prompt is visible when stdin is piped (user-reported "I never saw the consent prompt").
-  - **`local_config.example.py` genericized** — removed pre-pivot "Tapestry of the Mind" hardcode; placeholder is now `<YOUR-CORPUS-FOLDER>` with a "REQUIRED EDIT" comment block.
-  - **Permissions overhaul** — `.claude/settings.json` now uses category-level allowlist (venv tooling, routine git, file ops, bootstrap, pip install) + explicit deny list (sudo, force-push, hard-reset, branch -D, system installs, pipe-to-shell, raw-disk ops). PreToolUse hook (`.claude/hooks/log-bash.sh`) appends every Bash command to `ai.bashcommands.log` (gitignored) for local backtrack.
-  - **C5 prereq** (`check_credential_store`) — ensures `~/.config/ergodix/` exists at mode 0o700; three inspect outcomes (ok / needs-update / needs-install). Idempotent.
-- **Tests: 158 passing, 1 skipped. Coverage 80%. ruff + mypy strict clean.**
-- **Self-smoke at `/Users/scorellis/Documents/Scorellient/Applications/ErgodixDocs/` (re-cloned fresh, 3 times today):** all green. Plan correctly contains C4 only; C5 reports `ok` since `~/.config/ergodix/` already lives at 0o700 from prior dev work — validates idempotency end-to-end on a real machine.
-- **Copilot review of `feature/installer-redesign` (Haiku 4.5):** zero blockers, recommends PR. The one specific finding (check_platform coverage gap, lines 30–38) was a stale read; current state is 100% / 0 misses. Pattern is locked for cookie-cutting more prereqs.
+Today's session shipped a *lot*. Twelve PRs merged (or about to merge). On `main` now:
+
+- **Cantilever orchestrator (5-phase)** with sudo grouping, abort-fast, op_id-uniqueness, inspect-failed UX, configure phase, verify-on-no-changes.
+- **8 prereqs landed on main**: A1 (platform), C3 (git config — first interactive), C4 (local_config), C5 (credential dir), C1 (gh auth). **Plus** A2 (Homebrew), A3 (Pandoc), B1 (Drive Desktop) — but those three are sitting in **PR #21 awaiting merge** (rescue PR; see below).
+- **F1 reframed** as orchestrator code: `ergodix/connectivity.py` (real TCP probe), `ergodix/settings.py` (BootstrapSettings loader from `settings/bootstrap.toml`).
+- **`ergodix render`** — first user-facing feature command (Story 0.2's render pipeline).
+- **`bootstrap.sh`** — minimal Python-detect / venv / `pip install -e ".[dev]"` / `ergodix cantilever`.
+- **Permissions/hooks overhaul** — broad allowlist + targeted deny + PreToolUse bash audit (`ai.bashcommands.log`).
+- **ADR 0011 + 0012**, **Spike 0009**.
+- **Plot-Planner + Sell-My-Book** parking-lot stories (future feature suites).
+- **Tests: 265 passing on the rescue branch (PR #21)** — will be 265 on main once #21 merges. ruff + mypy strict clean.
+
+**🚨 IMPORTANT — open at session end:**
+
+- **PR #21 — "Rescue: A2 + A3 + B1 prereqs"** is open and MERGEABLE. Stacked-PR cascade didn't auto-retarget after #11 merged; PRs #17/#18/#19 ended up merging into their stale feature-branch bases instead of main. Cherry-picked the three commits onto `feature/rescue-a2-a3-b1` from current main. Tests/lint/mypy clean. **Tomorrow's first move: merge PR #21**. After that, main has the full 8-prereq + render + orchestrator state.
+- **Lesson learned for stacked PRs**: merge bottom-up, *one at a time*, waiting for each to land on main before merging the next. GitHub auto-retargets the next-up PR's base when its predecessor lands. Doing them all at once with stacked bases skips main and lands them in stale branches.
 
 **Story 0.11 status:**
-- Phase 1 (cantilever foundation + first 3 prereqs + UX + permissions): **DONE**, awaiting PR.
-- Phase 2 (next 22 prereqs): pending. A `Plan` subagent ran 2026-05-07 to group remaining ops by complexity tier and propose a next-3 ordering — see [SprintLog Story 0.11](SprintLog.md) for the Plan output, when copied in.
+- 8 prereqs done (A1, A2, A3, B1, C1, C3, C4, C5) once #21 merges.
+- F1 reframed.
+- **16 prereqs remaining**: A4 (MacTeX), A5 (Python verify), A6 (pip dev deps), A7 (VS Code + extensions), B2 (Drive mount detect), C2 (clone corpus), C6 (credential prompts), D1–D6 (persona-gated), E1 / E2 (verify exit), F2 (run-record).
 
-**Parking lot accumulated 2026-05-07 (no fix-now action):**
-- `_verify_local_config_sane` silently passes the `<YOUR-CORPUS-FOLDER>` placeholder — should detect bracket-style placeholders and flag.
-- ADR 0003's B2 description has stale "Tapestry path" wording — fix when implementing B2.
-- Cantilever output is silent on `ok` inspect results — could show "N ops checked, K need action" summary line.
-- Tool rename idea: "Tapestry" or "Tapiz" — long-term parking lot.
-- `bootstrap.ps1` (Windows sibling of bootstrap.sh) — deferred per Story 0.11 task list.
+**Next-session candidates** (in rough value order):
 
-**Next-session opening move:**
+1. **Merge PR #21** (rescue) — first thing.
+2. **A4 (MacTeX)** — installs XeLaTeX. First consumer of `settings.mactex_install_size` (default `"full"`). The moment A4 + render are both on main, `ergodix render <chapter>` produces a real PDF on a fresh machine.
+3. **`ergodix migrate --from gdocs`** — Story 0.2's other big task. Walks `~/My Drive/Tapestry of the Mind/` (or whatever `local_config.CORPUS_FOLDER` points to), exports `.gdoc` → `.md` with frontmatter prepended, archives the originals to `_archive/`. Turns the existing corpus editable in VS Code.
+4. **More installer prereqs** — A5/A6 (verify-only, quick), A7 (VS Code + extensions), B2 (Drive mount detection — closes the configure-loop with `local_config.py` placeholder substitution), C2 (clone corpus), C6 (credential prompts via configure phase like C3), D-tier (persona-gated, lower priority until other authors arrive).
 
-1. If the PR has not been opened: open it. Branch is fully validated and reviewed. Description should reference (a) what phase 1 delivers, (b) the parking-lot items above, (c) the Plan-subagent's phase-2 ordering.
-2. If the PR has been opened and reviewed: absorb findings, merge, then start phase 2 from a fresh branch off `main`.
-3. If phase 2 is already in flight: skip resume prompt and continue from the current todo list.
+**Important context:**
 
-Important context:
-- `.claude/settings.json` now permissive for routine commands; deny list catches the dangerous shapes; `git push *` stays in the prompt zone per "always ask before pushing."
-- `.claude/hooks/log-bash.sh` is active — every Bash command Claude runs lands in `ai.bashcommands.log` (gitignored) with a UTC timestamp.
-- `.claude/settings.local.json` still has a stale `chmod +x deploy.sh` entry (deploy.sh was deleted weeks ago); harmless but worth cleaning up at some idle moment.
-- Test deploy directory backups (`ErgodixDocs.bak-2026-05-06`, `ErgodixDocs.bak-2026-05-07-pre-fixes`, `ErgodixDocs.bak-2026-05-07-pre-c5`) live alongside the active install at `/Users/scorellis/Documents/Scorellient/Applications/`. User can clean up when ready.
+- `.claude/settings.json` has broad allowlist + deny list (force-push, hard-reset, branch -D, sudo, system installs, pipe-to-shell, raw-disk ops). `git push *` stays in the prompt zone per CLAUDE.md.
+- `.claude/hooks/log-bash.sh` PreToolUse hook → `ai.bashcommands.log` (gitignored).
+- `local_config.example.py` was genericized today (Tapestry leak removed, `<YOUR-CORPUS-FOLDER>` placeholder).
+- ADR 0003 has Notes added: F1 reframed (24 prereqs not 25); B2's "Tapestry path" wording flagged.
+- ADR 0006 has a Note: editor signing-key scope refresh on demand via configure phase.
+- ADR 0010 has a Note: 5-phase via ADR 0012; sudo-cache assumption.
+- `local_config_sane` verify check still passes the `<YOUR-CORPUS-FOLDER>` placeholder silently — should detect bracket-style placeholders and flag (parking lot).
+- `bootstrap.ps1` (Windows) deferred.
+- The dev venv has a known editable-install quirk where `import ergodix` fails from outside the repo root (the .pth file isn't always processed). `pip install -e ".[dev]"` rerun fixes it. Doesn't affect production users (their venv is fresh).
+
+**Tomorrow's first move:**
+
+1. Merge PR #21 (rescue A2/A3/B1).
+2. Pull latest main locally.
+3. Pick from "Next-session candidates" — A4 likely highest value (unlocks `ergodix render` end-to-end on fresh machines).
+4. Branch off the previous PR going forward (stacking) **but merge bottom-up one at a time** to avoid the trap PR #21 just rescued.
