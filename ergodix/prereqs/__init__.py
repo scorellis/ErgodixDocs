@@ -19,6 +19,7 @@ from types import ModuleType
 
 from ergodix.prereqs import (
     check_credential_store,
+    check_gh_auth,
     check_git_config,
     check_local_config,
     check_platform,
@@ -27,11 +28,14 @@ from ergodix.prereqs.types import ApplyResult, InspectResult
 
 # Registration order = cantilever execution order. A1 (platform) runs
 # first because it halts cantilever on unsupported systems; the C-tier
-# prereqs (repo + auth scaffolding per ADR 0003) follow.
+# prereqs (repo + auth scaffolding per ADR 0003) follow. C1 (gh auth)
+# precedes its dependents (C2 clone, D6 signing key) per ADR 0012's
+# dependency analysis.
 _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
     check_local_config,
     check_credential_store,
+    check_gh_auth,
     check_git_config,
 ]
 
