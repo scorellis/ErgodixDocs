@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from ergodix.prereqs.types import ApplyResult, InspectResult
+from ergodix.settings import BootstrapSettings, load_bootstrap_settings
 
 # ─── Protocol that real prereqs and test fakes both satisfy ────────────────
 
@@ -132,6 +133,11 @@ class CantileverResult:
     apply_results: list[ApplyResult] = field(default_factory=list)
     configure_results: list[ApplyResult] = field(default_factory=list)
     verify_results: list[VerifyResult] = field(default_factory=list)
+    settings: BootstrapSettings | None = None
+    """Settings snapshot loaded at pre-flight (per ADR 0012's F1 reframe).
+    None only if cantilever exits before pre-flight (e.g. duplicate-op_id
+    ValueError); otherwise always populated, with defaults when no
+    ``settings/bootstrap.toml`` is present."""
 
 
 # ─── Default consent function (replaced by tests) ──────────────────────────
@@ -209,11 +215,14 @@ def _default_prompt_fn(prompt: str, hidden: bool) -> str | None:
 
 def _default_is_online_fn() -> bool:
     """
-    Conservative network check. Tests inject their own. Real implementation
-    will live in ergodix/connectivity.py per ADR 0003 / 0010 and probably
-    do a quick TCP probe to a stable endpoint.
+    Default connectivity probe — delegates to ``ergodix.connectivity.is_online``,
+    a fall-through TCP probe against well-known endpoints (per ADR 0012's
+    F1 reframe). Tests inject their own callable to avoid touching the
+    real network.
     """
-    return True
+    from ergodix.connectivity import is_online
+
+    return is_online()
 
 
 def _verify_import_package() -> VerifyResult:
@@ -601,6 +610,16 @@ def run_cantilever(
             "Each prereq must have a unique op_id."
         )
 
+    # Pre-flight: load settings (per ADR 0012's F1 reframe). Defaults apply
+    # when settings/bootstrap.toml is missing; warnings surface to the user
+    # before plan-display so config typos don't silently propagate. A
+    # malformed settings file does NOT abort cantilever — defaults take over.
+    settings = load_bootstrap_settings()
+    if settings.warnings:
+        output_fn("\nSettings warnings:")
+        for w in settings.warnings:
+            output_fn(f"  ⚠ {w}")
+
     # Phase 1: Inspect (read-only).
     online = is_online_fn()
     inspect_results = _inspect_all(prereqs, online=online)
@@ -619,6 +638,7 @@ def run_cantilever(
             outcome="inspect-failed",
             inspect_results=inspect_results,
             plan=Plan(items=[]),
+            settings=settings,
         )
 
     # Phase 2: Plan.
@@ -634,6 +654,7 @@ def run_cantilever(
             outcome="dry-run",
             inspect_results=inspect_results,
             plan=plan,
+            settings=settings,
         )
 
     if not plan.items:
@@ -649,6 +670,7 @@ def run_cantilever(
             inspect_results=inspect_results,
             plan=plan,
             verify_results=verify_results,
+            settings=settings,
         )
 
     if not floaters.get("ci"):
@@ -659,6 +681,7 @@ def run_cantilever(
                 outcome="consent-declined",
                 inspect_results=inspect_results,
                 plan=plan,
+                settings=settings,
             )
     # else: --ci floater treats as accept.
 
@@ -676,6 +699,7 @@ def run_cantilever(
             outcome="admin-denied",
             inspect_results=inspect_results,
             plan=plan,
+            settings=settings,
         )
 
     apply_results, completed = _apply_consented(prereqs, plan, output_fn=output_fn)
@@ -717,4 +741,5 @@ def run_cantilever(
         apply_results=apply_results,
         configure_results=configure_results,
         verify_results=verify_results,
+        settings=settings,
     )
