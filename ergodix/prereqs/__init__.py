@@ -23,6 +23,7 @@ from ergodix.prereqs import (
     check_git_config,
     check_homebrew,
     check_local_config,
+    check_pandoc,
     check_platform,
 )
 from ergodix.prereqs.types import ApplyResult, InspectResult
@@ -30,12 +31,15 @@ from ergodix.prereqs.types import ApplyResult, InspectResult
 # Registration order = cantilever execution order. A1 (platform) runs
 # first because it halts cantilever on unsupported systems. A2 (Homebrew)
 # follows because every other Tier-2 prereq (A3 Pandoc, A4 MacTeX, A7
-# VS Code, B1 Drive Desktop) installs via brew. The C-tier prereqs (repo
-# + auth scaffolding) are independent of brew; C1 (gh auth) precedes its
-# dependents (C2 clone, D6 signing key) per ADR 0012's dependency analysis.
+# VS Code, B1 Drive Desktop) installs via brew. A3 (Pandoc) follows A2
+# directly so the render pipeline is ready as early as possible. The
+# C-tier prereqs (repo + auth scaffolding) are independent of brew;
+# C1 (gh auth) precedes its dependents (C2 clone, D6 signing key) per
+# ADR 0012's dependency analysis.
 _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
     check_homebrew,
+    check_pandoc,
     check_local_config,
     check_credential_store,
     check_gh_auth,
