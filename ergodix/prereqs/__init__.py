@@ -19,6 +19,7 @@ from types import ModuleType
 
 from ergodix.prereqs import (
     check_credential_store,
+    check_git_config,
     check_local_config,
     check_platform,
 )
@@ -31,6 +32,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_platform,
     check_local_config,
     check_credential_store,
+    check_git_config,
 ]
 
 
