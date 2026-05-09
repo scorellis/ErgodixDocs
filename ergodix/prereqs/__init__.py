@@ -27,6 +27,7 @@ from ergodix.prereqs import (
     check_mactex,
     check_pandoc,
     check_platform,
+    check_vscode,
 )
 from ergodix.prereqs.types import ApplyResult, InspectResult
 
@@ -44,6 +45,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_homebrew,
     check_pandoc,
     check_mactex,
+    check_vscode,
     check_drive_desktop,
     check_local_config,
     check_credential_store,
