@@ -169,8 +169,99 @@ def sync_in_cmd() -> None:
 
 @main.command(name="status")
 def status_cmd() -> None:
-    """Read-only health check."""
-    _not_yet_implemented("status")
+    """Read-only health check — show platform, prereqs, settings, sync, and credentials.
+
+    Surfaces the same information cantilever's inspect phase produces, plus
+    settings cascade values + credential presence (without values), so a user
+    can quickly see "what does ErgodixDocs think the world looks like?" without
+    consenting to any installer changes.
+
+    Strictly read-only per CLAUDE.md principle #2 / ADR 0013.
+    """
+    import os
+    import platform as platform_module
+
+    from ergodix.auth import (
+        ENV_OVERRIDES,
+        KNOWN_KEYS,
+        _from_file,
+        _from_keyring,
+    )
+    from ergodix.connectivity import is_online
+    from ergodix.prereqs import all_prereqs
+    from ergodix.settings import load_bootstrap_settings
+    from ergodix.sync_transport import (
+        detect_current_sync_transport,
+        read_corpus_folder_from_local_config,
+    )
+
+    # ── Header
+    click.echo(f"ergodix {__version__}")
+    click.echo(f"Python {sys.version.split()[0]} on {platform_module.system()}")
+
+    # ── Sync transport + corpus folder
+    corpus_folder = read_corpus_folder_from_local_config()
+    mode = detect_current_sync_transport()
+    click.echo()
+    click.echo(f"Sync transport: {mode}")
+    if corpus_folder is None:
+        click.echo("Corpus folder:  (not configured in local_config.py)")
+    else:
+        existence = "exists" if corpus_folder.exists() else "MISSING"
+        click.echo(f"Corpus folder:  {corpus_folder} ({existence})")
+
+    # ── Settings cascade
+    settings = load_bootstrap_settings()
+    click.echo()
+    click.echo("Settings:")
+    click.echo(f"  mactex_install_size: {settings.mactex_install_size}")
+    for w in settings.warnings:
+        click.echo(f"  ⚠ {w}")
+
+    # ── Prereqs (run inspect for each registered)
+    click.echo()
+    click.echo("Prereqs:")
+    status_marker = {
+        "ok": "✓",
+        "needs-install": "○",
+        "needs-update": "○",
+        "needs-interactive": "?",
+        "deferred-offline": "·",
+        "failed": "✗",
+    }
+    for prereq in all_prereqs():
+        try:
+            r = prereq.inspect()
+            marker = status_marker.get(r.status, " ")
+            click.echo(f"  {marker} {r.op_id} ({r.status}): {r.current_state}")
+        except Exception as exc:
+            click.echo(f"  ! {prereq.op_id} (error inspecting): {exc}")
+
+    # ── Credentials (presence only; values never printed)
+    click.echo()
+    click.echo("Credentials (presence only; values never printed):")
+    for name in KNOWN_KEYS:
+        sources: list[str] = []
+        env_var = ENV_OVERRIDES.get(name)
+        if env_var and os.environ.get(env_var):
+            sources.append(f"env:{env_var}")
+        try:
+            if _from_keyring(name):
+                sources.append("keyring")
+        except Exception:
+            sources.append("keyring:error")
+        try:
+            if _from_file(name):
+                sources.append("file")
+        except Exception:
+            sources.append("file:error")
+        cred_marker = "✓" if any(not s.endswith(":error") for s in sources) else "✗"
+        src_label = ", ".join(sources) if sources else "(none)"
+        click.echo(f"  {cred_marker} {name:30s} {src_label}")
+
+    # ── Network
+    click.echo()
+    click.echo(f"Network: {'online' if is_online() else 'offline'}")
 
 
 @main.command(name="publish")
