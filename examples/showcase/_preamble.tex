@@ -1,0 +1,11 @@
+% _preamble.tex — packages used by the showcase chapter.
+%
+% The render pipeline cascades preambles most-general-first
+% (see ergodix/render.py::find_preamble_chain). For this example
+% we only have one level, so this is the only preamble in play.
+
+\usepackage{graphicx}      % \rotatebox, \reflectbox, \includegraphics
+\usepackage{tikz}          % spiral + diagram figures
+\usepackage[most]{tcolorbox}  % sidebar boxes
+
+\usetikzlibrary{shapes.geometric, arrows.meta}
