@@ -32,18 +32,34 @@ def test_version_matches_VERSION_file():
     assert version.__version__ == expected
 
 
-def test_version_falls_back_to_unknown_when_file_missing(monkeypatch, tmp_path):
+def test_version_falls_back_to_unknown_when_metadata_and_file_missing(monkeypatch, tmp_path):
     """
-    If the VERSION file is missing, __version__ must fall back to
-    '0.0.0+unknown' rather than raising.
+    Three-tier resolution: package metadata (preferred — works for both
+    editable and non-editable installs since pip writes dist-info either
+    way), then VERSION file at the repo root (raw checkout, no install),
+    then the literal '0.0.0+unknown' fallback.
+
+    This test pins the deepest fallback: if package metadata raises
+    PackageNotFoundError AND the VERSION file is missing, __version__
+    must be '0.0.0+unknown' rather than raising.
     """
-    # Force re-import with a parent dir that has no VERSION file.
+    import importlib.metadata as md
+
+    # Stage a fake ergodix package in tmp_path with NO VERSION file at
+    # the parent level; force a re-import so version.py runs fresh.
     fake_pkg = tmp_path / "ergodix"
     fake_pkg.mkdir()
     (fake_pkg / "__init__.py").write_text("")
     real_version = Path(__file__).resolve().parent.parent / "ergodix" / "version.py"
     (fake_pkg / "version.py").write_text(real_version.read_text())
 
+    # Force importlib.metadata to raise so the fallback chain advances
+    # past the metadata tier into the VERSION-file tier (which then
+    # also fails because there's no VERSION at tmp_path).
+    def _raise_not_found(_name: str) -> str:
+        raise md.PackageNotFoundError("ergodix")
+
+    monkeypatch.setattr(md, "version", _raise_not_found)
     monkeypatch.syspath_prepend(str(tmp_path))
     sys.modules.pop("ergodix.version", None)
     sys.modules.pop("ergodix", None)
