@@ -40,6 +40,7 @@ def test_description_mentions_drive() -> None:
 
 
 def test_inspect_returns_ok_when_drive_app_installed(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from ergodix.prereqs import check_drive_desktop
@@ -48,6 +49,9 @@ def test_inspect_returns_ok_when_drive_app_installed(
         return str(self) == "/Applications/Google Drive.app"
 
     monkeypatch.setattr(Path, "is_dir", fake_is_dir)
+    # No local_config.py in tmp_path → detect_current_sync_transport()
+    # returns drive-mirror (safe default) → existing B1 inspect logic runs.
+    monkeypatch.chdir(tmp_path)
 
     result = check_drive_desktop.inspect()
 
@@ -58,15 +62,93 @@ def test_inspect_returns_ok_when_drive_app_installed(
 
 
 def test_inspect_returns_needs_install_when_drive_app_absent(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from ergodix.prereqs import check_drive_desktop
 
     monkeypatch.setattr(Path, "is_dir", lambda _self: False)
+    monkeypatch.chdir(tmp_path)
 
     result = check_drive_desktop.inspect()
 
     assert result.status == "needs-install"
+
+
+# ─── ADR 0014 — B1 conditional on detected sync transport ────────────────
+#
+# Per ADR 0014 §5: B1 short-circuits to status="ok" under indy mode —
+# the user doesn't sync via Drive, so installing Drive Desktop would be
+# gratuitous bloat. Detection happens at the top of inspect().
+
+
+def test_inspect_returns_ok_under_indy_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When local_config.py points CORPUS_FOLDER at a path outside any
+    Drive mount, B1 reports ok regardless of whether Google Drive.app
+    is on disk. The current_state must mention 'indy' so plan-display
+    output makes the short-circuit visible to the user."""
+    from ergodix.prereqs import check_drive_desktop
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        f"from pathlib import Path\nCORPUS_FOLDER = Path('{tmp_path / 'Documents' / 'MyOpus'}')\n"
+    )
+    # Drive.app explicitly absent — should not matter under indy.
+    monkeypatch.setattr(Path, "is_dir", lambda _self: False)
+
+    result = check_drive_desktop.inspect()
+
+    assert result.status == "ok"
+    assert result.needs_action is False
+    assert "indy" in result.current_state.lower()
+
+
+def test_inspect_under_indy_mode_short_circuits_even_when_drive_app_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Even if the user happens to have Google Drive.app installed,
+    indy mode means B1 doesn't care — same 'ok / indy' short-circuit.
+    The original Drive-app detection only matters when sync mode is
+    drive-mirror."""
+    from ergodix.prereqs import check_drive_desktop
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        f"from pathlib import Path\nCORPUS_FOLDER = Path('{tmp_path / 'Documents' / 'MyOpus'}')\n"
+    )
+    monkeypatch.setattr(Path, "is_dir", lambda self: str(self) == "/Applications/Google Drive.app")
+
+    result = check_drive_desktop.inspect()
+
+    assert result.status == "ok"
+    assert "indy" in result.current_state.lower()
+
+
+def test_inspect_keeps_existing_behavior_under_drive_mirror_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When CORPUS_FOLDER is under My Drive, B1 falls through to its
+    original needs-install / ok logic based on Drive.app presence.
+    Pins that the conditional doesn't break the canonical case."""
+    from ergodix.prereqs import check_drive_desktop
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        f"from pathlib import Path\nCORPUS_FOLDER = Path('{tmp_path / 'My Drive' / 'MyOpus'}')\n"
+    )
+    monkeypatch.setattr(Path, "is_dir", lambda _self: False)
+
+    result = check_drive_desktop.inspect()
+
+    assert result.status == "needs-install"  # original behavior preserved
     assert result.needs_action is True
     assert result.needs_admin is True  # --cask writes to /Applications
     assert result.network_required is True

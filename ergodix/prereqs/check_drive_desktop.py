@@ -5,10 +5,20 @@ Desktop.
 The migrate / sync flows depend on Drive's local Mirror mount so
 chapter files round-trip without API calls (per ADR 0006). B1 ensures
 the Drive app is installed; B2 (separate prereq) detects which mount
-mode (Mirror vs Stream) is active and surfaces the path. Sign-in
-itself is a manual step the cantilever cannot automate — ADR 0010's
-plan-display surfaces the requirement, the user signs in via the
-menu-bar app, then re-runs cantilever.
+mode (Mirror vs Stream) is active and surfaces the path.
+
+**Conditional on detected sync transport (per ADR 0014).** Before any
+Drive-app detection runs, B1 consults
+``ergodix.sync_transport.detect_current_sync_transport()``. If the
+user's ``CORPUS_FOLDER`` resolves to a path outside any Drive mount
+(indy mode), B1 reports ``status="ok"`` and short-circuits — installing
+Drive Desktop would be gratuitous for users who don't sync via Drive.
+Drive-mirror and drive-stream both fall through to the original
+detection logic below.
+
+Sign-in itself is a manual step the cantilever cannot automate —
+ADR 0010's plan-display surfaces the requirement, the user signs in
+via the menu-bar app, then re-runs cantilever.
 
 Detection: `/Applications/Google Drive.app` is the canonical macOS
 install location. We don't probe the running process here — Drive may
@@ -31,6 +41,7 @@ import subprocess
 from pathlib import Path
 
 from ergodix.prereqs.types import ApplyResult, InspectResult
+from ergodix.sync_transport import detect_current_sync_transport
 
 OP_ID = "B1"
 DESCRIPTION = "Install/verify Google Drive for Desktop"
@@ -39,6 +50,20 @@ _APP_PATH = Path("/Applications/Google Drive.app")
 
 
 def inspect() -> InspectResult:
+    # Per ADR 0014 §5: B1 short-circuits under indy mode. If the
+    # user's corpus is on local disk (no Drive sync), Drive Desktop
+    # isn't a prereq — return ok with a current_state that names the
+    # mode so plan-display makes the conditionality visible.
+    if detect_current_sync_transport() == "indy":
+        return InspectResult(
+            op_id=OP_ID,
+            status="ok",
+            description=DESCRIPTION,
+            current_state="indy mode (no Drive sync); Drive Desktop not required",
+            proposed_action=None,
+            network_required=False,
+        )
+
     if _APP_PATH.is_dir():
         return InspectResult(
             op_id=OP_ID,
