@@ -18,9 +18,13 @@ progress display, and verify-phase smoke checks land in the next step.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -572,6 +576,87 @@ def _run_configure_phase(
     return results
 
 
+# ─── F2: post-run record (per ADR 0003 §164) ────────────────────────────────
+
+
+_SUCCESS_OUTCOMES: frozenset[CantileverOutcome] = frozenset(
+    {"applied", "no-changes-needed", "dry-run"}
+)
+
+
+def _default_log_path() -> Path:
+    """Resolve the F2 log path lazily (per CLAUDE.md: no Path.home() at
+    module level). Tests monkeypatch this to redirect into tmp_path."""
+    return Path.home() / ".config" / "ergodix" / "cantilever.log"
+
+
+def _operation_records(result: CantileverResult) -> list[dict[str, str]]:
+    """Per-op {id, status} list — final status (configure > apply > inspect),
+    preserving the cantilever execution order from inspect_results."""
+    final: dict[str, str] = {ir.op_id: ir.status for ir in result.inspect_results}
+    for ar in result.apply_results:
+        final[ar.op_id] = ar.status
+    for cr in result.configure_results:
+        final[cr.op_id] = cr.status
+    seen: set[str] = set()
+    ordered: list[dict[str, str]] = []
+    for ir in result.inspect_results:
+        if ir.op_id not in seen:
+            ordered.append({"id": ir.op_id, "status": final[ir.op_id]})
+            seen.add(ir.op_id)
+    return ordered
+
+
+def _build_run_record(
+    result: CantileverResult,
+    *,
+    started_ts: datetime,
+    duration_seconds: float,
+    floaters: dict[str, bool],
+) -> dict[str, object]:
+    """Pure transform — produce the JSON-serializable F2 record. Pure so
+    tests can verify shape without filesystem side-effects (and because
+    the actual write path is fail-safe, which would otherwise hide bugs
+    in the record builder)."""
+    return {
+        "ts": started_ts.replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "floaters": sorted(k for k, v in floaters.items() if v),
+        "operations": _operation_records(result),
+        "exit": 0 if result.outcome in _SUCCESS_OUTCOMES else 1,
+        "duration_seconds": round(duration_seconds),
+        "outcome": result.outcome,
+    }
+
+
+def _write_run_record(
+    result: CantileverResult,
+    *,
+    started_ts: datetime,
+    duration_seconds: float,
+    floaters: dict[str, bool],
+) -> None:
+    """Append one JSONL line to the F2 log. Fail-safe: any error is
+    swallowed so cantilever's caller never sees an F2 problem. The price
+    of losing a single record is worth not breaking a real install run.
+    """
+    try:
+        record = _build_run_record(
+            result,
+            started_ts=started_ts,
+            duration_seconds=duration_seconds,
+            floaters=floaters,
+        )
+        log_path = _default_log_path()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, separators=(",", ":")) + "\n")
+    except (OSError, ValueError, TypeError):
+        # Loud-not-fatal: swallow F2 errors so cantilever's outcome is
+        # never tainted by audit-log infrastructure. (We could output_fn
+        # a warning here in a future iteration.)
+        return
+
+
 # ─── Public entry point ────────────────────────────────────────────────────
 
 
@@ -615,6 +700,25 @@ def run_cantilever(
     """
     checks = verify_checks if verify_checks is not None else _DEFAULT_VERIFY_CHECKS
 
+    # F2 (per ADR 0003 §164): every return path runs through _finalize, which
+    # appends a JSONL record to ~/.config/ergodix/cantilever.log. F2 is
+    # fail-safe — _write_run_record swallows its own errors.
+    started_at = time.monotonic()
+    started_ts = datetime.now(UTC)
+
+    def _finalize(result: CantileverResult) -> CantileverResult:
+        # Belt-and-suspenders: _write_run_record already swallows its own
+        # OSError/ValueError/TypeError, but defense-in-depth means even a
+        # bug past its except clause can't crash cantilever's outcome.
+        with contextlib.suppress(Exception):
+            _write_run_record(
+                result,
+                started_ts=started_ts,
+                duration_seconds=time.monotonic() - started_at,
+                floaters=floaters,
+            )
+        return result
+
     # Pre-flight: op_ids must be unique (Copilot review 2026-05-05 finding #3).
     seen: set[str] = set()
     duplicates: list[str] = []
@@ -652,11 +756,13 @@ def run_cantilever(
             if ir.status == "failed":
                 output_fn(f"  ✗ {ir.op_id} — {ir.description}: {ir.current_state}")
         output_fn("Cantilever halted before any changes were made.")
-        return CantileverResult(
-            outcome="inspect-failed",
-            inspect_results=inspect_results,
-            plan=Plan(items=[]),
-            settings=settings,
+        return _finalize(
+            CantileverResult(
+                outcome="inspect-failed",
+                inspect_results=inspect_results,
+                plan=Plan(items=[]),
+                settings=settings,
+            )
         )
 
     # Phase 2: Plan.
@@ -668,11 +774,13 @@ def run_cantilever(
     # plan and exiting cleanly without running verify.
     if floaters.get("dry-run"):
         output_fn(_render_plan(plan))
-        return CantileverResult(
-            outcome="dry-run",
-            inspect_results=inspect_results,
-            plan=plan,
-            settings=settings,
+        return _finalize(
+            CantileverResult(
+                outcome="dry-run",
+                inspect_results=inspect_results,
+                plan=plan,
+                settings=settings,
+            )
         )
 
     if not plan.items:
@@ -683,23 +791,27 @@ def run_cantilever(
         outcome: CantileverOutcome = (
             "verify-failed" if any(not vr.passed for vr in verify_results) else "no-changes-needed"
         )
-        return CantileverResult(
-            outcome=outcome,
-            inspect_results=inspect_results,
-            plan=plan,
-            verify_results=verify_results,
-            settings=settings,
+        return _finalize(
+            CantileverResult(
+                outcome=outcome,
+                inspect_results=inspect_results,
+                plan=plan,
+                verify_results=verify_results,
+                settings=settings,
+            )
         )
 
     if not floaters.get("ci"):
         # Interactive (or test-injected) consent.
         consented = consent_fn(plan)
         if not consented:
-            return CantileverResult(
-                outcome="consent-declined",
-                inspect_results=inspect_results,
-                plan=plan,
-                settings=settings,
+            return _finalize(
+                CantileverResult(
+                    outcome="consent-declined",
+                    inspect_results=inspect_results,
+                    plan=plan,
+                    settings=settings,
+                )
             )
     # else: --ci floater treats as accept.
 
@@ -713,11 +825,13 @@ def run_cantilever(
             "error: admin credentials required for one or more steps but "
             "were not granted. No changes have been made."
         )
-        return CantileverResult(
-            outcome="admin-denied",
-            inspect_results=inspect_results,
-            plan=plan,
-            settings=settings,
+        return _finalize(
+            CantileverResult(
+                outcome="admin-denied",
+                inspect_results=inspect_results,
+                plan=plan,
+                settings=settings,
+            )
         )
 
     apply_results, completed = _apply_consented(prereqs, plan, output_fn=output_fn)
@@ -752,12 +866,14 @@ def run_cantilever(
     else:
         outcome = "applied"
 
-    return CantileverResult(
-        outcome=outcome,
-        inspect_results=inspect_results,
-        plan=plan,
-        apply_results=apply_results,
-        configure_results=configure_results,
-        verify_results=verify_results,
-        settings=settings,
+    return _finalize(
+        CantileverResult(
+            outcome=outcome,
+            inspect_results=inspect_results,
+            plan=plan,
+            apply_results=apply_results,
+            configure_results=configure_results,
+            verify_results=verify_results,
+            settings=settings,
+        )
     )
