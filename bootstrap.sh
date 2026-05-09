@@ -67,7 +67,17 @@ fi
 source "$VENV/bin/activate"
 pip install --quiet --upgrade pip
 echo "Installing ergodix package (editable, with dev extras)…"
-pip install --quiet -e ".[dev]"
+# `--config-settings editable_mode=compat` forces setuptools' legacy
+# (flat-list / easy-install.pth) editable layout instead of the modern
+# `__editable__.<name>.pth` finder-hook. The modern hook silently fails
+# to load on Python 3.13 + recent setuptools combos in some venvs —
+# `import ergodix` then works only when cwd happens to contain the
+# ergodix/ folder, which makes `ergodix --version` exit 1 from any
+# other cwd (including subprocess invocations from cantilever's verify
+# phase). The compat mode is older, simpler, and reliably loads at
+# Python startup. Diagnosed during the 2026-05-08 self-smoke (PR #22
+# A4 install completed but verify's ergodix_on_path check failed).
+pip install --quiet -e ".[dev]" --config-settings editable_mode=compat
 
 # ── 4. Hand off to cantilever ─────────────────────────────────────────────
 # No-arg invocation: run cantilever with default floaters. Forward any args
