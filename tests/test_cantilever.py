@@ -1386,3 +1386,161 @@ def test_verify_emits_fail_marker_and_remediation() -> None:
     assert "✗" in output
     assert "ergodix_imports" in output
     assert "run pip install -e ." in output
+
+
+# ─── E2: persona-tailored "you're done" message (per ADR 0003) ────────────
+#
+# E2 prints a friendly completion message at the end of any successful
+# cantilever run (applied / no-changes-needed / dry-run). Failure outcomes
+# get nothing — the user already saw remediation. Multiple personas active
+# → multiple tailored messages, one per persona, in canonical order.
+
+
+def test_e2_writer_persona_prints_writer_done_message() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    output = "\n".join(captured).lower()
+    assert "complete" in output or "done" in output
+    assert "render" in output or "vs code" in output or "write" in output
+
+
+def test_e2_developer_persona_prints_developer_done_message() -> None:
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    run_cantilever(
+        floaters={"developer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    output = "\n".join(captured).lower()
+    assert "pytest" in output or "test" in output or "smoke" in output
+
+
+def test_e2_multiple_personas_print_multiple_messages() -> None:
+    """A writer+developer install gets both messages — most authors using
+    this tool will be both."""
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    run_cantilever(
+        floaters={"writer": True, "developer": True},
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    output = "\n".join(captured).lower()
+    # Both personas should be visible by their distinct keyword
+    assert "vs code" in output or "render" in output  # writer signal
+    assert "pytest" in output or "smoke" in output  # developer signal
+
+
+def test_e2_no_persona_prints_only_generic_done() -> None:
+    """No persona floater active → just a generic 'Cantilever complete' line.
+    No tailored next-steps message."""
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    run_cantilever(
+        floaters={},  # no persona, no behavior floaters
+        prereqs=[_ok_prereq("A1")],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    output = "\n".join(captured).lower()
+    assert "complete" in output
+    # And no persona-specific keywords
+    assert "render" not in output
+    assert "pytest" not in output
+
+
+def test_e2_failure_outcome_prints_no_done_message() -> None:
+    """An inspect-failed run halts with a remediation message — E2 does
+    NOT add a "you're done" line on top. The user has unresolved issues."""
+    from ergodix.cantilever import run_cantilever
+
+    failed_prereq = FakePrereq(
+        op_id="A2",
+        inspect_status="failed",
+        current_state="fatal",
+    )
+
+    captured: list[str] = []
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[failed_prereq],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    assert result.outcome == "inspect-failed"
+    output = "\n".join(captured).lower()
+    # No "complete" / "done" success language; the inspect-failed message
+    # is its own line ("Cantilever halted before any changes were made.").
+    # Note: the inspect-failed branch already says "halted" — make sure
+    # E2's "complete" doesn't sneak in.
+    assert "you're done" not in output
+    assert "you are done" not in output
+    assert "set up" not in output  # avoids "you're set up to write" appearing
+
+
+def test_e2_dry_run_prints_done_message() -> None:
+    """Dry-run is a successful exit (the user explicitly asked to see
+    the plan) and gets the done message."""
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    run_cantilever(
+        floaters={"writer": True, "dry-run": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: True,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    output = "\n".join(captured).lower()
+    assert "complete" in output
+
+
+def test_e2_consent_declined_prints_no_done_message() -> None:
+    """User declined consent → not a "you're done" moment. They opted
+    out; the done message would feel pushy."""
+    from ergodix.cantilever import run_cantilever
+
+    captured: list[str] = []
+    result = run_cantilever(
+        floaters={"writer": True},
+        prereqs=[_needs_install_prereq("A3")],
+        consent_fn=lambda _plan: False,
+        is_online_fn=lambda: True,
+        output_fn=captured.append,
+        verify_checks=[],
+    )
+
+    assert result.outcome == "consent-declined"
+    output = "\n".join(captured).lower()
+    assert "you're done" not in output
+    assert "set up" not in output
