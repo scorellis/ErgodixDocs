@@ -1,11 +1,11 @@
 ---
 id: 0002
 title: ~/.config/ergodix/ mode not enforced at read time
-status: open
+status: patched-in-#33
 severity: medium
 filed: 2026-05-09
 file: ergodix/auth.py:170-178
-fixed:
+fixed: 2026-05-09
 ---
 
 ## Description
@@ -48,15 +48,32 @@ python -m ergodix.auth status   # passes silently — dir mode unchecked
 
 ## Decision
 
-**Open** as of 2026-05-09. Not patched in PR #32 because it's a
-distinct fix and the symlink/TOCTOU patch (#0001) was the priority
-"show we mean business" item for the night.
+**Patched in PR #33.** First patch landed under the security review
+cadence in CLAUDE.md §3 — a medium-severity finding closed within 24
+hours of being filed.
 
-When it's patched, the right pattern is to add a parent-dir mode check
-inside `_read_file_data_checked` (and perhaps also at the
-fd-from-os.open() step, fstating the dir fd via `os.open(dir, O_RDONLY |
-O_DIRECTORY)`). The remediation message should point the user at
-`chmod 700 ~/.config/ergodix`.
+## Patch
 
-Could also be addressed at the C5 verify-side — re-check on every
-cantilever run that the dir is still 700.
+PR #33 adds a parent-dir mode check at the top of
+`_read_file_data_checked`: before any file open, we `stat()` the parent
+and reject if `(mode & 0o077) != 0`. Three tests pin the behavior:
+
+- `test_parent_dir_with_world_readable_perms_rejects_read` — 0o755 fails
+- `test_parent_dir_with_any_group_or_world_bit_rejects_read` — 0o710 fails
+- `test_parent_dir_at_700_passes` — 0o700 + file 0o600 succeeds (happy path)
+
+Pre-existing tests that constructed `~/.config/ergodix/` via
+`mkdir(parents=True)` were updated to `chmod(0o700)` immediately after
+— the previous default of whatever-the-umask-was happened to be 0o755
+on macOS, so those fixtures would have started false-failing under the
+new check. The fixture tightening is consistent with what production
+installs land via C5.
+
+## What's NOT in the patch
+
+The fancier `os.open(parent, O_DIRECTORY) + fstat(dirfd)` pattern was
+considered but skipped: the realistic threat is "parent dir was created
+loose by accident," not "parent dir gets swapped between our stat and
+our open." A simple `parent.stat()` is right-sized; the TOCTOU window
+on the directory is small enough relative to the threat model in
+[SECURITY.md](../SECURITY.md) that the extra complexity isn't earned.

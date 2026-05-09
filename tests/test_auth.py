@@ -64,6 +64,7 @@ def test_env_var_wins_over_file(fake_home, monkeypatch):
     """Env var takes precedence over fallback file."""
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     (central / "secrets.json").write_text(json.dumps({"anthropic_api_key": "from-file"}))
     (central / "secrets.json").chmod(0o600)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "from-env")
@@ -81,6 +82,7 @@ def test_keyring_wins_over_file(fake_keyring, fake_home):
     fake_keyring[("ergodix", "anthropic_api_key")] = "from-keyring"
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     (central / "secrets.json").write_text(json.dumps({"anthropic_api_key": "from-file"}))
     (central / "secrets.json").chmod(0o600)
 
@@ -96,6 +98,7 @@ def test_keyring_wins_over_file(fake_keyring, fake_home):
 def test_file_used_when_no_env_no_keyring(fake_keyring, fake_home):
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     (central / "secrets.json").write_text(json.dumps({"anthropic_api_key": "from-file"}))
     (central / "secrets.json").chmod(0o600)
 
@@ -109,6 +112,7 @@ def test_file_with_loose_perms_raises(fake_keyring, fake_home):
     """Permission invariant: refuse to read secrets.json with mode > 600."""
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     secrets = central / "secrets.json"
     secrets.write_text(json.dumps({"anthropic_api_key": "from-file"}))
     secrets.chmod(0o644)  # world-readable — must fail
@@ -142,6 +146,7 @@ def test_secrets_file_symlink_is_rejected_with_clear_remediation(fake_keyring, f
 
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
 
     # The symlink target is itself a perfectly valid mode-600 file.
     # Without O_NOFOLLOW, the read would silently succeed against the
@@ -173,6 +178,7 @@ def test_secrets_file_loose_perms_still_rejected_via_fstat(fake_keyring, fake_ho
     silently readable."""
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     secrets = central / "secrets.json"
     secrets.write_text(json.dumps({"anthropic_api_key": "from-file"}))
     secrets.chmod(0o644)  # group + world readable
@@ -181,6 +187,72 @@ def test_secrets_file_loose_perms_still_rejected_via_fstat(fake_keyring, fake_ho
 
     with pytest.raises(PermissionError, match="600"):
         auth.get_anthropic_api_key()
+
+
+# ─── Security finding 0002 — parent-dir mode not enforced at read time ─────
+#
+# See security/0002-parent-dir-permissions-not-enforced.md. Without these
+# checks, a parent dir at 0o755 (the default umask on most systems) would
+# defeat the file's mode-600 invariant — anyone with same-uid write access
+# to the dir could rename secrets.json out and substitute their own.
+
+
+@pytest.mark.usefixtures("clean_env")
+def test_parent_dir_with_world_readable_perms_rejects_read(fake_keyring, fake_home):
+    """`~/.config/ergodix/` at 0o755 (group+world have read+exec on the dir)
+    must cause auth.py to refuse to read the secrets file, with a remediation
+    pointing at `chmod 700 <dir>`."""
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+    central.chmod(0o755)  # default umask result on many systems
+    secrets = central / "secrets.json"
+    secrets.write_text(json.dumps({"anthropic_api_key": "from-file"}))
+    secrets.chmod(0o600)
+
+    from ergodix import auth
+
+    with pytest.raises(PermissionError) as exc_info:
+        auth.get_anthropic_api_key()
+    msg = str(exc_info.value)
+    # Must name the directory and give actionable remediation.
+    assert str(central) in msg
+    assert "chmod 700" in msg or "700" in msg
+
+
+@pytest.mark.usefixtures("clean_env")
+def test_parent_dir_with_any_group_or_world_bit_rejects_read(fake_keyring, fake_home):
+    """Any group or other permission bit set on the parent dir must trigger
+    the rejection — not just the obvious 0o755. 0o710 (group has exec only)
+    is enough for a same-uid attacker to traverse into the dir and rename
+    files within, so it must fail too."""
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+    central.chmod(0o710)  # group has exec; world has nothing
+    secrets = central / "secrets.json"
+    secrets.write_text(json.dumps({"anthropic_api_key": "from-file"}))
+    secrets.chmod(0o600)
+
+    from ergodix import auth
+
+    with pytest.raises(PermissionError):
+        auth.get_anthropic_api_key()
+
+
+@pytest.mark.usefixtures("clean_env")
+def test_parent_dir_at_700_passes(fake_keyring, fake_home):
+    """The happy path: parent dir at 0o700 + file at 0o600 must read
+    cleanly. Pins that the new check doesn't false-positive on the
+    documented invariant."""
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+    central.chmod(0o700)
+    secrets = central / "secrets.json"
+    secrets.write_text(json.dumps({"anthropic_api_key": "from-file"}))
+    secrets.chmod(0o600)
+
+    from ergodix import auth
+
+    assert auth.get_anthropic_api_key() == "from-file"
 
 
 # ─── Missing credential error path ──────────────────────────────────────────
@@ -244,6 +316,7 @@ def test_no_keyring_backend_falls_through_silently(fake_home, monkeypatch):
 
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     (central / "secrets.json").write_text(json.dumps({"anthropic_api_key": "from-file"}))
     (central / "secrets.json").chmod(0o600)
 
@@ -318,6 +391,7 @@ def test_migrate_to_keyring_moves_keys(fake_keyring, fake_home, monkeypatch):
     """
     central = fake_home / ".config" / "ergodix"
     central.mkdir(parents=True)
+    central.chmod(0o700)
     secrets = central / "secrets.json"
     secrets.write_text(
         json.dumps(
