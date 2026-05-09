@@ -24,6 +24,9 @@ htmlcov/
 # Build artifacts (Pandoc output)
 /build/
 
+# Render artifacts — PDFs are reproducible from source via `ergodix render`.
+*.pdf
+
 # Creative source material — kept out of git by convention.
 # Real creative files live in My Drive or the deployment directory,
 # never in this source repo.
