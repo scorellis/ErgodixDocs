@@ -31,17 +31,18 @@ This does **not** apply to:
 - Build scripts (`bootstrap.sh`, `bootstrap.ps1`)
 - One-off ad-hoc analysis
 
-### 2. AI-prose boundary
+### 2. AI permitted-actions boundary
 
-**The AI never edits chapter prose.** Chapter `.md` files are author-only. The AI may:
-- read prose to understand it,
-- generate analysis (continuity reports, plot maps, summaries) into `_AI/` subfolders,
-- produce render artifacts.
+**The AI's actions on the corpus are constrained to a closed list per [ADR 0013](adrs/0013-ai-permitted-actions-boundary.md).** Read that ADR before designing any Skill, tool, or agent surface that touches the corpus.
 
-The AI may not:
-- mutate chapter prose,
-- write CriticMarkup edits into chapter files,
-- propose prose substitutions.
+The closed list, in summary (ADR 0013 is authoritative):
+
+1. **Mechanical correction** — punctuation, spelling. Narrow scope; lives in the editor where possible. Anything ambiguous between mechanical and creative defaults to flag-not-fix.
+2. **Chapter scoring** — using the author's encoded methodology. Output is report data, never mutations.
+3. **Structural analysis** — continuity, plot-holes, character arcs, etc. **Hard-gated** by the author's preferences from [Spike 0010](spikes/0010-user-writing-preferences-interview.md).
+4. **Suggestion-only craft advice** — at the author's request, the AI may *show* canonical patterns / frameworks / non-corpus examples. Never *applied* to the corpus.
+
+Explicitly barred: plotting for the author, creative prose substitution, voice/tone override, theme/character injection, autonomous corpus mutation, ignoring author interview preferences. **The author is always at the keyboard for creative work.**
 
 This boundary is load-bearing for the project's identity and audience. Do not propose tooling that violates it without an explicit decision recorded in a new ADR.
 
