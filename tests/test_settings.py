@@ -145,3 +145,119 @@ def test_snapshot_is_a_dataclass_with_documented_fields() -> None:
     field_names = {f.name for f in fields(BootstrapSettings)}
     assert "mactex_install_size" in field_names
     assert "warnings" in field_names
+
+
+# ─── ADR 0014 — settings cascade (defaults.toml + bootstrap.toml) ─────────
+#
+# Per ADR 0014 §4: three-tier cascade — `settings/defaults.toml` (SWAG
+# layer, applies to every cantilever run) → `settings/bootstrap.toml`
+# (installer-only overrides) → `settings/floaters/<name>.toml` (per-
+# floater overrides, deferred until first consumer). Load order is
+# most-general first; later layers override earlier.
+
+
+def test_reads_mactex_install_size_from_defaults_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A value in `settings/defaults.toml` (and no bootstrap.toml override)
+    must drive the resolved snapshot. Pins that defaults.toml is read
+    when bootstrap.toml is absent."""
+    from ergodix.settings import load_bootstrap_settings
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "defaults.toml").write_text('[mactex]\ninstall_size = "basic"\n')
+    monkeypatch.chdir(tmp_path)
+
+    s = load_bootstrap_settings()
+
+    assert s.mactex_install_size == "basic"
+
+
+def test_bootstrap_toml_overrides_defaults_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When both files set the same field, bootstrap.toml wins —
+    bootstrap.toml is the installer-only override layer applied AFTER
+    defaults. Pins the cascade direction."""
+    from ergodix.settings import load_bootstrap_settings
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "defaults.toml").write_text('[mactex]\ninstall_size = "basic"\n')
+    (tmp_path / "settings" / "bootstrap.toml").write_text('[mactex]\ninstall_size = "skip"\n')
+    monkeypatch.chdir(tmp_path)
+
+    s = load_bootstrap_settings()
+
+    assert s.mactex_install_size == "skip"
+
+
+def test_defaults_toml_alone_works_when_bootstrap_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """defaults.toml present, bootstrap.toml absent → defaults' value
+    survives. Pins that bootstrap.toml's absence doesn't reset to the
+    code default."""
+    from ergodix.settings import load_bootstrap_settings
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "defaults.toml").write_text('[mactex]\ninstall_size = "skip"\n')
+    monkeypatch.chdir(tmp_path)
+
+    s = load_bootstrap_settings()
+
+    assert s.mactex_install_size == "skip"
+
+
+def test_malformed_defaults_toml_falls_back_to_code_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A malformed defaults.toml gets the same loud-not-fatal treatment
+    bootstrap.toml does: defaults + warning, no abort."""
+    from ergodix.settings import load_bootstrap_settings
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "defaults.toml").write_text("garbage [not = toml")
+    monkeypatch.chdir(tmp_path)
+
+    s = load_bootstrap_settings()
+
+    assert s.mactex_install_size == "full"
+    assert any("defaults.toml" in w for w in s.warnings)
+
+
+def test_unknown_value_in_defaults_toml_falls_back_with_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unknown enum value in defaults.toml falls back to code default
+    AND warns — same shape as bootstrap.toml's typo handling."""
+    from ergodix.settings import load_bootstrap_settings
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "defaults.toml").write_text('[mactex]\ninstall_size = "everything"\n')
+    monkeypatch.chdir(tmp_path)
+
+    s = load_bootstrap_settings()
+
+    assert s.mactex_install_size == "full"
+    assert any("mactex" in w.lower() for w in s.warnings)
+
+
+def test_warnings_from_both_files_accumulate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If both files have problems, the snapshot surfaces warnings from
+    both. Tests that the cascade doesn't swallow one file's diagnostics
+    when the other also fails."""
+    from ergodix.settings import load_bootstrap_settings
+
+    (tmp_path / "settings").mkdir()
+    (tmp_path / "settings" / "defaults.toml").write_text("not [valid toml")
+    (tmp_path / "settings" / "bootstrap.toml").write_text('[mactex]\ninstall_size = "weird"\n')
+    monkeypatch.chdir(tmp_path)
+
+    s = load_bootstrap_settings()
+
+    assert s.mactex_install_size == "full"
+    assert len(s.warnings) >= 2
+    assert any("defaults.toml" in w for w in s.warnings)
+    assert any("bootstrap.toml" in w for w in s.warnings)
