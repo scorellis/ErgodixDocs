@@ -1,6 +1,6 @@
 # AI Session Summary
 
-## 2026-05-08 (end-of-day — late session continued from 2026-05-07 marathon)
+## 2026-05-09 (Saturday — long-arc velocity day)
 
 ### Prompt To Resume Conversation
 
@@ -8,98 +8,71 @@ You are an AI in the ErgodixDocs workspace. Continue from this saved state.
 
 **Project intent:**
 - ErgodixDocs is a tool for any author who writes Ergodic-text fiction. AI as architectural co-author + continuity engine.
-- AI's role is **Architectural Analysis only** — never edits prose chapters; tracks plotlines, flags plot holes, builds summaries/storyboards, supports worldbuilding.
+- AI's permitted on-corpus actions are now a **closed list** per [ADR 0013](adrs/0013-ai-permitted-actions-boundary.md): mechanical correction (punctuation/spelling), chapter scoring, interview-aligned structural analysis, suggestion-only craft advice. Everything else is barred. **The author is always at the keyboard for creative work.**
 
-**Architecture phase complete.** ADRs 0001–0012 + Spikes 0001–0009 merged on `main`. Don't revisit unless explicitly asked.
+**Architecture phase complete.** ADRs 0001–0014 + Spikes 0001–0011 merged on `main`. Don't revisit unless explicitly asked.
 
-**Locked architectural decisions** (read in `adrs/` to fully load context):
+**License:** PolyForm Strict 1.0.0 (source-available; commercial use requires separate license from scorellis@gmail.com). Repo public.
 
-- **ADR 0001** — Click subcommand groups, plugin registries (later collapsed by 0005).
-- **ADR 0002** — Two-repo topology (later partly superseded by 0006).
-- **ADR 0003** — Cantilever bootstrap orchestrator with 24 prereq ops (after F1 reframe).
-- **ADR 0004** — Continuous polling job.
-- **ADR 0005** — All roles as floaters; opus naming.
-- **ADR 0006** — Editor collaboration via sliced git repositories.
-- **ADR 0007** — Bootstrap scripts; prereqs as Python modules; console-script entry.
-- **ADR 0008** — sync rename; local_config vs settings/* ownership; ruff + mypy.
-- **ADR 0009** — CI workflow + dependency-pin policy.
-- **ADR 0010** — 4-phase model, partly superseded by 0012.
-- **ADR 0011** — ASVRAT story format for persona-driven stories; SVRAT OK for infrastructure.
-- **ADR 0012** — 5-phase orchestrator (inspect → plan + consent → apply → **configure** → verify); `needs-interactive` InspectStatus; F1 reframed.
+**Branch model:** trunk-based. Smaller-units-per-PR cadence — every coherent unit of work commits + pushes immediately, before drafting the next thing. Crash recovery has cost cycles before, this pattern is the primary defense.
 
-**License:** PolyForm Strict 1.0.0 (source-available, commercial use requires separate written license). Repo is public; non-commercial use OK; any commercial use requires a license from scorellis@gmail.com.
+**Author identity:** Scott R. Ellis. (`scorellis` is an abbreviated GitHub handle, not a contraction of his surname.)
 
-**Branch model**: trunk-based. Feature branches off main. Each PR independent unless explicitly stacked.
+### Today's arc — 2026-05-09
 
-**Format decisions (Story 0.2, locked):**
-- Pandoc Markdown + raw LaTeX passthrough; `.md` with mandatory YAML frontmatter (`format: pandoc-markdown`).
-- One `.md` per Chapter.
-- LaTeX preamble cascade: optional `_preamble.tex` at every folder level; render walks up most-general-first.
-- Render pipeline: Pandoc → XeLaTeX → PDF.
-- Showcase fixture lives at `examples/showcase/` — exercises footnotes, sidebar (tcolorbox), rotation, mirror, spiral, vector figure.
+**10 PRs merged today.** Massive sync-transport + AI-boundary + security arc.
 
-**Pacing**: ~1 year of solo `--writer --developer` use before inviting other authors.
+Architecture / docs:
+- **Spike 0010** — UserWritingPreferencesInterview: design surface for the onboarding interview (six open questions; resolution deferred until first consumer activates).
+- **Spike 0011** — sync transport auto-detect + settings cascade.
+- **ADR 0013** — AI permitted-actions boundary. Locks the closed list of four on-corpus AI actions; replaces the older blanket "AI never edits prose" rule. CLAUDE.md principle #2 now points at this ADR.
+- **ADR 0014** — sync transport auto-detect + settings cascade. Drops `SYNC_MODE` field from `local_config.example.py` in favor of auto-detection. Indy mode = first-class peer of drive-mirror in v1. Drive-stream rejected with "switch to Mirror" remediation. Three-tier settings cascade: `defaults.toml` (SWAG layer) + `bootstrap.toml` (installer-only) + `floaters/<name>.toml` (deferred).
+- **Three new parking-lot stories**:
+  - **Devil's Toolbox** — foundational rhetoric reference Skill (rhetorical devices, fallacies, narrative primitives) that informs Plot-Planner stylistic-feedback tools by id reference.
+  - **`ergodix index` + `_AI/ergodix.map`** — corpus content index (per-file SHA-256 + size + mtime) for incremental analysis. Lands soon, after enough prereqs to support it.
+  - **Skill factory-seal protection** — cryptographic protection for proprietary Skills (signed manifests, monthly key rotation, runtime tamper detection, change-via-repo-comment workflow).
+- **Security #0001 patched** (PR #32, last night) — TOCTOU + symlink protection in `_read_file_data_checked` via `O_NOFOLLOW + fstat`. `SECURITY.md` + `security/` records folder + cadence in CLAUDE.md §3 established.
+- **Security #0002 patched** (PR #33) — parent-dir mode 0700 enforced at read time on `~/.config/ergodix/`.
 
-**Working partnership norms** (in CLAUDE.md):
-- Push back on principle violations.
-- Late-arriving principles apply forward.
-- Course corrections cost cycles but are healthy.
-- Persistent record (CLAUDE.md, ADRs, spikes, WorkingContext, ai.summary) carries partnership across sessions.
-- **Always ask before pushing to remote** in normal sessions; in auto-mode, push freely but explain the why.
-- **Self-smoke as Installer persona** — when a smoke is needed, run it ourselves rather than delegating.
-
-### Where work paused (end of 2026-05-08)
-
-**Two PRs open and awaiting merge** (independent, mergeable in either order):
-
-- **PR #28** — `feature/a7-check-vscode` — A7 prereq (VS Code + 3 extensions: markdown-preview-enhanced, ltex, criticmarkup). Cookie-cutter on the check_pandoc/check_mactex pattern, with an app-bundle fallback resolver so a fresh cask install works without PATH refresh. 14 new tests.
-- **PR #29** — `feature/f2-run-record` — F2 from ADR 0003 §164: append one JSONL record per cantilever run to `~/.config/ergodix/cantilever.log`. Like F1, lives in orchestrator code (not a prereq module). Two-layer fail-safe so a write failure can never crash cantilever. 14 new tests.
-
-Both branched off main, both have full quality gates green (296 tests pass, ruff + mypy clean).
-
-**Tomorrow's first move:** merge #28 and #29 in either order. Then continue forward.
+Implementation:
+- **Settings cascade scaffolding** (PR #38) — loader extension reading `defaults.toml` then `bootstrap.toml` cascade-style.
+- **`ergodix/sync_transport.py`** (PR #39) — `detect_sync_transport(path)`, `read_corpus_folder_from_local_config()`, `detect_current_sync_transport()`. Path-structure based, no existence requirement.
+- **B1 conditionality** (PR #39) — `check_drive_desktop` short-circuits to `ok` under indy mode. User-visible: indy users no longer see Drive Desktop in their cantilever plan.
+- **B2 implementation** (PR #40) — new `check_corpus_path` prereq. Validates corpus folder + dispatches on detected mode. Refines ADR 0014 §6: missing config → ok-deferred (so C4 can run on fresh install) instead of failed.
 
 ### Story 0.11 status
 
-**~46% complete** after #28 + #29 merge: **11 of 24 prereqs registered.**
+**12 of 24 prereqs registered (50%).** A1, A2, A3, A4, A7, B1, B2, C1, C3, C4, C5 + orchestrator-level F1, F2.
 
-Done (registered as modules): A1 platform, A2 homebrew, A3 pandoc, A4 mactex, A7 vscode (#28), B1 drive_desktop, C1 gh_auth, C3 git_config, C4 local_config, C5 credential_store. Plus orchestrator-level: F1 (connectivity + settings), F2 (run-record, #29).
+**12 prereqs remaining**: A5 (Python venv verify), A6 (Python packages verify), C2 (clone corpus repo), C6 (credential prompts via configure phase), D1–D6 (persona-gated extras), E1 (`ergodix status` smoke), E2 (persona-tailored "you're done" message).
 
-**13 prereqs remaining**: A5 / A6 (Python venv + packages — already done by bootstrap.sh, just need verify-only stubs), B2 (Drive mount detection + corpus path), C2 (clone corpus repo), C6 (credential prompts), D1–D6 (persona-gated extras), E1 (`ergodix status` verify — depends on `ergodix status` being built), E2 (persona-tailored "you're done" message — pure read-only).
+### Next-session candidates
 
-### Other state on main
+**Quick wins (~30 min each):**
+- **A5/A6** — Python venv + packages verify-only stubs. Bootstrap already does the work; these just register inspect() returning `ok`.
+- **E2** — persona-tailored "you're done" message at end of cantilever run.
 
-- `ergodix render` works end-to-end (Pandoc → XeLaTeX → PDF with preamble cascade).
-- `examples/showcase/showcase.md` is the regression-lock fixture — render produces a 58KB PDF with sidebar, footnotes, rotated/mirrored text, spiral, vector hierarchy diagram.
-- `bootstrap.sh` uses **non-editable install** (`pip install ".[dev]"`, no `-e`) to dodge a Python 3.13 + setuptools editable-install regression where the .pth-based finder silently fails. Devs who want editable mode can `pip install -e .` manually after bootstrap.
-- `ergodix/version.py` uses three-tier resolution: `importlib.metadata.version("ergodix")` → VERSION file → `0.0.0+unknown`. Works for both editable and non-editable installs.
-- `_verify_local_config_sane` rejects unedited `<…>` placeholder paths (PR #27, merged 2026-05-08) so first installs see a clear "edit local_config.py" remediation instead of misleading green.
-- `*.pdf` is gitignored — render artifacts stay out of git.
+**Mechanical (~60 min each):**
+- **C6** — credential prompts via configure phase. Same pattern as C3 git_config. Multi-step keyring prompts for missing API keys.
 
-### PRs merged in this session (2026-05-08)
+**Substantive (multi-hour):**
+- **C2** — clone corpus repo. Real design surface (per-opus, signed clones, edge cases for existing folders).
+- **`ergodix migrate --from gdocs`** — Story 0.2's other big task. Highest user-visible value but biggest scope. Spike + ADR first.
 
-- **#22** — A4 check_mactex (first settings consumer)
-- **#23** — License switch to PolyForm Strict 1.0.0 + 3 parking-lot stories
-- **#24** — bootstrap.sh editable_mode=compat (later superseded by #25)
-- **#25** — bootstrap.sh non-editable install + version.py three-tier fix
-- **#26** — examples/showcase/ render-pipeline smoke fixture
-- **#27** — verify rejects local_config.py with `<…>` placeholder
+### Open security findings
 
-### Next-session candidates (in rough value order)
+- [security/0003](security/0003-migrate-skips-type-validation.md) — `cmd_migrate_to_keyring` doesn't validate value types. Low severity, one-line fix queued.
 
-1. **Merge #28 (A7) and #29 (F2)** — first move.
-2. **E2** — print persona-tailored "you're done" message at end of cantilever run. Pure read-only output. Fastest win (~20 min).
-3. **A5 / A6** — Python venv + packages verify-only stubs. Bootstrap already does the work; these just register an `inspect()` that reports `ok` so cantilever's coverage is complete. ~30 min each.
-4. **B2** — Drive mount mode + corpus-path detection. Bigger design surface (Mirror vs Stream, prompt for corpus folder name via configure phase). Closes the loop on the local_config.py placeholder problem at the install level rather than just the verify level. ~60 min.
-5. **`ergodix migrate --from gdocs`** — Story 0.2's other big task. Walks `local_config.CORPUS_FOLDER`, exports `.gdoc` → `.md` with frontmatter, archives originals to `_archive/`. Multi-session story; needs design first. **Highest user-visible value** but biggest scope.
-6. **C6** — credential prompts via configure phase (similar pattern to C3 git_config). Mechanical.
-7. **D-tier** — persona-gated extras. Lower priority until other authors arrive.
+### Important conventions (ratified today)
 
-### Important context
+- **CLAUDE.md §3 — Security review cadence**: event-driven reviews triggered by story completions in security-sensitive code, new external surfaces, version bumps. Severity-based remediation: critical/high patched immediately, medium queued in SprintLog, low/info filed.
+- **CLAUDE.md — Session pacing**: user decides when to stop. AI does NOT propose stopping points, wrap-ups, or breaks. Pick the next coherent unit and start. Crash recovery via per-unit commits + pushes + ai.summary.md updates at meaningful checkpoints.
+- **CLAUDE.md principle #2 (refined)** — AI permitted-actions boundary per ADR 0013, replacing the older blanket "AI never edits prose."
 
-- `.claude/settings.json` has broad allowlist + deny list. `git push *` stays in the prompt zone in normal sessions (auto-mode treats it as approved).
-- `.claude/hooks/log-bash.sh` PreToolUse hook → `ai.bashcommands.log` (gitignored).
-- `bootstrap.ps1` (Windows) deferred — no Windows users yet.
-- E1 has a hidden dependency: it would verify `ergodix status` returns clean, but `ergodix status` doesn't exist yet. Build that subcommand first.
-- Parking-lot stories (in SprintLog.md): Plot-Planner, Sell-My-Book, IP-strategy, Continuity-Engine, MCP-server-with-AI-user-persona, in-app editor with BYO-key.
-- The local feature branches `feature/showcase-chapter`, `feature/bootstrap-non-editable`, `feature/verify-placeholder-detection`, `feature/a7-check-vscode`, `feature/f2-run-record` exist locally even after their PRs land — user denied a `git branch -d` cleanup. Leave them.
+### Permission system note
+
+`.claude/settings.json` cleaned up today: `Bash(git branch -d *)` and `Bash(git branch -D *)` are now in allow (was blocked by deny). Lowercase `-d` is safe (refuses to delete unmerged work); uppercase `-D` is force-delete (permitted but used carefully).
+
+### Tomorrow's first move
+
+Pick from "Next-session candidates" — C6 has the most user-visible value of the mechanical options; A5/A6 are the fastest wins; B-tier work is done. The migrate spike is the next big arc and worth scheduling for a dedicated session.
