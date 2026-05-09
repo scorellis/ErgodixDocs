@@ -18,6 +18,7 @@ from collections.abc import Callable
 from types import ModuleType
 
 from ergodix.prereqs import (
+    check_corpus_path,
     check_credential_store,
     check_drive_desktop,
     check_gh_auth,
@@ -48,6 +49,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_vscode,
     check_drive_desktop,
     check_local_config,
+    check_corpus_path,
     check_credential_store,
     check_gh_auth,
     check_git_config,
