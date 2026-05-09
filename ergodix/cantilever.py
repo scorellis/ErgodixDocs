@@ -18,6 +18,7 @@ progress display, and verify-phase smoke checks land in the next step.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -361,6 +362,23 @@ def _verify_local_config_sane() -> VerifyResult:
             passed=False,
             message="CORPUS_FOLDER in local_config.py is missing or empty",
             remediation="Edit local_config.py and set CORPUS_FOLDER to your corpus path.",
+        )
+
+    # The example template ships with `<YOUR-CORPUS-FOLDER>` baked into the
+    # path so installs land in a syntactically-valid but obviously-unedited
+    # state. A literal `<…>` segment anywhere in the path is the marker.
+    if re.search(r"<[^/<>]+>", str(corpus)):
+        return VerifyResult(
+            name="local_config_sane",
+            passed=False,
+            message=(
+                f"CORPUS_FOLDER still contains a placeholder segment "
+                f"(found in: {corpus}). The file hasn't been edited yet."
+            ),
+            remediation=(
+                f"Edit {config_path} and replace the <…> placeholder with "
+                f"your real corpus folder path."
+            ),
         )
 
     return VerifyResult(
