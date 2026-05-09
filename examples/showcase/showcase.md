@@ -1,6 +1,6 @@
 ---
 title: "Ergodix Showcase"
-author: "Scott Corellis"
+author: "Scott R. Ellis"
 format: pandoc-markdown
 pandoc-extensions: [raw_tex, footnotes, yaml_metadata_block]
 ---
