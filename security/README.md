@@ -49,7 +49,7 @@ fixed: <YYYY-MM-DD or empty>
 | ID | Title | Severity | Status |
 |----|-------|----------|--------|
 | [0001](0001-tocttou-symlink-secrets-file.md) | TOCTOU + symlink swap on secrets.json read | medium | patched-in-#32 |
-| [0002](0002-parent-dir-permissions-not-enforced.md) | `~/.config/ergodix/` mode not enforced at read time | medium | open |
+| [0002](0002-parent-dir-permissions-not-enforced.md) | `~/.config/ergodix/` mode not enforced at read time | medium | patched-in-#33 |
 | [0003](0003-migrate-skips-type-validation.md) | `cmd_migrate_to_keyring` doesn't validate value types | low | open |
 | [0004](0004-memory-scrubbing-out-of-scope.md) | No in-memory scrub of decoded credentials | informational | accepted-as-known-risk |
 | [0005](0005-no-credential-read-audit-trail.md) | No rate-limiting / audit log on credential reads | informational | accepted-as-known-risk |

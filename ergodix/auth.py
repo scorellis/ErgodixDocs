@@ -178,26 +178,42 @@ def _from_keyring(name: str) -> str | None:
 
 
 def _read_file_data_checked() -> dict[str, Any]:
-    """Read the secrets file with TOCTOU + symlink protection.
+    """Read the secrets file with TOCTOU + symlink protection plus
+    parent-dir mode enforcement.
 
-    See ``security/0001-tocttou-symlink-secrets-file.md``.
+    See ``security/0001-tocttou-symlink-secrets-file.md`` and
+    ``security/0002-parent-dir-permissions-not-enforced.md``.
 
-    The earlier stat-then-open pattern resolved the path twice; both
-    syscalls followed symlinks, so the mode check could pass against one
-    inode while the read happened against another. The fix:
+    Three layered checks:
 
-    - ``O_NOFOLLOW`` makes ``os.open`` fail with ``ELOOP`` if the path is
-      a symlink, instead of silently following it. We translate that
-      into a ``PermissionError`` that names the file.
-    - ``fstat`` on the resulting fd guarantees the same inode is
-      mode-checked as is read — no race window between the two.
-    - ``O_NOFOLLOW`` is POSIX; on platforms where it is undefined
-      (Windows), ``getattr`` falls back to ``0`` and the symlink-swap
-      protection degrades. The Windows threat model differs (NTFS
-      symlinks require elevated privileges to create) and the loss of
-      protection is acceptable for the cross-platform tradeoff.
+    1. **Parent dir mode** — ``~/.config/ergodix/`` must be ``0o700``.
+       README documents this; C5 enforces at install time; we re-check
+       at every read because a directory at e.g. ``0o755`` (the default
+       umask result) defeats the file's mode-600 invariant — anyone
+       with same-uid write access could rename the file out and
+       substitute their own.
+    2. **Symlink rejection** — ``O_NOFOLLOW`` makes ``os.open`` fail
+       with ``ELOOP`` if the path is a symlink, instead of silently
+       following it. Translates to ``PermissionError``.
+    3. **fstat on the open fd** — the mode check runs against the same
+       inode the read consumes; no TOCTOU window between check and use.
+
+    ``O_NOFOLLOW`` is POSIX; on platforms where it's undefined (Windows),
+    ``getattr`` falls back to ``0`` and the symlink-swap protection
+    degrades. The Windows threat model differs (NTFS symlinks require
+    elevated privileges to create) and the loss of protection is
+    acceptable for the cross-platform tradeoff.
     """
     path = CENTRAL_SECRETS_FILE
+    parent = path.parent
+    parent_st = parent.stat()
+    if (parent_st.st_mode & 0o077) != 0:
+        raise PermissionError(
+            f"{parent} has loose permissions ({oct(parent_st.st_mode & 0o777)}); "
+            f"the file's mode-600 invariant is meaningless when the parent dir "
+            f"is group/world accessible. Run: chmod 700 {parent}"
+        )
+
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
         fd = os.open(os.fspath(path), flags)
