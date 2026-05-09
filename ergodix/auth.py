@@ -41,6 +41,7 @@ CLI (run from your ErgodixDocs repo directory):
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import sys
@@ -177,11 +178,41 @@ def _from_keyring(name: str) -> str | None:
 
 
 def _read_file_data_checked() -> dict[str, Any]:
-    if (CENTRAL_SECRETS_FILE.stat().st_mode & 0o077) != 0:
-        raise PermissionError(
-            f"{CENTRAL_SECRETS_FILE} has loose permissions. Run: chmod 600 {CENTRAL_SECRETS_FILE}"
-        )
-    with open(CENTRAL_SECRETS_FILE) as f:
+    """Read the secrets file with TOCTOU + symlink protection.
+
+    See ``security/0001-tocttou-symlink-secrets-file.md``.
+
+    The earlier stat-then-open pattern resolved the path twice; both
+    syscalls followed symlinks, so the mode check could pass against one
+    inode while the read happened against another. The fix:
+
+    - ``O_NOFOLLOW`` makes ``os.open`` fail with ``ELOOP`` if the path is
+      a symlink, instead of silently following it. We translate that
+      into a ``PermissionError`` that names the file.
+    - ``fstat`` on the resulting fd guarantees the same inode is
+      mode-checked as is read — no race window between the two.
+    - ``O_NOFOLLOW`` is POSIX; on platforms where it is undefined
+      (Windows), ``getattr`` falls back to ``0`` and the symlink-swap
+      protection degrades. The Windows threat model differs (NTFS
+      symlinks require elevated privileges to create) and the loss of
+      protection is acceptable for the cross-platform tradeoff.
+    """
+    path = CENTRAL_SECRETS_FILE
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(os.fspath(path), flags)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise PermissionError(
+                f"{path} is a symlink; refusing to follow it. "
+                f"Remove it and re-store your credentials: rm {path} && "
+                f"python -m ergodix.auth set-key <name>"
+            ) from exc
+        raise
+    with os.fdopen(fd, encoding="utf-8") as f:
+        st = os.fstat(f.fileno())
+        if (st.st_mode & 0o077) != 0:
+            raise PermissionError(f"{path} has loose permissions. Run: chmod 600 {path}")
         data: dict[str, Any] = json.load(f)
     return data
 
