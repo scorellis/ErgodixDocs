@@ -126,3 +126,25 @@ Story 0.11 phase 2 remaining (per Plan subagent 2026-05-07):
 - 19 more prereqs after that — see SprintLog for tier grouping and dependencies.
 
 Next-session opening move: open the PR for `feature/installer-redesign` against `main`. After merge, start phase 2 from a fresh branch off main, opening with the design-decisions resolution (C3/C6 interactivity, A4 MacTeX default, D6 auth scope, F1 framing, `needs_admin` escalation) — likely a short spike or ADR — before any new prereq code.
+
+## 2026-05-08 (late-session continuation)
+
+### What changed
+- **Six PRs merged** in this session: #22 (A4 MacTeX), #23 (license switch to PolyForm Strict 1.0.0 + parking-lot stories), #24 (bootstrap editable_mode=compat — superseded), #25 (bootstrap non-editable install + version.py three-tier fix), #26 (`examples/showcase/` render-pipeline fixture with sidebar/footnotes/rotation/spiral/vector figure), #27 (verify rejects `<…>` placeholder in local_config.py).
+- **Two PRs awaiting merge** at session end: #28 (A7 check_vscode) and #29 (F2 run-record). Both branched off main, both green (296 tests pass, ruff + mypy clean), both independently mergeable.
+- Story 0.11 prereq coverage rose from ~33% to ~46% (after #28 merges): 11 of 24 prereq ops registered.
+- ADR 0011 / ADR 0012 / Spike 0009 already on main from prior session.
+
+### What was decided
+- **License = PolyForm Strict 1.0.0**, not open-source. Source-available so the architecture can be referenced; commercial use requires a separate written license from scorellis@gmail.com. Repo stays public.
+- **F2 lives in orchestrator code**, not as a prereq module — same reframe as F1. There's no install-vs-not state; it's a post-run side-effect. Wired via a `_finalize()` closure inside `run_cantilever`.
+- **Showcase fixture pattern** — when the user asks for a smoke artifact, ship it into the repo as a permanent regression-lock rather than leaving it in an ephemeral test deploy. `examples/showcase/showcase.md` is the first instance.
+- **Verify-phase placeholder detection is structural** — regex `<[^/<>]+>` catches any future `<YOUR-X>` placeholder without test churn.
+
+### What remains next
+- Merge PRs #28 + #29.
+- Next mechanical wins: E2 (persona-tailored "you're done" message, ~20 min), A5/A6 (Python venv + packages verify-only stubs, ~30 min each), B2 (Drive mount detection — closes the local_config placeholder loop at install rather than verify level, ~60 min).
+- Bigger arc: `ergodix migrate --from gdocs` is Story 0.2's other big task. Multi-session, needs design first (Docs API → Pandoc-Markdown mapping, hierarchy detection, idempotency model). Highest user-visible value.
+
+### User context noted
+- User confirmed their relationship to the ergodic-text genre: invented his approach independently over ~a decade, parallel to (not descended from) Aarseth or Danielewski. Future framing should not position him as a follower of either. Saved as user memory.
