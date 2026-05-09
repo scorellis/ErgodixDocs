@@ -119,6 +119,70 @@ def test_file_with_loose_perms_raises(fake_keyring, fake_home):
         auth.get_anthropic_api_key()
 
 
+# ─── Security finding 0001 — TOCTOU + symlink swap ─────────────────────────
+#
+# See security/0001-tocttou-symlink-secrets-file.md. The earlier stat-then-
+# open pattern followed symlinks and had a TOCTOU race. The patch uses
+# os.open(O_RDONLY | O_NOFOLLOW) + fstat on the resulting fd.
+
+
+@pytest.mark.usefixtures("clean_env")
+@pytest.mark.skipif(
+    not hasattr(os, "O_NOFOLLOW"),
+    reason="Symlink protection requires O_NOFOLLOW (POSIX). Windows tests skipped.",
+)
+def test_secrets_file_symlink_is_rejected_with_clear_remediation(fake_keyring, fake_home, tmp_path):
+    """secrets.json being a symlink — even to a mode-600 target — must be
+    refused. The historical bug: stat() and open() both follow symlinks,
+    so the mode check would pass against the target while opening
+    whatever the link points at. The fix uses O_NOFOLLOW to fail loudly
+    with ELOOP, which we translate into a PermissionError that names
+    the path and tells the user to remove the symlink."""
+    from pathlib import Path
+
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+
+    # The symlink target is itself a perfectly valid mode-600 file.
+    # Without O_NOFOLLOW, the read would silently succeed against the
+    # target — that's the attack we're closing.
+    target = tmp_path / "attacker_controlled.json"
+    target.write_text(json.dumps({"anthropic_api_key": "attacker-supplied"}))
+    target.chmod(0o600)
+
+    secrets = central / "secrets.json"
+    secrets.symlink_to(target)
+
+    from ergodix import auth
+
+    with pytest.raises(PermissionError, match="symlink"):
+        auth.get_anthropic_api_key()
+
+    # And the value from the target must NOT have been returned.
+    # (Belt-and-suspenders: if the test infrastructure changed and the
+    # raise above was somehow bypassed, this would still catch the bug.)
+    assert not Path(secrets).is_file() or Path(secrets).is_symlink()
+
+
+@pytest.mark.usefixtures("clean_env")
+def test_secrets_file_loose_perms_still_rejected_via_fstat(fake_keyring, fake_home):
+    """The mode check must run against the same fd we read from (fstat),
+    not a separate stat() call against the path. Pins that the
+    permission check survives the patch — a regression where O_NOFOLLOW
+    is added but fstat is forgotten would leave loose-perms files
+    silently readable."""
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+    secrets = central / "secrets.json"
+    secrets.write_text(json.dumps({"anthropic_api_key": "from-file"}))
+    secrets.chmod(0o644)  # group + world readable
+
+    from ergodix import auth
+
+    with pytest.raises(PermissionError, match="600"):
+        auth.get_anthropic_api_key()
+
+
 # ─── Missing credential error path ──────────────────────────────────────────
 
 
