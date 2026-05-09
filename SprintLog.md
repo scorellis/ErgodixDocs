@@ -451,6 +451,8 @@ Tasks (when activated):
 
 - [ ] Decide implementation surface: Claude Code skills/commands (`.claude/skills/<name>/`) vs. `ergodix` subcommands vs. both. Likely both — slash-commands for in-editor use, `ergodix` subcommand mirrors for CI/scripts.
 - [ ] Name the umbrella concept (`plot-planner` is the working name; could be `authoring-suite`, `craft-tools`, etc.).
+- [ ] **Dependency: [Devil's Toolbox story](#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated).** `writing-score`, `PC-placator`, and most stylistic-feedback tools reference rhetoric primitives by id; the Devil's Toolbox Skill provides the canonical reference. Sequence: ship Devil's Toolbox before (or alongside) the first stylistic-feedback tool.
+- [ ] **Dependency: [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md).** Tool output is shaped by author preferences (scoring weights, anti-patterns, AI-boundary refinements) — the interview captures these once and tools reference them every run.
 - [ ] Encode the author's scoring methodology in a stable, testable form (probably a TOML/YAML rubric).
 - [ ] Settle on per-chapter analysis index + cross-chapter retrieval pattern — cross-references Story 0.Z2.
 - [ ] Build the first three tools (`writing-score`, `duplicate-smasher`, `PC-placator`) end-to-end — establish the cookie-cutter pattern, then enumerate the remaining ~16.
@@ -575,6 +577,43 @@ Tasks (when activated):
 - [ ] Layer ML or LLM-driven detection for fuzzier patterns (style consistency, tone drift)
 - [ ] Wire as `ergodix lint` subcommand; integrate with `--developer` floater's pre-commit hooks
 - [ ] Per-author + per-editor training profiles in `settings/`
+
+### Story — Devil's Toolbox: foundational rhetoric reference Skill (Sprint 2+ when activated)
+
+As a writer, so that the AI tools that score and critique prose have a stable, comprehensive reference for rhetorical devices, logical fallacies, persuasion techniques, and narrative structures — instead of each tool re-deriving "what counts as a metaphor" or "what counts as a strawman" from the model's free-floating knowledge — and the author can trust that two tools using the same primitive (e.g. `writing-score` and `PC-placator` both reasoning about *ethos*) reach consistent verdicts,
+
+Value: a structured rhetoric knowledge base is the *moat* under Plot-Planner's tool suite; without it, every tool is a thin LLM wrapper that may classify the same passage differently across runs; with it, tools become deterministic enough to be testable; second-order: enables Devil's-Advocate-style review tools that intentionally apply hostile rhetorical analysis to expose weaknesses,
+
+Risk: scope explosion (rhetoric is a *huge* field — Aristotelian appeals, classical figures, modern persuasion taxonomies, narrative theory, prosody, etc. — picking a curriculum boundary is hard); reference drift (the canonical taxonomy changes between editions of textbooks; pinning a *version* matters); over-engineering — if no Plot-Planner tool actually consumes the toolbox, it's documentation no one reads,
+
+Assumptions: a single foundational reference is more valuable than per-tool inline definitions; the reference is consulted by tools, not directly by humans (humans get *output* from the tools, not raw rhetoric lookups); a TOML/YAML rubric is rich enough to encode each device (name, definition, exemplars, classifier hints) without prose; the umbrella "Devil's Toolbox" name lands the right tone — analytical, slightly adversarial, useful for both critique and stylistic advice,
+
+Tasks (when activated):
+- [ ] Decide curriculum scope — what does "rhetoric" cover here? Likely union of: Aristotelian appeals (ethos / pathos / logos / kairos), classical figures (anaphora, chiasmus, polysyndeton, etc.), logical fallacies (formal + informal), persuasion patterns (Cialdini's six + variants), narrative-structural primitives (hero's journey beats, kishōtenketsu, etc.), prosody-adjacent devices (sentence rhythm, paragraph cadence). Probably *not* covered: pure literary theory (deconstruction, reader-response), academic rhetoric (debate-style argumentation).
+- [ ] Encode each entry in a stable TOML/YAML schema with id, name, category, definition, exemplars, classifier-hint (a few examples the AI can match against).
+- [ ] Land as a Skill at `.claude/skills/devils-toolbox/` with reference data in the skill's data files; tools reference by id.
+- [ ] First consumer: `writing-score` references device-ids when flagging strengths/weaknesses ("strong anaphora in §3.2" / "logos appeal undermined by post hoc fallacy in §4.1").
+- [ ] Decide version pinning + amendment process — when a new device is added or a definition changes, do existing scored chapters re-score? Probably not; record the version-of-record in `_AI/scoring-runs/<run>.toml`.
+- [ ] Cross-reference: [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md) (author may opt out of certain rhetoric categories — "don't flag classical figures unless explicitly asked").
+- [ ] Cross-reference: [Plot-Planner story](#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated) (Devil's Toolbox is a dependency of `writing-score`, `PC-placator`, and any future stylistic-feedback tool).
+
+### Story — `ergodix index` + `_AI/ergodix.map`: corpus content index (near-term — after B2)
+
+As the AI continuity engine and any incremental-analysis tool, so that we don't reconsume the entire corpus every session — the map records per-file SHA-256 hashes, sizes, and mtimes so a downstream tool can diff current state against the last-indexed state and only send *changed* chapters to the AI,
+
+Value: massive cost savings on Anthropic API once Plot-Planner / Continuity-Engine tools start running over the corpus — without an index, every continuity-check pass re-tokenizes the whole opus; with an index, only the deltas; second-order: the map becomes the foundation for the future "multidimensional mind map" of plotlines, conversations, character arcs, etc. that lets the AI build incremental knowledge across sessions,
+
+Risk: stale-map handling (user edits a file outside ErgodixDocs, the map doesn't refresh; tools work from outdated assumptions); merge-conflict noise if the map is git-tracked in a shared corpus repo; over-engineering the format too early — better to ship a simple v1 than design for the future N+1 tool,
+
+Assumptions: SHA-256 of file content is sufficient for change-detection (collisions are not a threat model concern); the map is regenerated on demand via a `ergodix index` subcommand and re-runs cheaply; lives at `_AI/ergodix.map` next to the corpus per the existing `_AI/` convention; TOML keeps it human-readable so the user can open and inspect without tooling,
+
+Tasks (when activated):
+- [ ] `ergodix index` CLI subcommand — walks `CORPUS_FOLDER`, hashes every `.md` and `_preamble.tex`, writes `_AI/ergodix.map`. Idempotent.
+- [ ] Map schema (TOML): `[meta]` block (version, generated_at, generator, corpus_root); `[[files]]` array with path, sha256, size, mtime.
+- [ ] `ergodix index --check` mode — reports drift (which files changed since last index) without rewriting.
+- [ ] Decide gitignored vs tracked. Likely *tracked* in shared corpus repos so collaborators see the same baseline; conflicts auto-resolve by re-running `ergodix index`.
+- [ ] First consumer: future Continuity-Engine tools read the map to decide which chapters to re-scan.
+- [ ] Cross-reference: [Continuity-Engine story](#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated) (the map enables incremental continuity passes).
 
 ### Story 0.X - Multi-opus support (deferred to Sprint 1+ or first real use case)
 
