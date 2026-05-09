@@ -972,6 +972,49 @@ def test_verify_local_config_sane_fails_when_corpus_folder_empty(tmp_path, monke
     assert "CORPUS_FOLDER" in result.message
 
 
+def test_verify_local_config_sane_fails_when_corpus_folder_is_placeholder(
+    tmp_path, monkeypatch
+) -> None:
+    """A freshly-installed local_config.py still contains the <YOUR-CORPUS-FOLDER>
+    placeholder from local_config.example.py. Verify must reject this so the
+    user gets a clear "edit the file" signal instead of a misleading green check.
+
+    Detection is structural: any angle-bracketed segment in the path is a
+    placeholder — no need to hardcode the exact string."""
+    from ergodix.cantilever import _verify_local_config_sane
+
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        "from pathlib import Path\n"
+        'CORPUS_FOLDER = Path.home() / "My Drive" / "<YOUR-CORPUS-FOLDER>"\n',
+    )
+    config.chmod(0o600)
+
+    result = _verify_local_config_sane()
+    assert not result.passed
+    assert "placeholder" in result.message.lower() or "edit" in result.remediation.lower()
+
+
+def test_verify_local_config_sane_fails_for_any_angle_bracket_placeholder(
+    tmp_path, monkeypatch
+) -> None:
+    """Detection is generic: <FOO> or <bar> in any segment counts. Pins the
+    structural check so future placeholders (e.g. <YOUR-DRIVE-MOUNT>) are
+    caught without further code changes."""
+    from ergodix.cantilever import _verify_local_config_sane
+
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "local_config.py"
+    config.write_text(
+        'from pathlib import Path\nCORPUS_FOLDER = Path("/Users/me/<TODO>/corpus")\n',
+    )
+    config.chmod(0o600)
+
+    result = _verify_local_config_sane()
+    assert not result.passed
+
+
 # ─── Phase 4: Configure (per ADR 0012) ──────────────────────────────────────
 
 
