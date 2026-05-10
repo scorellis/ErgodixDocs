@@ -1,0 +1,47 @@
+name: CI
+
+# Gating checks per ADR 0009 (with a Note for the pragmatic deviation
+# from the full uv + 9-cell-matrix design — see ADR 0009's "Note —
+# pragmatic v1" section). This v1 runs ruff + mypy + pytest on a single
+# Ubuntu + Python 3.13 cell using pip. Expanding to the full matrix +
+# uv-based locking is a follow-up arc once `uv` is adopted locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ruff + mypy + pytest (Python 3.13, Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install ergodix (dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: ruff check
+        run: ruff check
+
+      - name: ruff format --check
+        run: ruff format --check
+
+      - name: mypy --strict
+        run: python -m mypy ergodix
+
+      - name: pytest
+        run: python -m pytest -ra --strict-markers --strict-config

@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.61.0`, next docs PR as `1.60.1`.)
+(Nothing yet — next code PR will land as `1.62.0`, next docs PR as `1.61.1`.)
+
+## [1.61.0] - 2026-05-10
+
+**`.github/workflows/ci.yml` — pragmatic v1 of ADR 0009 CI.** Adds the first GitHub Actions workflow that runs `ruff check` + `ruff format --check` + `mypy --strict` + `pytest` on every push to main and every PR against main. Single cell: Ubuntu + Python 3.13, using `pip install -e ".[dev]"`. Catches the unit-test / lint / type-check regression layer on every PR — the integration smoke (PR #85) already covers the install + CLI + migrate-against-fixture layer locally. ADR 0009 gains a "Note — pragmatic v1 (2026-05-10)" section explaining the deviation from the locked design (full uv + 9-cell macOS/Ubuntu/Windows × 3.11/3.12/3.13 matrix; `test-latest` informational tripwire). The uv-migration follow-up arc swaps `pip` for `uv sync`, generates `uv.lock`, expands the matrix, and lifts the Note. Until then, this PR closes the "no CI on GitHub" gap — the project no longer relies solely on me running tests locally before each PR.
 
 ## [1.60.0] - 2026-05-10
 
