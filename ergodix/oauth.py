@@ -400,7 +400,18 @@ def _emit_token_exchange_diagnostic(exc: Exception, output_fn: OutputFn) -> None
     """
     message = str(exc)
     lowered = message.lower()
-    if any(token in lowered for token in ("invalid_grant", "expired", "redeemed", "used")):
+    # PR Review 0015.2 #77: anchor "used" / "redeemed" to phrase-level
+    # patterns so an unrelated error containing the word "used" (e.g.
+    # a DNS-layer "address already used") doesn't get misclassified as
+    # a bad OAuth code.
+    bad_code_signals = (
+        "invalid_grant",
+        "expired",
+        "already used",
+        "already redeemed",
+        "code has been",
+    )
+    if any(signal in lowered for signal in bad_code_signals):
         output_fn(
             "OAuth code rejected by Google. Codes expire ~10 minutes after "
             "they're issued and can only be used once. Run the migrate command "
@@ -529,12 +540,17 @@ def load_or_acquire_credentials(
     return _credentials_from_dict(new_tokens)
 
 
+# Staleness threshold for the refresh-token age warning. Google's
+# documented policy is that refresh tokens are invalidated after ~6
+# months (180 days) of non-use; we warn at 90 days so the user has
+# meaningful lead time to refresh proactively rather than being
+# surprised mid-migrate by an `invalid_grant`.
+_REFRESH_TOKEN_STALE_DAYS = 90
+
+
 def _warn_if_refresh_token_stale(tokens: dict[str, Any], output_fn: OutputFn) -> None:
     """Emit an informational warning if the refresh token is older
-    than the staleness threshold (90 days). Google may invalidate
-    refresh tokens after 6 months of non-use; the warning gives the
-    user lead time to refresh proactively rather than be surprised
-    mid-migrate by an `invalid_grant`.
+    than the ``_REFRESH_TOKEN_STALE_DAYS`` threshold.
 
     No-op when:
       * `refresh_token_issued_at` is missing (older token files
@@ -543,6 +559,11 @@ def _warn_if_refresh_token_stale(tokens: dict[str, Any], output_fn: OutputFn) ->
       * The token is younger than the threshold.
 
     Inform-don't-block: we don't force re-auth, just nudge.
+
+    Python-version note: ``datetime.fromisoformat`` accepts the ``Z``
+    suffix from Python 3.11 onward (per CLAUDE.md the project requires
+    Python ≥3.11), so the timestamp written by `acquire_oauth_credentials`
+    parses cleanly here without manual `Z` → `+00:00` rewriting.
     """
     from datetime import UTC as _UTC
     from datetime import datetime as _datetime
@@ -561,7 +582,7 @@ def _warn_if_refresh_token_stale(tokens: dict[str, Any], output_fn: OutputFn) ->
         issued_at = issued_at.replace(tzinfo=_UTC)
 
     age = _datetime.now(_UTC) - issued_at
-    if age <= _timedelta(days=90):
+    if age <= _timedelta(days=_REFRESH_TOKEN_STALE_DAYS):
         return
     output_fn(
         f"OAuth refresh token is {age.days} days old. Google may invalidate "

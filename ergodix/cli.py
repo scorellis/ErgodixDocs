@@ -129,10 +129,14 @@ def _git_config_user_name() -> str | None:
 def _read_author_from_local_config() -> str | None:
     """Read ``AUTHOR`` from local_config.py at cwd, or None if absent.
 
-    Mirrors the defensive shape of
-    ``read_corpus_folder_from_local_config`` — surfaces a value or a
-    None, never raises on a malformed config.
+    Surfaces a value or a None — never raises on a malformed config —
+    but emits a ``UserWarning`` when the import fails so a broken
+    `local_config.py` doesn't silently strip the AUTHOR field from
+    every migrated chapter's frontmatter. Mirrors the warn-then-fall-
+    back pattern from `oauth.py::_token_file_path` (PR Review 1 #6).
     """
+    import warnings
+
     config_path = Path.cwd() / "local_config.py"
     if not config_path.exists():
         return None
@@ -145,7 +149,17 @@ def _read_author_from_local_config() -> str | None:
     try:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-    except Exception:
+    except Exception as exc:
+        warnings.warn(
+            (
+                f"local_config.py at {config_path} could not be loaded "
+                f"({type(exc).__name__}: {exc}); AUTHOR field ignored. "
+                f"Migrate will use the git config or empty-string fallback "
+                f"until the file is fixed."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
         return None
     author = getattr(module, "AUTHOR", None)
     if isinstance(author, str) and author.strip():
@@ -230,12 +244,21 @@ def migrate_cmd(
         output_fn=click.echo,
     )
 
-    counts_str = ", ".join(f"{k}={v}" for k, v in sorted(result.counts.items())) or "(no files)"
+    # Surface `failed` first so a non-zero failure count is visible at
+    # the start of the line rather than buried in alphabetical order
+    # (PR Review 0015.2 #74). Other keys follow in sorted order so the
+    # output is stable across runs.
+    counts = result.counts
+    ordered_keys = []
+    if counts.get("failed"):
+        ordered_keys.append("failed")
+    ordered_keys.extend(k for k in sorted(counts) if k != "failed")
+    counts_str = ", ".join(f"{k}={counts[k]}" for k in ordered_keys) or "(no files)"
     click.echo(f"migrate run {result.run_id}: {counts_str}")
     if result.manifest_path is not None:
         click.echo(f"manifest: {result.manifest_path}")
 
-    failed = result.counts.get("failed", 0)
+    failed = counts.get("failed", 0)
     sys.exit(1 if failed > 0 else 0)
 
 

@@ -118,6 +118,14 @@ def _extract_images(document: Any, media_dir: Path) -> list[str]:
     if not image_parts:
         return []
 
+    # `_media/` directories are intentionally created at the umask
+    # default rather than the strict 0o700 used for OAuth token dirs.
+    # The contents are chapter images — readable artifacts that the
+    # author may want to view in another image viewer, share with
+    # collaborators, or include in the published PDF — not credentials.
+    # Tightening to 0o700 here would create surprising "can't open
+    # image in Preview" failures for the wrong reason. PR Review
+    # 0015.2 #chunk-6 flagged this; the inconsistency is intentional.
     media_dir.mkdir(parents=True, exist_ok=True)
 
     refs: list[str] = []
