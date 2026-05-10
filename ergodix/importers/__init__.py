@@ -35,10 +35,11 @@ from collections.abc import Callable
 from types import ModuleType
 from typing import Any
 
-from ergodix.importers import gdocs
+from ergodix.importers import docx, gdocs
 
 _REGISTERED_MODULES: list[ModuleType] = [
     gdocs,
+    docx,
 ]
 
 
