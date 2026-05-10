@@ -1,6 +1,6 @@
 # AI Session Summary
 
-## 2026-05-09 (Saturday — long-arc velocity day, late-evening checkpoint)
+## 2026-05-09 (Saturday — Story 0.11 closed at 100%)
 
 ### Prompt To Resume Conversation
 
@@ -33,28 +33,33 @@ By topic:
 - **Security**: 0001 (TOCTOU+symlink) patched late last night; 0002 (parent-dir mode) + 0003 (migrate type validation) patched this morning. **Open security findings: 0.**
 - **Settings**: `.claude/settings.json` cleanup — `git branch -d/-D *` allowed for routine cleanup.
 
-### Story 0.11 status
+### Story 0.11 status — **CLOSED at 100% on 2026-05-09**
 
-**19 of 24 prereqs registered (79%).**
+**24 of 24 prereqs registered.** All ADR 0003 prereq ops (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2) have homes in the codebase. Cantilever's five phases per ADR 0012 (inspect → plan + consent → apply → configure → verify) are functionally complete.
 
-Done as prereq modules: A1 platform, A2 homebrew, A3 pandoc, A4 mactex, A5 venv, A6 packages, A7 vscode, B1 drive_desktop, B2 corpus_path, C1 gh_auth, C3 git_config, C4 local_config, C5 credential_store, C6 credential_prompts, D3 dev_dependencies, D4 branch_tracking, D6 editor_signing_key.
+**Real install actions** (mutative apply): A1 platform, A2 homebrew, A3 pandoc, A4 mactex, A7 vscode, B1 drive_desktop, C1 gh_auth, C3 git_config (configure phase), C4 local_config, C5 credential_store, C6 credential_prompts (configure phase).
 
-Done as orchestrator-level concerns: F1 connectivity + settings cascade, F2 run-record, E1 verify smoke, E2 done message.
+**Verify-only stubs** (apply is no-op; full install defers to follow-on commands): A5 venv, A6 packages, B2 corpus_path, C2 corpus_clone, D1 vscode_task, D2 prose_linter_hook, D3 dev_dependencies, D4 branch_tracking, D5 launchagent_poller, D6 editor_signing_key.
 
-**5 prereqs remaining:**
-- **C2** (clone corpus repo) — design surface: needs CORPUS_REPO_URL field in local_config; per-opus considerations; existing-clone handling.
-- **D1** (VS Code auto-sync task) — depends on `ergodix sync-in/-out` being real (currently stubs); editor-floater concern, persona-gating issue same as D6.
-- **D2** (git hooks for prose linting) — depends on Phil-trained prose linter (parking-lot).
-- **D5** (LaunchAgent polling) — depends on `ergodix sync-in` being real (currently stub).
+**Orchestrator-level concerns**: F1 connectivity + settings cascade, F2 run-record (JSONL append), E1 verify smoke (`ergodix status` exits 0), E2 persona-tailored done message.
 
-### Cantilever phases A–F
+**Follow-on commands implied by stub deferrals** (for future stories):
+- `ergodix opus clone` (drives C2's full install)
+- `ergodix opus init` (creates a fresh corpus folder + repo)
+- `ergodix vscode init` (drives D1)
+- `ergodix lint init` (drives D2 once Phil-trained linter ships)
+- `ergodix poller init` (drives D5 once `ergodix sync-in` is real)
+- `ergodix editor init` (drives D6's full keygen + gh scope refresh + git config flow)
+- `ergodix sync-in` / `ergodix sync-out` (real implementations; currently CLI stubs)
 
-- **Phase A (system tools)**: A1–A7 all done.
-- **Phase B (Drive/corpus)**: B1 done conditional, B2 done.
-- **Phase C (auth/repo scaffolding)**: C1, C3, C4, C5, C6 done. C2 remaining.
-- **Phase D (persona extras)**: D3, D4, D6 done (verify-only). D1, D2, D5 pending (each has dependency blockers).
-- **Phase E (verify + done)**: E1 + E2 both wired.
-- **Phase F (orchestrator-level)**: F1 (connectivity + settings), F2 (run-record) both done.
+### Cantilever phases A–F (all complete)
+
+- **Phase A (system tools)**: A1–A7 all registered.
+- **Phase B (Drive/corpus)**: B1 conditional on indy mode, B2 dispatches on detected sync transport.
+- **Phase C (auth/repo scaffolding)**: C1–C6 all registered.
+- **Phase D (persona extras)**: D1–D6 all registered (D3 has real apply; rest are verify-only stubs deferring to follow-on commands).
+- **Phase E (verify + done)**: E1 (verify smoke = `ergodix status` exits 0) + E2 (persona-tailored done message).
+- **Phase F (orchestrator-level)**: F1 connectivity + settings, F2 run-record.
 
 ### Open security findings
 
@@ -66,22 +71,27 @@ Done as orchestrator-level concerns: F1 connectivity + settings cascade, F2 run-
 
 ### Next-session candidates
 
-**Multi-session arcs (highest user-visible value):**
-- **`ergodix migrate --from gdocs`** — Story 0.2's other big task. Walks corpus folder, exports `.gdoc` → `.md`, archives originals. Needs spike + ADR first (Drive/Docs API mapping, hierarchy detection, idempotency). Highest leverage but biggest scope.
-- **`ergodix sync-in` / `sync-out`** — implements the polling cycle from ADR 0004. Unblocks D1 + D5. Sub-arc of editor collaboration.
-- **`ergodix editor init`** — explicit command to drive the full D6 install flow (keygen + gh scope refresh + register + git config).
-- **`ergodix opus init`** — command to bootstrap a new corpus folder + initialize the per-opus repo. Unblocks C2.
+Story 0.11 is closed. The next arcs are the user-facing features that turn cantilever into a working tool.
 
-**Mechanical (~30-60 min each):**
-- **C2** — clone corpus repo. Adds CORPUS_REPO_URL to local_config; clones if absent.
-- **D1 / D2 / D5 stubs** — each as verify-only checks that detect state and stay informational. Same pattern as D4 / D6.
+**Highest user-visible leverage:**
+- **`ergodix migrate --from gdocs`** — Story 0.2's other big task. Walks corpus folder, exports `.gdoc` → `.md`, archives originals. Needs spike + ADR first (Drive/Docs API mapping, hierarchy detection, idempotency). Without migrate, the user can't get their actual prose into the system.
+- **`ergodix sync-in` / `sync-out`** — implements the polling cycle from ADR 0004 + the editor-collaboration round-trip from ADR 0006. Unblocks D1 + D5's full install flows.
+
+**Stub-driven follow-on commands** (one per stub deferral — each turns a verify-only stub into a real install action):
+- `ergodix opus clone` (drives C2)
+- `ergodix opus init` (creates a fresh corpus folder + repo)
+- `ergodix vscode init` (drives D1)
+- `ergodix poller init` (drives D5; depends on `sync-in` real)
+- `ergodix editor init` (drives D6)
+- `ergodix lint init` (drives D2; depends on Phil-trained linter)
 
 **Cleanup:**
 - **`BootstrapSettings` / `load_bootstrap_settings` rename** — names are misleading post-ADR-0014. Sweeping diff but pure cleanup.
+- **ADR 0003 D4 wording fix** — "develop branch tracking" predates the trunk-based decision; D4 is now main-branch-tracking. Already documented in the prereq module's docstring; could land as a Note on the ADR.
 
 ### Tomorrow's first move
 
-Pick from "Next-session candidates." Most user-visible: migrate spike (sets up the next big arc). Most completion-driven: knock out C2 + D1/D2/D5 stubs to hit 24/24 prereq coverage. Cleanest pure-cleanup: BootstrapSettings rename.
+Story 0.11's close-out is the natural punctuation mark. The next big arc is **`ergodix migrate --from gdocs`** — set up the spike + ADR first since the design surface is real (which Drive/Docs APIs to use, which auth flow, how to handle the .gdoc → markdown conversion, idempotency, archive layout). Implementation follows in subsequent PRs.
 
 ### File state notes
 

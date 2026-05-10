@@ -220,7 +220,9 @@ Tasks:
 - [ ] If Keychain behaves: keep current shape; document the test result in the credential-store comment block in `auth.py`.
 - [ ] Either way: ensure all credential reads/writes in the codebase go through a single abstraction (currently `auth.py`'s helpers); no direct `keyring.*` calls from anywhere else.
 
-### Story 0.11 - Installer redesign per ADR 0010 **[ELEVATED to highest active priority — blocks remaining Story 0.10 work]**
+### Story 0.11 - Installer redesign per ADR 0010 **[DONE 2026-05-09 — 24/24 prereqs registered]**
+
+**Closed 2026-05-09 with PR #58 (C2 verify-only stub).** All 24 prereq ops from ADR 0003 (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2) have homes in the codebase. Cantilever's five phases per ADR 0012 (inspect → plan + consent → apply → configure → verify) are functionally complete. Some prereqs are verify-only stubs that defer their full install flow to follow-on stories — see "Implementation status by op" below.
 
 So that running cantilever feels like one decision (a single Y/n on a clearly-laid-out plan) rather than a forest of mid-stream prompts; so that the system is inspected before anything is mutated; so that admin escalation happens once at the right moment; and so that a final verification step proves the install actually works,
 
