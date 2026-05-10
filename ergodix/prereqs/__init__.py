@@ -24,6 +24,7 @@ from ergodix.prereqs import (
     check_credential_store,
     check_dev_dependencies,
     check_drive_desktop,
+    check_editor_signing_key,
     check_gh_auth,
     check_git_config,
     check_homebrew,
@@ -63,6 +64,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_credential_prompts,
     check_dev_dependencies,
     check_branch_tracking,
+    check_editor_signing_key,
 ]
 
 
