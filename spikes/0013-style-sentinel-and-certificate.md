@@ -28,6 +28,7 @@ Per the partnership norm of preserving the *journey* in spikes, here are the pro
 >
 > 2. We should check and do some research and see if this tool already exists
 > 3. Build a skill map, and determine if we can build stand alone "skills" — binaries — that can do things like review for devil's toolbox (regex again, detecting things like anaphora, and we can also have a near-rhyme topography map. Finding the climax of the story, I don't know how we would do that. We will have to look at my fibonacci writing prompt that I give to chat got and figure out if there exists a tool or if we can build one that would be able to do it.
+> instead of calling them "skills" like claude does, we will call them ergodites which meshes nicely with the notion of ergodic documents plus they are like little "egos" that have the ability to carry out tasks. We will want to ensure they aren't tampered with either -- maybe we salt their hashes and create a dictionary of their hashes that we update with each release if they change.
 
 ### Assistant response (summarized, not verbatim — captured for context)
 
@@ -89,28 +90,64 @@ The author's reference profile is the centroid (or distribution) computed over a
 - Which commercial API has the cleanest API + most permissive ToS for our use case (corpus-scale repeated checks)?
 - Does the author / school want self-plagiarism on by default, or opt-in?
 
-### C. Analysis (or "lens") plugin registry
+### C. Ergodite plugin registry
 
-**Pattern.** Mirror `ergodix/importers/` and `ergodix/prereqs/`. New package `ergodix/analyses/` (or `ergodix/lenses/`) with explicit registry.
+The user landed on **"ergodites"** as the name for these plugins (Message 1 addendum) — locking what was an open naming question. Etymology: "ergodic" + "-ite" suffix → small thing belonging to / participating in ergodic-text work; the user also notes the framing of each ergodite as a little "ego" that carries out a task. Avoids the Claude Code / Agent SDK "skill" collision and embeds the project's identity in the name. Drops the "analysis" vs "lens" debate — both were placeholders. New package: `ergodix/ergodites/`.
 
-**Module contract.**
+#### C.1. Pattern + module contract
+
+Mirror `ergodix/importers/` and `ergodix/prereqs/`. Explicit registry.
+
 ```python
-NAME: str                                # short id, matches CLI surface
+NAME: str                                # short id, matches CLI surface (e.g. "style-sentinel")
 DESCRIPTION: str                         # one-line, surfaced in --help
 REQUIRES: tuple[str, ...] = ()           # optional, e.g. ("python-docx",), ("openai-key",)
-def run(corpus_root: Path, **opts: Any) -> AnalysisReport: ...
+def run(corpus_root: Path, **opts: Any) -> ErgoditeReport: ...
 ```
 
-`AnalysisReport` is a frozen dataclass: timestamp, generator (analysis name + version), per-finding records (location ref, severity, message, optional supporting JSON), summary stats. Reports never mutate the corpus — the read-only contract is a load-bearing piece of ADR 0013 compliance.
-
-**Naming.** "Skill" collides with the Claude Code / Agent SDK skill concept. "Analysis" or "lens" are both serviceable. Decide in the ADR.
+`ErgoditeReport` is a frozen dataclass: timestamp, generator (ergodite name + version), per-finding records (location ref, severity, message, optional supporting JSON), summary stats. Reports never mutate the corpus — the read-only contract is a load-bearing piece of ADR 0013 compliance.
 
 **Standalone binaries.** Python module by default. PyInstaller / Nuitka build path becomes a separate concern (and a separate ADR) when an actual non-Python audience materializes — not before.
 
 **Open questions.**
-- Naming: `analyses/` vs `lenses/` vs `analyzers/`. Lean: `analyses/` (it's what the AI does — produce an analysis).
-- Does an analysis declare which floaters / personas it's relevant to, so the CLI surfaces only relevant ones per role?
-- How does an analysis call into the OAuth-scoped Drive / Docs services? Probably the same `auth.get_*_service()` pattern the migrate importer uses.
+- Does an ergodite declare which floaters / personas it's relevant to, so the CLI surfaces only relevant ones per role?
+- How does an ergodite call into the OAuth-scoped Drive / Docs services? Probably the same `auth.get_*_service()` pattern the migrate importer uses.
+
+#### C.2. Ergodite integrity — tamper resistance
+
+The user's instinct (Message 1 addendum): *"We will want to ensure they aren't tampered with either — maybe we salt their hashes and create a dictionary of their hashes that we update with each release if they change."*
+
+**Threat.** A hostile actor (a student trying to evade detection in the education-mode case; any local attacker more generally) swaps an ergodite module on disk to disable or neuter its analysis. Without ergodite integrity, the certificate machinery in §D is undermined — a faked AI-detection ergodite always emits "no AI here," and the certificate it produces is technically valid but materially false. **Ergodite integrity is a prerequisite for certificate trust**, not a separate concern from it.
+
+**Approach 1: hash dictionary (the user's proposal).**
+
+- Each release ships a manifest `ergodix/ergodites/.lock.json` listing every shipped ergodite by name with its salted SHA-256.
+- Salt = the release version string (or a per-release random committed alongside the manifest). The salt is part of what gets hashed, not a separate field, so a forger can't precompute hashes for arbitrary ergodite payloads.
+- At load time, ergodix recomputes the hash of each ergodite and refuses to run any whose hash doesn't match the manifest entry.
+- CI regenerates the manifest as part of the release process whenever an ergodite changes.
+
+Strengths: simple, no PKI, works fully offline. Weakness: the manifest itself becomes the trust anchor — if the attacker swaps the manifest too, integrity collapses. So the manifest needs *its own* protection (signing, embedding in the ergodix binary, or a known-good distribution channel).
+
+**Approach 2: detached signatures (subsumes Approach 1).**
+
+- Each release signs every ergodite (and the manifest) with the project's release key (Ed25519 / minisign / signify-style).
+- Ergodix verifies the signature on each ergodite at load time using the project's public key, which is compiled into the ergodix binary or pinned in an in-tree constant.
+- The hash manifest still exists but is now a signed artifact; individual ergodites carry detached signatures too.
+
+Strengths: standard, well-understood; defends the trust anchor; the same signing infrastructure protects the certificate flow in §D, so it's reusable. Weakness: more moving parts (signing infrastructure, key custody, key rotation policy).
+
+**Lean.** Start with **Approach 1** (hash manifest in `ergodix/ergodites/.lock.json`, regenerated on release, salted with release version). Promote to **Approach 2** (signed manifest + signed ergodites) in the same ADR / release as the certificate flow ships, since the signing infrastructure is shared.
+
+**Custom / user-authored ergodites.** A school deploying a custom ergodite (or a fiction author writing one for their own opus) has to escape the "ships-from-upstream" trust path. Options to evaluate in the ADR:
+- A separate trust namespace: locally-trusted ergodites live under `<corpus>/.ergodix/ergodites/` and are signed (or hash-pinned) with a *local* trust key the user generates at first use.
+- An allowlist of content hashes the user explicitly opts into (`ergodix ergodite trust <hash>` once per ergodite).
+- Refuse to run unsigned ergodites at all in school-mode; allow them in personal-author mode behind a flag.
+
+**Open questions.**
+- Salt strategy: per-release version string, per-install random, or both (release + install)?
+- Where lives the manifest at runtime — bundled in the wheel, downloaded on first launch, or both with cross-verification?
+- How does an end-user write their own ergodite (custom analysis) without breaking integrity? See the three options above; pick one in the ADR.
+- Performance: hashing every ergodite on every run is cheap (microseconds per file) but verifying signatures is slower. Cache verification results per-process? Per-install? At what granularity?
 
 ### D. Authorship certificate — tamper resistance
 
@@ -226,25 +263,30 @@ The user's `InfringementThreatLevelWords: 4` setting is a good shape: configurab
 
 ### H. ADR 0013 boundary check
 
-All three threads are read-only analysis. None mutates the corpus. They fit cleanly under ADR 0013 §3 ("structural analysis," gated by Spike 0010 author preferences):
+All threads are read-only analysis. None mutates the corpus. They fit cleanly under ADR 0013 §3 ("structural analysis," gated by Spike 0010 author preferences):
 - Style sentinel = author-encoded preferences (their own style is the reference).
-- AI detection = analysis output, never auto-replacement.
-- Plagiarism check = analysis output, never auto-rewrite.
+- AI detection = ergodite output, never auto-replacement.
+- Plagiarism check = ergodite output, never auto-rewrite.
 - Certificate = artifact written next to / inside the corpus, but the certificate itself is not corpus content.
+- Ergodite integrity check = self-protection on tooling, no corpus contact.
 
-The closed list survives. **No ADR 0013 conflict** — but Spike 0010's interview will need extension to capture education-mode preferences (which analyses run, what the threshold is, what the teacher sees).
+The closed list survives. **No ADR 0013 conflict** — but Spike 0010's interview will need extension to capture education-mode preferences (which ergodites run, what the threshold is, what the teacher sees).
 
-The certificate-writing flow does technically write a new file (sidecar `.cert.json`). That's not "AI editing the corpus" — it's a tooling artifact, like the `_archive/` folder migrate creates. Worth one sentence in the eventual ADR clarifying that.
+The certificate-writing flow does technically write a new file (sidecar `.cert.json`); the ergodite integrity manifest is also a tooling-emitted file (`ergodix/ergodites/.lock.json`). Neither is "AI editing the corpus" — both are tooling artifacts of the same kind as the `_archive/` folder migrate creates. Worth one sentence in the eventual ADR clarifying that.
 
 ## Open questions to resolve in follow-on ADRs
 
 Grouped by likely ADR boundaries:
 
-**ADR-X1 (analysis registry shape):**
-1. Naming: `analyses/` vs `lenses/` vs `analyzers/`.
-2. Does an analysis declare relevant floaters/personas?
-3. How do analyses access OAuth-scoped Drive/Docs services?
+**ADR-X1 (ergodite registry + integrity):**
+1. ~~Naming.~~ **Resolved:** "ergodites" (per Message 1 addendum). Package: `ergodix/ergodites/`.
+2. Does an ergodite declare relevant floaters/personas, so the CLI surfaces only relevant ones per role?
+3. How do ergodites access OAuth-scoped Drive/Docs services?
 4. Standalone-binary build path: now or later? (Lean: later.)
+5. **Integrity manifest format**: `.lock.json` with salted SHA-256 per ergodite — what salt strategy (release-version, per-install random, both)?
+6. **Manifest trust anchor**: Approach 1 (plain hash dictionary) or Approach 2 (detached signatures, shared with §D certificate signing)? Lean: 1 first, promote to 2 alongside §D.
+7. **Custom / user-authored ergodites**: separate trust namespace, content-hash allowlist, or refuse-in-school-mode-only? Pick one in the ADR.
+8. **Verification cadence**: hash every ergodite on every run (cheap), or cache per-process / per-install / per-release with invalidation rules?
 
 **ADR-X2 (authorship certificate format + key distribution):**
 5. In-band frontmatter vs. sidecar file: which carries which fields?

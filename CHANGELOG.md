@@ -11,9 +11,11 @@ Versioning policy (post-2026-05-10): **`1.MINOR.PATCH`**.
 
 This intentionally departs from strict SemVer. Project progress is best read through merged increments rather than API stability — the API isn't stable yet, and won't be for a while. Earlier `0.1.0` policy (1.0 = migrate + render + Sprint 1 story end-to-end) is superseded; that milestone now corresponds to a tagged feature line, not a major version bump.
 
-## [Unreleased]
+(Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.2`.)
 
-(Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.1`.)
+## [1.49.1] - 2026-05-10
+
+**Spike 0013 amendment — ergodites naming + integrity sub-section.** Per a Message 1 addendum from the author, the analysis-plugin concept is now named **ergodites** (etymology: "ergodic" + "-ite", framed as a little "ego" that carries out a task; avoids the Claude Code / Agent SDK "skill" collision). Locks what was an open naming question. Section C is reorganized into C.1 (pattern + module contract — now `ergodix/ergodites/`) and a new **C.2 Ergodite integrity** sub-section capturing the author's tamper-resistance instinct (salted hash dictionary per release). C.2 enumerates two approaches (hash manifest only vs. signed manifest + signed ergodites) with the lean: start hash-manifest, promote to signed alongside the §D certificate flow. Custom / user-authored ergodites discussed as a parking-lot question. Open-questions list updated: ADR-X1 drops "naming" and gains four integrity questions. Section H (ADR 0013 boundary check) updated to note ergodite integrity is also tooling-side, not corpus mutation.
 
 ## [1.49.0] - 2026-05-10
 
