@@ -13,7 +13,13 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.46.0`, next docs PR as `1.45.1`.)
+(Nothing yet — next code PR will land as `1.48.0`, next docs PR as `1.47.1`.)
+
+## [1.47.0] - 2026-05-10
+
+**Migrate chunk 3a — pure helpers + corpus walker.** First slice of `ergodix/migrate.py` per ADR 0015 §3 / §4. Public surface: `slugify_filename`, `build_target_path`, `compute_sha256`, `build_frontmatter`, `walk_corpus` + `WalkEntry`. All side-effect-free except `walk_corpus`'s read-only filesystem traversal. Walker skips hidden dirs, `_archive/`, scratch (`__pycache__`, `node_modules`), and any folder containing a `.ergodix-skip` marker. Each yielded entry carries the registered importer name (or `None` for unclaimed extensions). 32 new tests. Chunk 3b adds the manifest TOML schema + archive mover; chunk 3c stitches the orchestrator together with re-run idempotency and two-phase atomicity.
+
+**VERSION catch-up.** Per the new PR-cadence policy, PRs #65, #66, and #67 didn't include their own bumps — VERSION was set to 1.45.0 by #67 reflecting the state through PR #64, but by the time #67 merged the other two had already landed. Strict accounting from the 1.45.0 baseline: #65 (code) → 1.46.0, #66 (docs) → 1.46.1, #67 (docs, the release-bump PR itself only touched VERSION + CHANGELOG) → 1.46.2, this PR (code) → **1.47.0**. Going forward, each PR includes its own bump in the same commit so drift doesn't recur.
 
 ## [1.45.0] - 2026-05-10
 
