@@ -164,9 +164,15 @@ def test_e2e_gdocs_run_against_fixture(tmp_path: Path) -> None:
     # Manifest written and well-formed.
     manifest = read_manifest(corpus / "_archive" / "_runs" / f"{_RUN_ID}.toml")
     statuses = {entry.source.name: entry.status for entry in manifest.files}
+    reasons = {entry.source.name: entry.reason for entry in manifest.files}
     assert statuses["Chapter 1.gdoc"] == "migrated"
     assert statuses["Chapter 2.docx"] == "skipped"  # wrong importer for this run
     assert statuses["Notes.gsheet"] == "skipped"  # out-of-scope
+    # PR Review 0015.2 #76: pin the explicit reason so a regression
+    # that classifies an unrecognized extension as `failed` (instead
+    # of `skipped`) surfaces as a fixture-test failure.
+    assert reasons["Notes.gsheet"] == "out-of-scope file type"
+    assert "failed" not in statuses.values()
 
 
 def test_e2e_docx_run_against_fixture(tmp_path: Path) -> None:

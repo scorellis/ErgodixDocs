@@ -13,7 +13,20 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.59.0`, next docs PR as `1.58.1`.)
+(Nothing yet — next code PR will land as `1.60.0`, next docs PR as `1.59.1`.)
+
+## [1.59.0] - 2026-05-10
+
+**Review 0015.2 follow-ups — test coverage.** Adds the missing test coverage called out in the second external review. 13 new tests:
+
+- **#75 docx None-style guard:** `test_render_paragraph_handles_none_style` — pins the defensive null guard in `_render_paragraph` against pathological docs where `paragraph.style` is None.
+- **#chunk-6 docx .bin fallback:** `test_suffix_for_image_part_falls_back_to_bin` — covers `partname=None`, extensionless partname, and the typical `.png` case.
+- **#chunk-6b gdocs `_guess_image_extension`:** 6 new tests exercising magic-byte priority over URI suffix, URI fallback for jpeg/png/webp, query-string stripping, `.bin` fallback for Docs-style `lh3.googleusercontent.com` URLs (which carry no recognizable extension), and direct recognition of JPEG/GIF87/GIF89/WebP magic bytes.
+- **#oauth-backlog partial-field corruption:** `test_credentials_from_dict_partial_field_corruption_token_uri_only_missing` (two of three required fields present, one missing — error names the specific field) + `test_credentials_from_dict_happy_path_all_required_present` (all fields present → no exception).
+- **#77 direct heuristic-bucket tests:** 4 new tests exercising `_emit_token_exchange_diagnostic` directly: invalid_grant bucket, phrase-anchored "already used" (catches "already used" but NOT a bare "used" embedded in unrelated text — the false-positive case finding #77 flagged), rate-limit bucket (4 trigger phrases tested), and the generic-bucket fallback that preserves the raw error text.
+- **#76 `.gsheet` skip-reason:** the existing `test_e2e_gdocs_run_against_fixture` now also asserts `reasons["Notes.gsheet"] == "out-of-scope file type"` and `"failed" not in statuses.values()` — pins the "unknown extension → skip with reason" contract so a future regression that classifies as `failed` surfaces as a fixture-test failure.
+
+Full suite: 667 passed, 1 skipped (was 654). ruff + format + `mypy --strict` clean.
 
 ## [1.58.0] - 2026-05-10
 
