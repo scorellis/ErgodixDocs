@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.53.0`, next docs PR as `1.52.2`.)
+(Nothing yet — next code PR will land as `1.54.0`, next docs PR as `1.53.1`.)
+
+## [1.53.0] - 2026-05-10
+
+**Migrate chunk 7 — `examples/migrate-fixture/`.** Adds a checked-in canned corpus that exercises every layer of migrate (walker, gdocs/docx importers, orchestrator, frontmatter, manifest, archive) against real on-disk inputs without needing Drive or network. Mirrors the role `examples/showcase/` plays for render. Layout: `Book 1/Chapter 1.gdoc` (JSON placeholder; tests inject a mocked `docs_service`), `Book 1/Chapter 2.docx` (real binary built by `tests/build_migrate_docx_fixture.py`, exercising headings + bold/italic + bulleted lists), `Notes.gsheet` (verifies out-of-scope skip path). The `.docx` builder lives under `tests/` (not inside the fixture corpus) so the migrate walker doesn't pick the `.py` script up as an out-of-scope file. 5 hermetic e2e tests in `tests/test_migrate_fixture.py`: fixture-shape contract, full gdocs run, full docx run, `--check` dry-run leaves the tree untouched, re-run idempotency on an unchanged source. Catches regressions in any single layer as a fixture-test failure rather than as a unit-test scoped to one module. Full suite: 635 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.52.1] - 2026-05-10
 

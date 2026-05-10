@@ -36,6 +36,13 @@ htmlcov/
 *.gsheet
 *.gslides
 
+# Exception: the migrate-fixture corpus contains intentional .gdoc/.gsheet
+# placeholders (small JSON pointers to fake doc_ids — not real Drive content)
+# so the hermetic e2e tests can exercise the walker against a real on-disk
+# corpus shape. These ARE checked in.
+!examples/migrate-fixture/**/*.gdoc
+!examples/migrate-fixture/**/*.gsheet
+
 # macOS
 .DS_Store
 
