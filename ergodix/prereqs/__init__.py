@@ -37,6 +37,7 @@ from ergodix.prereqs import (
     check_python_packages,
     check_python_venv,
     check_vscode,
+    check_vscode_task,
 )
 from ergodix.prereqs.types import ApplyResult, InspectResult
 
@@ -69,6 +70,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_editor_signing_key,
     check_launchagent_poller,
     check_prose_linter_hook,
+    check_vscode_task,
 ]
 
 
