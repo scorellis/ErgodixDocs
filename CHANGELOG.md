@@ -13,7 +13,19 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.2`.)
+(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.3`.)
+
+## [1.63.2] - 2026-05-10
+
+**Bulk-extract remaining parking-lot stories from `stories/SprintLog.md` monolith.** Completes the per-file-story migration started in PR #89. Fifteen new files under `stories/parking-lot/` — one per pending story called out in the README's "still in the monolith" section, plus a sixteenth (`scale-concerns.md`) that bundles Stories 0.Z1–0.Z5 under one umbrella since they're all "deferred — activate per real signal" sub-issues of the same architectural concern:
+
+- Spike: `criticmarkup-dual-mode-review`
+- Sprint 1+: `continuity-engine`, `phil-trained-prose-linter`
+- Sprint 2+: `plot-planner`, `devils-toolbox`, `form-analyzer-ergodite`, `skill-factory-seal-protection`, `mcp-server-ai-user-persona`
+- Way-later (post-distribution): `ip-strategy`, `licensing-monetization`, `sell-my-book`, `in-app-ai-editor`
+- Scale / multi-tenancy: `multi-opus-support`, `scale-concerns`, `publishing-house-enterprise-scale`
+
+Each file uses the per-file convention from PR #89 (status + origin + ASVRAT or lighter shape per ADR 0011, with cross-references resolved to per-file siblings where they previously pointed into the monolith). `stories/README.md` is restructured to group entries by activation horizon (infra / Sprint 1+ / Sprint 2+ / way-later / scale) instead of the previous flat "pending migration" list — easier to read the parking-lot at a glance. The monolith `stories/SprintLog.md` remains untouched (geological layer; no longer the canonical source for any active or parking-lot story).
 
 ## [1.63.1] - 2026-05-10
 
