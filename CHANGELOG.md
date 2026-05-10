@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.60.0`, next docs PR as `1.59.2`.)
+(Nothing yet — next code PR will land as `1.61.0`, next docs PR as `1.60.1`.)
+
+## [1.60.0] - 2026-05-10
+
+**`scripts/integration-smoke.sh` — local-first deployment-pipeline smoke test.** Closes the gap between "we shipped chunks 1-7+6b of migrate over the last 22 PRs" and "we've actually verified the install path still works against the new code." The script syncs source to a fresh deploy directory (default `/tmp/ergodix-smoke-deploy`, override via `ERGODIX_SMOKE_DEPLOY`), runs `bootstrap.sh`, verifies the `ergodix` console-script registers and `--version` matches the source's `VERSION` file, exercises `ergodix status` and `ergodix migrate --from docx --check --corpus examples/migrate-fixture`, and asserts expected `migrated=1, skipped=2` counts. Re-runnable; `python3 -m venv --clear` rebuilds any bit-rotted previous venv without needing `rm -rf` (matters in restricted sandboxes). Accepts bootstrap exit code 0 or 1 (the latter is cantilever's halt-on-unresolvable-inspect or consent-declined paths, both working-as-designed). Designed for parity with future CI: the same script will be invoked from `.github/workflows/integration.yml` when CI/CD shifts off-machine — no rewrite needed. README.md gains a §Integration smoke test section; CLAUDE.md gains a working-norm bullet directing future install-touching PRs through the smoke before reporting "done." Self-tested in this PR: full PASS against `/tmp/ergodix-smoke-deploy` from a fresh checkout.
 
 ## [1.59.1] - 2026-05-10
 
