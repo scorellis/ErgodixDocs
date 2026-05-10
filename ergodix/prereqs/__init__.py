@@ -18,6 +18,7 @@ from collections.abc import Callable
 from types import ModuleType
 
 from ergodix.prereqs import (
+    check_branch_tracking,
     check_corpus_path,
     check_credential_prompts,
     check_credential_store,
@@ -59,6 +60,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_gh_auth,
     check_git_config,
     check_credential_prompts,
+    check_branch_tracking,
 ]
 
 
