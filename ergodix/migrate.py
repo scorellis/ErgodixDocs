@@ -1,29 +1,30 @@
 """
-Migration walker, helpers, manifest I/O, archive mover.
+Migration walker, helpers, manifest I/O, archive mover, orchestrator.
 
-Chunks 3a + 3b together. The orchestrator (chunk 3c) will compose
-these into the full migrate run.
+Chunks 3a + 3b + 3c together. The CLI command (chunk 4) will be a
+thin dispatcher around `migrate_run`.
 
 Chunk 3a — pure helpers + read-only walker:
 
-  * `slugify_filename`
-  * `build_target_path`
-  * `compute_sha256`
-  * `build_frontmatter`
-  * `walk_corpus` / `WalkEntry`
+  * `slugify_filename`, `build_target_path`, `compute_sha256`,
+    `build_frontmatter`, `walk_corpus` / `WalkEntry`.
 
 Chunk 3b — manifest schema + I/O + archive mover:
 
-  * `Manifest`, `ManifestEntry` (frozen dataclasses)
-  * `format_run_id(dt)`
-  * `manifest_path_for_run(corpus_root, run_id)`
-  * `archive_path_for(corpus_root, run_id, source_rel)`
-  * `write_manifest(manifest, path)` — atomic tmp+rename
-  * `read_manifest(path)` — round-trip
-  * `find_latest_manifest(corpus_root)`
-  * `move_to_archive(source_path, target_path)` — fails if dst exists
+  * `Manifest`, `ManifestEntry` (frozen dataclasses; schema version 1).
+  * `format_run_id`, `manifest_path_for_run`, `archive_path_for`.
+  * `write_manifest` (atomic tmp+rename), `read_manifest`,
+    `find_latest_manifest`.
+  * `move_to_archive` (refuses to overwrite).
 
-Schema is locked by ADR 0015 §4. The TOML serializer is hand-written
+Chunk 3c — orchestrator:
+
+  * `MigrateResult` (frozen dataclass).
+  * `migrate_run(...)` — composes the above with re-run idempotency
+    (skip unchanged, flag drift), `--force`, `--check` (dry-run),
+    `--limit`, two-phase atomicity, and partial-failure recovery.
+
+Schema is locked by ADR 0015. The TOML serializer is hand-written
 (rather than pulling in `tomli-w`) because the schema is small, stdlib
 `tomllib` already handles the read side, and the dependency footprint
 stays minimal per CLAUDE.md.
@@ -36,13 +37,14 @@ import os
 import re
 import tomllib
 import unicodedata
-from collections.abc import Iterator
-from dataclasses import dataclass
-from datetime import datetime
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from ergodix.importers import extension_to_importer
+from ergodix.importers import extension_to_importer, get_importer
+from ergodix.version import __version__ as _ergodix_version
 
 # Folder names we never descend into. Tied to migrate's archive layout
 # (`_archive/`) and to common scratch dirs that might land in a corpus
@@ -446,3 +448,250 @@ def move_to_archive(source_path: Path, target_path: Path) -> None:
         raise FileExistsError(f"archive target already exists: {target_path}")
     target_path.parent.mkdir(parents=True, exist_ok=True)
     os.rename(source_path, target_path)
+
+
+# ─── Orchestrator (chunk 3c) ───────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class MigrateResult:
+    """Summary of one `migrate_run` invocation.
+
+    `counts` maps each `ManifestStatus` value to how many entries
+    landed in that bucket (only present statuses appear). `files` is
+    the same ordered tuple of ManifestEntry that the manifest holds —
+    surfaced here so a CLI caller doesn't need to re-read disk.
+    """
+
+    run_id: str
+    manifest_path: Path | None
+    counts: dict[str, int] = field(default_factory=dict)
+    files: tuple[ManifestEntry, ...] = ()
+
+
+def _default_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _build_prior_index(
+    prior: Manifest | None,
+) -> dict[Path, ManifestEntry]:
+    """Map source → most-recent migrated entry for re-run idempotency."""
+    if prior is None:
+        return {}
+    return {entry.source: entry for entry in prior.files if entry.status == "migrated"}
+
+
+def _write_target_file(target_path: Path, body: str) -> None:
+    """Write ``body`` to ``target_path``, creating parent dirs."""
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(body, encoding="utf-8")
+
+
+def _classify_outcome(
+    *,
+    new_hash: str,
+    prior_entry: ManifestEntry | None,
+    force: bool,
+) -> tuple[ManifestStatus, str | None]:
+    """Decide what to do with an extracted file vs. its prior manifest record.
+
+    Returns ``(status, reason)``. ``reason`` is None for outcomes that
+    don't carry one in the schema (migrated). The `target` for a
+    drift-detected entry is filled in by the caller from `prior_entry`.
+    """
+    if force:
+        return "migrated", None
+    if prior_entry is None:
+        return "migrated", None
+    if prior_entry.sha256 == new_hash:
+        return "skipped", "unchanged since last run"
+    return "drift-detected", None
+
+
+def migrate_run(
+    *,
+    corpus_root: Path,
+    importer_name: str,
+    docs_service: Any | None = None,
+    author: str = "",
+    force: bool = False,
+    check: bool = False,
+    limit: int | None = None,
+    now_fn: Callable[[], datetime] = _default_now,
+    output_fn: Callable[[str], None] = lambda _: None,
+) -> MigrateResult:
+    """Run one migrate pass over ``corpus_root``.
+
+    Composition:
+      1. Resolve importer (may raise KeyError).
+      2. Load latest manifest to build prior-run index for idempotency.
+      3. Walk corpus → record skipped entries for files this importer
+         doesn't claim, hold eligible entries for processing.
+      4. Apply ``limit`` to eligible entries only.
+      5. For each eligible file:
+         (a) Phase 1: extract markdown via importer; on error record
+             status="failed" and continue.
+         (b) Classify against prior run + ``force``.
+         (c) Phase 2: write target + archive source for "migrated";
+             skip phase 2 for "skipped" / "drift-detected" / "failed".
+             A phase-2 error becomes a "failed" entry with the source
+             still in place.
+      6. Write the run manifest unless ``check`` is set.
+      7. Return a `MigrateResult`.
+
+    ``check`` makes the run a dry-run: classifications happen but no
+    target files are written, no source files are archived, and no
+    manifest is written.
+    """
+    importer = get_importer(importer_name)
+    started_at = now_fn().replace(microsecond=0)
+    run_id = format_run_id(started_at)
+    output_fn(f"migrate run {run_id} starting")
+
+    prior_index = _build_prior_index(find_latest_manifest(corpus_root))
+
+    eligible: list[WalkEntry] = []
+    skipped_for_scope: list[ManifestEntry] = []
+    for entry in walk_corpus(corpus_root):
+        if entry.importer_name == importer_name:
+            eligible.append(entry)
+            continue
+        # Existing .md files in the corpus are migrate's own outputs (or
+        # user-authored markdown that's already in target format). They
+        # don't belong in the manifest's skipped-list — recording them on
+        # every re-run would balloon the manifest with noise. Per ADR
+        # 0015 §2, .md handling ("touch frontmatter, leave content")
+        # lands in a follow-up; for now we silently leave them alone.
+        if entry.relative_path.suffix.lower() == ".md":
+            continue
+        skipped_for_scope.append(
+            ManifestEntry(
+                source=entry.relative_path,
+                status="skipped",
+                reason="out-of-scope file type",
+            )
+        )
+
+    if limit is not None:
+        eligible = eligible[:limit]
+
+    processed: list[ManifestEntry] = []
+
+    for entry in eligible:
+        # Phase 1: extract.
+        try:
+            markdown = importer.extract(entry.source_path, docs_service=docs_service)
+        except Exception as exc:
+            processed.append(
+                ManifestEntry(
+                    source=entry.relative_path,
+                    status="failed",
+                    reason=f"extract failed: {exc}",
+                )
+            )
+            continue
+
+        new_hash = compute_sha256(markdown)
+        prior_entry = prior_index.get(entry.relative_path)
+        status, reason = _classify_outcome(new_hash=new_hash, prior_entry=prior_entry, force=force)
+
+        if status == "skipped":
+            processed.append(
+                ManifestEntry(
+                    source=entry.relative_path,
+                    status="skipped",
+                    reason=reason,
+                )
+            )
+            continue
+
+        if status == "drift-detected":
+            processed.append(
+                ManifestEntry(
+                    source=entry.relative_path,
+                    status="drift-detected",
+                    target=prior_entry.target if prior_entry is not None else None,
+                )
+            )
+            continue
+
+        # status == "migrated"
+        target_rel = build_target_path(entry.relative_path)
+
+        if check:
+            # Dry-run — record the would-be outcome with the new hash but
+            # don't touch the filesystem.
+            processed.append(
+                ManifestEntry(
+                    source=entry.relative_path,
+                    status="migrated",
+                    target=target_rel,
+                    sha256=new_hash,
+                )
+            )
+            continue
+
+        # Phase 2: write target, then archive source.
+        target_path = corpus_root / target_rel
+        frontmatter = build_frontmatter(
+            title=entry.relative_path.stem,
+            author=author,
+            source_rel=entry.relative_path,
+            migrated_at=started_at,
+        )
+        full_body = frontmatter + "\n" + markdown
+        try:
+            _write_target_file(target_path, full_body)
+            move_to_archive(
+                entry.source_path,
+                archive_path_for(corpus_root, run_id, entry.relative_path),
+            )
+        except OSError as exc:
+            processed.append(
+                ManifestEntry(
+                    source=entry.relative_path,
+                    status="failed",
+                    reason=f"phase 2 failed: {exc}",
+                )
+            )
+            continue
+
+        processed.append(
+            ManifestEntry(
+                source=entry.relative_path,
+                status="migrated",
+                target=target_rel,
+                sha256=new_hash,
+                size_bytes=len(full_body.encode("utf-8")),
+            )
+        )
+
+    finished_at = now_fn().replace(microsecond=0)
+    all_files = tuple(processed + skipped_for_scope)
+
+    counts: dict[str, int] = {}
+    for manifest_entry in all_files:
+        counts[manifest_entry.status] = counts.get(manifest_entry.status, 0) + 1
+
+    manifest_path: Path | None = None
+    if not check:
+        manifest = Manifest(
+            version=_MANIFEST_SCHEMA_VERSION,
+            started_at=started_at,
+            finished_at=finished_at,
+            generator=f"ergodix {_ergodix_version} migrate --from {importer_name}",
+            corpus_root=corpus_root.resolve(),
+            files=all_files,
+        )
+        manifest_path = manifest_path_for_run(corpus_root, run_id)
+        write_manifest(manifest, manifest_path)
+
+    output_fn(f"migrate run {run_id} done: {counts}")
+
+    return MigrateResult(
+        run_id=run_id,
+        manifest_path=manifest_path,
+        counts=counts,
+        files=all_files,
+    )

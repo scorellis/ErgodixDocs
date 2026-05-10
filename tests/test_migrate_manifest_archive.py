@@ -206,8 +206,8 @@ def test_read_manifest_round_trip(tmp_path: Path) -> None:
 def test_read_manifest_rejects_unknown_schema_version(tmp_path: Path) -> None:
     target = tmp_path / "manifest.toml"
     target.write_text(
-        '[meta]\n'
-        'version = 999\n'
+        "[meta]\n"
+        "version = 999\n"
         'started_at = "2026-05-10T14:00:00Z"\n'
         'finished_at = "2026-05-10T14:05:00Z"\n'
         'generator = "ergodix 1.47.0"\n'
