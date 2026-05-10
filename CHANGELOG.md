@@ -13,7 +13,13 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.53.0`, next docs PR as `1.52.1`.)
+(Nothing yet — next code PR will land as `1.53.0`, next docs PR as `1.52.2`.)
+
+## [1.52.1] - 2026-05-10
+
+**Spike 0014 + parking-lot story — `form-analyzer` ergodite.** Captures the design surface for a single ergodite that grades a chapter's *form* on three axes: readability/grade-level (publicly-defined formulas — Flesch-Kincaid, Gunning Fog, SMOG, Coleman-Liau, ARI, Dale-Chall via `textstat`-style portfolio + consensus + band classification), rhetorical eloquence (per-paragraph density of detected figures: anaphora, epistrophe, polysyndeton, asyndeton, tricolon, alliteration, anastrophe — first concrete consumer of the Devil's Toolbox rhetoric primitives), and Fibonacci/golden-mean structural arc (per the author's writing prompt, blocked on `docs/fibonacci-writing-prompt.md` capture). Single ergodite with toggleable sub-checks rather than three separate ergodites. Companion parking-lot story added to SprintLog.md with ASVRAT body + tasks. Activation gated on Spike 0013's ergodite registry shipping (ADR-X1).
+
+(Bonus: corrected two `../spikes/...` → `spikes/...` cross-ref paths in SprintLog.md while editing — `SprintLog.md` lives at the repo root, so the leading `..` was a stale lift-and-shift bug.)
 
 ## [1.52.0] - 2026-05-10
 
