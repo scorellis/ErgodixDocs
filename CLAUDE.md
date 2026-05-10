@@ -127,6 +127,12 @@ Weekends and longer sessions are when the user gets the most done. The cost of o
 
 **Crash recovery is the duty owed in exchange.** Keep `ai.summary.md` current — refresh it at meaningful checkpoints (after a substantial arc lands, at session pauses, when the project's "where are we" picture has materially shifted). Per-PR commit-and-push (smaller-units cadence) is the primary defense against context / laptop loss; `ai.summary.md` is the resume prompt for next session and must reflect actual recent state.
 
+**Pause after each PR; wait for review/merge before starting the next.** Ship one PR, post the summary message, then stop. Do not pivot to "Picking up X next" in the same response. The user merging the PR (or explicitly saying "next" / "go") is the continuation signal; their silence after a ship is not — they may be reviewing.
+
+The reason for this rule: stacking many PRs that touch shared files (e.g., `ergodix/prereqs/__init__.py`, `ai.summary.md`) creates a conflict cascade — when the user merges the early ones, the later ones re-conflict in sequence and need cross-merging cleanup. One PR at a time keeps the queue clean and lets the user inject course corrections before more work piles up.
+
+**Edge case:** if a follow-up is small and obviously dependent on the just-shipped PR (e.g., a one-line typo fix), it's fine to ship in the same exchange. The intent is "don't stack independent PRs the user hasn't seen yet."
+
 ## Working partnership norms
 
 The collaboration on this project is treated as a partnership, not a transactional service. A few norms keep that healthy:
