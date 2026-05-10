@@ -13,7 +13,16 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.63.0`, next docs PR as `1.62.3`.)
+(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.1`.)
+
+## [1.63.0] - 2026-05-10
+
+**`scripts/integration-smoke.sh` hardening — Review 0015.3 findings #1 + #2.** Closes both findings the third external review (`reviews/0015.3.external-review.md`) raised against PR #85's smoke script.
+
+- **Finding #1 (Medium): version-mismatch false-negative.** The smoke compared `ergodix --version` against `$SOURCE_DIR/VERSION` (the workspace), but the installed package's version is what setuptools read from `$DEPLOY_DIR/VERSION` at install time. After rsync, the two paths usually agree, but any drift (concurrent edit, partial rsync, stale deploy) produced a false-negative version mismatch even when the installed package and its source-of-record were in fact consistent. Smoke now reads `$DEPLOY_DIR/VERSION` — the load-bearing copy.
+- **Finding #2 (Low): blocking on cantilever's interactive consent gate.** The smoke documents itself as CI-ready, but on environments where inspect succeeded and a non-empty plan was built (i.e., not the placeholder-`local_config.py` halt path), `bash bootstrap.sh` blocked at the consent prompt — the reviewer hit this and had to manually answer `n`. Smoke now invokes `bash bootstrap.sh --dry-run cantilever`, forwarding the top-level `--dry-run` floater through to cantilever. Result: inspect runs, plan is printed, exits cleanly with outcome `dry-run` (no consent prompt, no system mutations). The `inspect-failed` exit-1 path on placeholder-config deploys is preserved (still working-as-designed).
+
+Self-smoke against `/Users/scorellis/Documents/Scorellient/Applications/ErgodixDocs/` PASSes with the new flags. CI workflow (`.github/workflows/integration.yml`) inherits the fix unchanged — it invokes the same script.
 
 ## [1.62.2] - 2026-05-10
 

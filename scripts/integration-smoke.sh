@@ -6,12 +6,16 @@
 # What it verifies:
 #   1. bootstrap.sh runs cleanly against a fresh deploy directory.
 #   2. The `ergodix` console-script is registered in the venv.
-#   3. `ergodix --version` matches the source's VERSION file.
+#   3. `ergodix --version` matches the deploy directory's VERSION file
+#      (what setuptools read at install time).
 #   4. `ergodix migrate --from docx --check` against the in-repo
 #      fixture reports `migrated=1, skipped=2` (Chapter 2.docx
 #      migrated; Chapter 1.gdoc + Notes.gsheet skipped as out-of-scope
 #      for the docx run).
 #   5. `ergodix status` exits 0.
+#
+# Cantilever is invoked with `--dry-run` so the smoke runs unattended:
+# inspect + plan only, no consent prompt, no system changes.
 #
 # What it does NOT test (these need real infrastructure beyond a
 # script can sandbox):
@@ -84,14 +88,22 @@ cd "$DEPLOY_DIR"
 
 # ── 3. Run bootstrap ─────────────────────────────────────────────────────────
 
-# bootstrap.sh hands off to `ergodix cantilever`. When local_config.py
-# carries a placeholder (`<YOUR-CORPUS-FOLDER>`), cantilever's inspect
-# phase halts with exit 1 — that's working-as-designed behavior, not a
-# smoke failure. We accept exit codes 0 and 1; anything higher is a
-# real bug in bootstrap.sh / cantilever itself.
-log "running bootstrap.sh"
+# bootstrap.sh hands off to `ergodix cantilever`. We pass `--dry-run` so
+# cantilever runs inspect → plan and exits cleanly without prompting for
+# consent or applying any system changes. Per Review 0015.3 finding #2:
+# without --dry-run, on environments where inspect succeeds and a non-
+# empty plan is built, cantilever blocks at the interactive consent gate,
+# making the smoke unsuitable for unattended (CI / review-bot) runs.
+#
+# Exit-code policy:
+#   - 0 (success): --dry-run outcome, or no-changes-needed.
+#   - 1: inspect-failed (e.g., placeholder local_config.py on a fresh
+#        deploy) — this is working-as-designed behavior, not a smoke
+#        failure. We accept it.
+#   - >1: real bug in bootstrap.sh / cantilever itself.
+log "running bootstrap.sh --dry-run cantilever"
 set +e
-bash bootstrap.sh
+bash bootstrap.sh --dry-run cantilever
 BOOT_EXIT=$?
 set -e
 if [ "$BOOT_EXIT" -gt 1 ]; then
@@ -108,12 +120,17 @@ log "ergodix CLI installed at $ERGODIX"
 
 # ── 5. Verify --version matches VERSION file ─────────────────────────────────
 
-EXPECTED_VERSION="$(cat "$SOURCE_DIR/VERSION" | tr -d '[:space:]')"
+# Per Review 0015.3 finding #1: compare against $DEPLOY_DIR/VERSION (what
+# setuptools actually read at install time), NOT $SOURCE_DIR/VERSION.
+# The two should be identical after rsync, but if they ever diverge (e.g.,
+# concurrent edit, rsync hiccup), the deploy copy is the load-bearing one
+# because it's what got stamped into the installed package metadata.
+EXPECTED_VERSION="$(tr -d '[:space:]' < "$DEPLOY_DIR/VERSION")"
 ACTUAL_VERSION="$("$ERGODIX" --version | awk '{print $NF}')"
 if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
-    fail "version mismatch — VERSION file says $EXPECTED_VERSION, ergodix --version says $ACTUAL_VERSION"
+    fail "version mismatch — deploy VERSION says $EXPECTED_VERSION, ergodix --version says $ACTUAL_VERSION"
 fi
-log "version $ACTUAL_VERSION matches VERSION file"
+log "version $ACTUAL_VERSION matches deploy VERSION file"
 
 # ── 6. ergodix status returns 0 ──────────────────────────────────────────────
 
