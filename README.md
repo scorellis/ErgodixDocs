@@ -24,6 +24,19 @@ Build a system that uses AI as a co-author and continuity engine for a fictional
 
 The repository hosts the tooling and non-sensitive planning docs. Creative source material lives outside the tracked tree.
 
+## Reviews
+
+External PR reviews (Copilot, ChatGPT, human peers — reviewer-agnostic) are collected in `reviews/` using ADR-scoped filenames:
+
+- [reviews/0013.external-review.md](reviews/0013.external-review.md)
+
+If multiple PRs map to the same ADR, use suffixes:
+
+- `reviews/0015.1.external-review.md`
+- `reviews/0015.2.external-review.md`
+
+Reviews with open security findings are held until the corresponding fixes ship — published alongside the follow-up PR rather than ahead of it.
+
 ## AI Boundaries — Prose Is Human-Written
 
 The chapters and prose files authored by the human are **not to be touched, edited, or rewritten by the AI**. There is significant community sentiment opposed to books being written by AI, and that concern is respected here.

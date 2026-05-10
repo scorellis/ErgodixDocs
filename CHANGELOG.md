@@ -13,7 +13,15 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.1`.)
+(Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.2`.)
+
+## [1.49.1] - 2026-05-10
+
+**Spike 0013 amendment — ergodites naming + integrity sub-section.** Per a Message 1 addendum from the author, the analysis-plugin concept is now named **ergodites** (etymology: "ergodic" + "-ite", framed as a little "ego" that carries out a task; avoids the Claude Code / Agent SDK "skill" collision). Locks what was an open naming question. Section C is reorganized into C.1 (pattern + module contract — now `ergodix/ergodites/`) and a new **C.2 Ergodite integrity** sub-section capturing the author's tamper-resistance instinct (salted hash dictionary per release). C.2 enumerates two approaches (hash manifest only vs. signed manifest + signed ergodites) with the lean: start hash-manifest, promote to signed alongside the §D certificate flow. Custom / user-authored ergodites discussed as a parking-lot question. Open-questions list updated: ADR-X1 drops "naming" and gains four integrity questions. Section H (ADR 0013 boundary check) updated to note ergodite integrity is also tooling-side, not corpus mutation.
+
+Incorporates two findings from the Copilot review of this PR (see [reviews/copilot-pr-reviews.md](reviews/copilot-pr-reviews.md) §"PR Review 2"): C.2 gains an explicit *Threat-model honesty* paragraph clarifying that Approach 1 is tamper-evident under a trusted distribution channel and **does not** resist a local attacker with write access to both ergodites and manifest — adversarial resistance starts at Approach 2. Open-questions numbering renumbered monotonically (1-8 ADR-X1, 9-13 ADR-X2, 14-18 ADR-X3, 19-20 cross-cutting) so cross-references in future ADRs aren't ambiguous.
+
+**Reviews convention.** Adds a `reviews/` folder with ADR-scoped filenames (`NNNN.external-review.md`, optionally `NNNN.X.external-review.md` when multiple PRs map to the same ADR). Reviewer-agnostic — Copilot, ChatGPT, human peers all land in the same scheme. CLAUDE.md gains the rule; README.md gains a §Reviews pointer. First review committed: `reviews/0013.external-review.md` (this PR's review). The OAuth security review (`reviews/0015.external-review.md`) is `.gitignore`d for now: it enumerates 7 low/medium findings against `ergodix/oauth.py` / `ergodix/auth.py`, and publishing it before the queued follow-ups merge would hand attackers a code-path roadmap. Will commit alongside the follow-up PR that closes the findings.
 
 ## [1.49.0] - 2026-05-10
 

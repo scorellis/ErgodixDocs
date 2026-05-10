@@ -118,6 +118,7 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - Lead with the recommendation; offer alternatives only when load-bearing.
 - When the user asks "what next?", propose a concrete next step rather than restating options.
 - If you're not sure, say so. Don't manufacture confidence.
+- Store external PR reviews (any reviewer — Copilot, ChatGPT, a human peer, etc.) in ADR-scoped files under `reviews/`: `NNNN.external-review.md` (or `NNNN.X.external-review.md` when multiple PR reviews map to the same ADR).
 
 ## Session pacing
 
