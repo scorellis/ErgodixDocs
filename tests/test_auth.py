@@ -410,3 +410,70 @@ def test_migrate_to_keyring_moves_keys(fake_keyring, fake_home, monkeypatch):
     assert fake_keyring[("ergodix", "anthropic_api_key")] == "ak"
     assert fake_keyring[("ergodix", "google_oauth_client_id")] == "ci"
     assert fake_keyring[("ergodix", "google_oauth_client_secret")] == "cs"
+
+
+# ─── Security finding 0003 — type validation in migrate ────────────────────
+#
+# See security/0003-migrate-skips-type-validation.md.
+# `cmd_migrate_to_keyring` previously only checked `if val:` (truthiness).
+# A user with hand-edited secrets.json containing a non-string value (e.g.
+# `"anthropic_api_key": 12345`) would pass the truthiness check, then call
+# keyring.set_password with a non-string — backend-dependent failure mode.
+
+
+@pytest.mark.usefixtures("clean_env")
+def test_migrate_to_keyring_skips_non_string_values(fake_keyring, fake_home) -> None:
+    """A non-string value (number, list, null) in secrets.json is skipped
+    cleanly — never passed to keyring.set_password where it would either
+    TypeError or get silently coerced."""
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+    central.chmod(0o700)
+    secrets = central / "secrets.json"
+    secrets.write_text(
+        json.dumps(
+            {
+                "anthropic_api_key": 12345,  # number, not string — must be skipped
+                "google_oauth": {"client_id": "valid-id", "client_secret": ["wrong", "type"]},
+            }
+        )
+    )
+    secrets.chmod(0o600)
+
+    from ergodix import auth
+
+    auth.cmd_migrate_to_keyring(delete_file=False)
+
+    # The valid string survives migration.
+    assert fake_keyring[("ergodix", "google_oauth_client_id")] == "valid-id"
+    # The non-string entries do NOT land in the keyring.
+    assert ("ergodix", "anthropic_api_key") not in fake_keyring
+    assert ("ergodix", "google_oauth_client_secret") not in fake_keyring
+
+
+@pytest.mark.usefixtures("clean_env")
+def test_migrate_to_keyring_skips_empty_string_values(fake_keyring, fake_home) -> None:
+    """Empty strings are valid JSON but meaningless as credentials —
+    don't migrate them into the keyring where they'd shadow "actually
+    unset" (same invariant as C6's interactive_complete)."""
+    central = fake_home / ".config" / "ergodix"
+    central.mkdir(parents=True)
+    central.chmod(0o700)
+    secrets = central / "secrets.json"
+    secrets.write_text(
+        json.dumps(
+            {
+                "anthropic_api_key": "",
+                "google_oauth": {"client_id": "ci", "client_secret": ""},
+            }
+        )
+    )
+    secrets.chmod(0o600)
+
+    from ergodix import auth
+
+    auth.cmd_migrate_to_keyring(delete_file=False)
+
+    assert fake_keyring[("ergodix", "google_oauth_client_id")] == "ci"
+    assert ("ergodix", "anthropic_api_key") not in fake_keyring
+    assert ("ergodix", "google_oauth_client_secret") not in fake_keyring
