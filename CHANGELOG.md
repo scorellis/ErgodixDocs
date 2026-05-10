@@ -2,11 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is **PR-cadence-based**, not strict SemVer (see policy below).
 
-Versioning policy: while the tool is pre-1.0, **0.MINOR.PATCH** — minor bumps may include breaking changes; we will reach 1.0.0 when the migration script, render command, and at least one Sprint 1 story (e.g. plotline tracking) are working end-to-end on real Tapestry content.
+Versioning policy (post-2026-05-10): **`1.MINOR.PATCH`**.
+- **MAJOR** stays at `1` unless there's a project-wide pivot or rewrite.
+- **MINOR** = the cumulative count of merged PRs that touched code (`ergodix/`, `tests/`, `pyproject.toml`, build scripts, deployment config). A "code PR" bump is `1.MINOR.0` — patch resets.
+- **PATCH** = the count of doc-only merged PRs since the most recent code PR (anything under `adrs/`, `spikes/`, `docs/`, root `*.md`, `security/*.md`, etc.).
+
+This intentionally departs from strict SemVer. Project progress is best read through merged increments rather than API stability — the API isn't stable yet, and won't be for a while. Earlier `0.1.0` policy (1.0 = migrate + render + Sprint 1 story end-to-end) is superseded; that milestone now corresponds to a tagged feature line, not a major version bump.
 
 ## [Unreleased]
+
+(Nothing yet — next code PR will land as `1.46.0`, next docs PR as `1.45.1`.)
+
+## [1.45.0] - 2026-05-10
+
+**Versioning scheme reset.** Per the new PR-cadence policy above, this release rolls everything merged since `0.1.0` (PRs #2 through #64) into a single line. The contents below are the accumulated `[Unreleased]` content from the prior policy — preserved verbatim so the PR-by-PR detail isn't lost.
+
+Future releases will be cut per-PR: each merged code PR bumps MINOR by 1; each merged docs PR bumps PATCH by 1; PATCH resets on every code-PR bump.
 
 ### Added (2026-05-08 late session)
 - **PR #28 — A7 prereq (check_vscode)**: install/verify VS Code + 3 ergodic-text editing extensions (markdown-preview-enhanced, ltex, criticmarkup). Cookie-cutter on the check_pandoc/check_mactex pattern. Two-stage: cask install if `code` missing, then `code --install-extension` for any missing IDs. Resolver tries `shutil.which("code")` first, then falls back to `/Applications/Visual Studio Code.app/.../bin/code` so a fresh cask install in the same shell can still install extensions without a PATH refresh. Idempotent: re-runs with everything present make zero install calls. 14 new tests.
