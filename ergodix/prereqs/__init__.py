@@ -28,6 +28,7 @@ from ergodix.prereqs import (
     check_gh_auth,
     check_git_config,
     check_homebrew,
+    check_launchagent_poller,
     check_local_config,
     check_mactex,
     check_pandoc,
@@ -65,6 +66,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_dev_dependencies,
     check_branch_tracking,
     check_editor_signing_key,
+    check_launchagent_poller,
 ]
 
 
