@@ -346,8 +346,51 @@ def acquire_oauth_credentials(
     if not code:
         raise RuntimeError("No authorization code provided. OAuth aborted; re-run when ready.")
 
-    flow.fetch_token(code=code)
+    try:
+        flow.fetch_token(code=code)
+    except Exception as exc:
+        # Surface a friendlier explanation on common failure modes
+        # before re-raising. PR Review 1 finding #4: distinguishing
+        # invalid-code from rate-limit errors helps the user pick the
+        # right remediation (paste a fresh code vs. wait and retry).
+        _emit_token_exchange_diagnostic(exc, output_fn)
+        raise
+
     return _credentials_to_dict(flow.credentials)
+
+
+def _emit_token_exchange_diagnostic(exc: Exception, output_fn: OutputFn) -> None:
+    """Heuristic-classify a `flow.fetch_token` failure and emit a
+    friendlier explanation via ``output_fn``.
+
+    Heuristic-only — Google's OAuth library wraps several underlying
+    error types and the message text is the most reliable common
+    surface to inspect. Three buckets:
+
+      * `invalid_grant` / expired / used-once → bad code, paste fresh.
+      * 429 / rate-limit / quota / "too many" → wait + retry later.
+      * everything else → generic "re-run; check network + creds."
+    """
+    message = str(exc)
+    lowered = message.lower()
+    if any(token in lowered for token in ("invalid_grant", "expired", "redeemed", "used")):
+        output_fn(
+            "OAuth code rejected by Google. Codes expire ~10 minutes after "
+            "they're issued and can only be used once. Run the migrate command "
+            "again to start over with a fresh code."
+        )
+        return
+    if any(token in lowered for token in ("429", "rate", "quota", "too many")):
+        output_fn(
+            "Google rate-limited the OAuth exchange. Wait ~60 seconds (or a "
+            "minute if it persists) and run the migrate command again."
+        )
+        return
+    output_fn(
+        f"OAuth exchange failed: {message}. Run the migrate command again; "
+        "if this persists, check your network and that your OAuth client "
+        "credentials in the keyring are still valid."
+    )
 
 
 def _client_id_matches_config(creds: Credentials, output_fn: OutputFn) -> bool:
