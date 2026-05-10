@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.1`.)
+(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.2`.)
+
+## [1.63.1] - 2026-05-10
+
+**`diagrams/ergodix-system-flow.md` — first system-flow diagram (Copilot-generated).** Mermaid flowchart mapping the current end-to-end functional architecture: CLI dispatcher → Cantilever orchestrator (inspect → plan/consent → configure → apply → verify) → prereqs/settings cascade; Auth & Secrets (env → keyring → file fallback, OAuth token store); Import & Index (migrate orchestrator → importer registry → run manifest → `_archive` originals; `ergodix index` → `_AI/ergodix.map`); Render pipeline (Pandoc/XeLaTeX + preamble cascade); Collaboration & Sync (publish/ingest, sync-in poller, slice registry). Four cross-cutting decision boundaries surfaced as named gates: AI Action Boundary (ADR 0013), Idempotency Required (ADRs 0003/0010/0015), Connectivity Auto-detect (ADRs 0003/0004/0014), Least-Privilege Scopes (ADR 0015). Companion node-reference table cross-links every node to its ADR(s) + story origin. Coverage notes list three focused follow-up diagrams the next session can request (cantilever phase detail / migrate internals / collaboration topology).
 
 ## [1.63.0] - 2026-05-10
 
