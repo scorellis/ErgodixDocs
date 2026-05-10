@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.49.0`, next docs PR as `1.48.1`.)
+(Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.1`.)
+
+## [1.49.0] - 2026-05-10
+
+**Migrate chunk 3c — `migrate_run()` orchestrator.** Stitches the chunk 3a walker + chunk 3b manifest/archive + chunk 2 importer registry into the full migrate run. Public surface: `migrate_run(corpus_root, importer_name, *, docs_service, author, force, check, limit, now_fn, output_fn) -> MigrateResult`. Composes: load latest manifest for re-run idempotency, walk corpus, classify each file, phase 1 (extract markdown via importer), phase 2 (write target + archive source), record manifest. Re-run semantics per ADR 0015 §5: `--force` re-migrates regardless of prior state, prior-hash match → skipped ("unchanged since last run"), prior-hash mismatch → drift-detected (no re-migrate), no prior → migrated. `--check` is a clean dry-run with no filesystem writes. `--limit` caps eligible-file processing. Phase 1 errors record `status="failed"` and continue; the source stays at its original location for re-run. Existing `.md` files in the corpus are silently passed over (not added to the manifest as skipped) so re-run manifests don't accumulate noise — proper "touch frontmatter, leave content" handling per ADR 0015 §2 lands later. 13 new tests covering happy paths (single + nested), `--check`, out-of-scope, `--limit`, phase 1 failure, unchanged re-run, drift detection, `--force` re-migrate, empty corpus, unknown importer, `.ergodix-skip` end-to-end.
 
 ## [1.48.0] - 2026-05-10
 
