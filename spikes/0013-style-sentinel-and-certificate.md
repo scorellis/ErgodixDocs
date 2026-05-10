@@ -138,6 +138,8 @@ Strengths: standard, well-understood; defends the trust anchor; the same signing
 
 **Lean.** Start with **Approach 1** (hash manifest in `ergodix/ergodites/.lock.json`, regenerated on release, salted with release version). Promote to **Approach 2** (signed manifest + signed ergodites) in the same ADR / release as the certificate flow ships, since the signing infrastructure is shared.
 
+**Threat-model honesty.** Approach 1 is *tamper-evident under a trusted distribution channel* (the wheel comes from PyPI / our release pipeline, the user hasn't been compromised). It detects accidental corruption and casual swapping. **It does not resist a local attacker who can modify both the ergodites and the manifest** — that scenario only starts to be defended at Approach 2, when the manifest is signed by a release key the local attacker can't forge. The education-mode threat model in §E *requires* Approach 2; Approach 1 is the ergonomic floor we ship while §D's signing infrastructure lands.
+
 **Custom / user-authored ergodites.** A school deploying a custom ergodite (or a fiction author writing one for their own opus) has to escape the "ships-from-upstream" trust path. Options to evaluate in the ADR:
 - A separate trust namespace: locally-trusted ergodites live under `<corpus>/.ergodix/ergodites/` and are signed (or hash-pinned) with a *local* trust key the user generates at first use.
 - An allowlist of content hashes the user explicitly opts into (`ergodix ergodite trust <hash>` once per ergodite).
@@ -289,22 +291,22 @@ Grouped by likely ADR boundaries:
 8. **Verification cadence**: hash every ergodite on every run (cheap), or cache per-process / per-install / per-release with invalidation rules?
 
 **ADR-X2 (authorship certificate format + key distribution):**
-5. In-band frontmatter vs. sidecar file: which carries which fields?
-6. Signing-key custody: student-only, teacher-cosign, or server-side?
-7. Asymmetric primitives: Ed25519 / X25519 (libsodium) vs. RSA vs. PGP?
-8. Onboarding flow: who generates student keys, when, and how are public keys published?
-9. Key rotation when a teacher changes / a student transfers schools?
+9. In-band frontmatter vs. sidecar file: which carries which fields?
+10. Signing-key custody: student-only, teacher-cosign, or server-side?
+11. Asymmetric primitives: Ed25519 / X25519 (libsodium) vs. RSA vs. PGP?
+12. Onboarding flow: who generates student keys, when, and how are public keys published?
+13. Key rotation when a teacher changes / a student transfers schools?
 
 **ADR-X3 (education-mode product surface):**
-10. School-managed Drive deployment topology: mapping to ADR 0014 sync modes.
-11. Big-brother boundary: teachers see commits, not keystrokes. Is this a hard constraint or a configurable default?
-12. GUI strategy: VS Code extension first; defer Electron/web. Confirm.
-13. CLI surface: `ergodix opus init --school-mode`? Separate `ergodix-school` package?
-14. `InfringementThreatLevelWords` (and friends) — full settings vocabulary.
+14. School-managed Drive deployment topology: mapping to ADR 0014 sync modes.
+15. Big-brother boundary: teachers see commits, not keystrokes. Is this a hard constraint or a configurable default?
+16. GUI strategy: VS Code extension first; defer Electron/web. Confirm.
+17. CLI surface: `ergodix opus init --school-mode`? Separate `ergodix-school` package?
+18. `InfringementThreatLevelWords` (and friends) — full settings vocabulary.
 
 **Cross-cutting:**
-15. Spike 0010 interview extension for education-mode preferences.
-16. Spike 0014+ for "AI-detector training corpus" — which AI-generated books / essays do we use? Licensing for training data?
+19. Spike 0010 interview extension for education-mode preferences.
+20. Spike 0014+ for "AI-detector training corpus" — which AI-generated books / essays do we use? Licensing for training data?
 
 ## Cross-references
 

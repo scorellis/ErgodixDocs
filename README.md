@@ -24,6 +24,14 @@ Build a system that uses AI as a co-author and continuity engine for a fictional
 
 The repository hosts the tooling and non-sensitive planning docs. Creative source material lives outside the tracked tree.
 
+## Reviews
+
+Copilot PR reviews are collected in:
+
+- [reviews/copilot-pr-reviews.md](reviews/copilot-pr-reviews.md)
+
+This file is append-only by convention: each review lands under its own heading so historical findings stay easy to audit.
+
 ## AI Boundaries — Prose Is Human-Written
 
 The chapters and prose files authored by the human are **not to be touched, edited, or rewritten by the AI**. There is significant community sentiment opposed to books being written by AI, and that concern is respected here.

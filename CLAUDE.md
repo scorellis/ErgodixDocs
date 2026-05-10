@@ -118,6 +118,7 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - Lead with the recommendation; offer alternatives only when load-bearing.
 - When the user asks "what next?", propose a concrete next step rather than restating options.
 - If you're not sure, say so. Don't manufacture confidence.
+- Keep Copilot PR reviews in `reviews/copilot-pr-reviews.md`, appending each review under its own heading instead of creating one-off review files.
 
 ## Session pacing
 
