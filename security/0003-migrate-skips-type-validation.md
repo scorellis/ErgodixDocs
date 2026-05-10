@@ -1,11 +1,11 @@
 ---
 id: 0003
 title: cmd_migrate_to_keyring doesn't validate value types
-status: open
+status: patched-in-#50
 severity: low
 filed: 2026-05-09
 file: ergodix/auth.py:288-310
-fixed:
+fixed: 2026-05-09
 ---
 
 ## Description
@@ -51,8 +51,23 @@ python -m ergodix.auth migrate-to-keyring
 
 ## Decision
 
-**Open.** Trivial one-line fix when it lands: add
-`isinstance(val, str)` to the guard, mirroring the pattern in
-`_from_file()`. Not patched in PR #32 to keep that PR's diff minimal
-and focused on the symlink/TOCTOU attack surface. Should land in a
-later defensive-polish pass.
+**Patched in PR #50.** One-line fix as anticipated: replaced the
+truthiness check `if val:` with `if isinstance(val, str) and val:`,
+mirroring the pattern in `_from_file()`. Two new tests pin the
+behavior — non-string values are skipped cleanly, and empty-string
+values continue to be skipped (already handled by the original
+truthiness check, but pinning so a future "simpler" refactor doesn't
+regress).
+
+## Patch
+
+PR #50 adds the type guard to the migrate loop and includes two
+defensive tests:
+- `test_migrate_to_keyring_skips_non_string_values`
+- `test_migrate_to_keyring_skips_empty_string_values`
+
+Cadence note: this is the third self-found finding closed via the
+[CLAUDE.md §3 security review cadence](../CLAUDE.md#3-security-review-cadence)
+since it was established. Critical / high findings (none filed) would
+patch immediately; medium findings (#0001, #0002) patched within 24
+hours; this low-severity finding closed within ~24 hours of filing.

@@ -376,7 +376,12 @@ def cmd_migrate_to_keyring(delete_file: bool) -> None:
             val = data.get("google_oauth", {}).get("client_id")
         if val is None and name == "google_oauth_client_secret":
             val = data.get("google_oauth", {}).get("client_secret")
-        if val:
+        # Per security/0003: validate type before writing to keyring. A
+        # hand-edited secrets.json with a non-string value (number, list,
+        # null) would pass the truthiness check but TypeError or get
+        # silently coerced at keyring.set_password. Mirrors _from_file's
+        # explicit isinstance(value, str) guard.
+        if isinstance(val, str) and val:
             keyring.set_password(KEYRING_SERVICE, name, val)
             print(f"  ✓ migrated {name}")
             moved += 1
