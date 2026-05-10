@@ -259,16 +259,35 @@ def _credentials_to_dict(creds: Credentials) -> dict[str, Any]:
     }
 
 
+_REQUIRED_CREDENTIALS_FIELDS: tuple[str, ...] = (
+    "token_uri",
+    "client_id",
+    "client_secret",
+)
+
+
 def _credentials_from_dict(data: dict[str, Any]) -> Credentials:
     """Reconstruct a ``Credentials`` instance from a saved dict.
 
-    Mirror of ``_credentials_to_dict``. Used by sub-chunk 1c's
-    ``get_drive_service`` / ``get_docs_service`` to rebuild creds on
-    every cantilever / migrate run.
+    Mirror of ``_credentials_to_dict``. Validates the load-bearing
+    fields up-front (PR Review 1 finding #7) — an empty / missing
+    `token_uri`, `client_id`, or `client_secret` would otherwise
+    produce a `Credentials` object that fails cryptically on the next
+    refresh attempt (e.g. `NoneType has no attribute …`). The error
+    message lists *all* missing fields at once so the user fixes the
+    file in one pass.
     """
     from datetime import datetime
 
     from google.oauth2.credentials import Credentials
+
+    missing = [k for k in _REQUIRED_CREDENTIALS_FIELDS if not data.get(k)]
+    if missing:
+        raise ValueError(
+            f"OAuth token file missing or empty required field(s): "
+            f"{', '.join(missing)}. The token file may be corrupted or pre-1.0; "
+            f"clear it and run migrate again to re-authenticate."
+        )
 
     expiry_str = data.get("expiry")
     expiry = datetime.fromisoformat(expiry_str) if isinstance(expiry_str, str) else None
@@ -356,7 +375,15 @@ def acquire_oauth_credentials(
         _emit_token_exchange_diagnostic(exc, output_fn)
         raise
 
-    return _credentials_to_dict(flow.credentials)
+    tokens = _credentials_to_dict(flow.credentials)
+    # Stamp the refresh-token-issuance time so future loads can warn
+    # if the token's getting close to Google's 6-month invalidation
+    # window (PR Review 1 finding #3). Initial-auth-time = now.
+    from datetime import UTC as _UTC
+    from datetime import datetime as _datetime
+
+    tokens["refresh_token_issued_at"] = _datetime.now(_UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return tokens
 
 
 def _emit_token_exchange_diagnostic(exc: Exception, output_fn: OutputFn) -> None:
@@ -466,6 +493,10 @@ def load_or_acquire_credentials(
             # the one currently configured. Clear and fall through.
             clear_oauth_tokens()
         else:
+            # Inform-don't-block warning if the refresh token is
+            # approaching Google's invalidation window (PR Review 1 #3).
+            _warn_if_refresh_token_stale(tokens, output_fn)
+
             if creds.valid:
                 return creds
             if creds.expired and creds.refresh_token:
@@ -483,10 +514,58 @@ def load_or_acquire_credentials(
                     clear_oauth_tokens()
                 else:
                     # Refresh succeeded — persist the new access token +
-                    # any updated expiry the server returned.
-                    save_oauth_tokens(_credentials_to_dict(creds))
+                    # any updated expiry the server returned. Preserve
+                    # the original `refresh_token_issued_at` (the
+                    # access-token rollover does NOT reset the refresh
+                    # token's age — only re-acquire-from-scratch does).
+                    refreshed = _credentials_to_dict(creds)
+                    if "refresh_token_issued_at" in tokens:
+                        refreshed["refresh_token_issued_at"] = tokens["refresh_token_issued_at"]
+                    save_oauth_tokens(refreshed)
                     return creds
 
     new_tokens = acquire_oauth_credentials(prompt_fn=prompt_fn, output_fn=output_fn)
     save_oauth_tokens(new_tokens)
     return _credentials_from_dict(new_tokens)
+
+
+def _warn_if_refresh_token_stale(tokens: dict[str, Any], output_fn: OutputFn) -> None:
+    """Emit an informational warning if the refresh token is older
+    than the staleness threshold (90 days). Google may invalidate
+    refresh tokens after 6 months of non-use; the warning gives the
+    user lead time to refresh proactively rather than be surprised
+    mid-migrate by an `invalid_grant`.
+
+    No-op when:
+      * `refresh_token_issued_at` is missing (older token files
+        written before the chunk shipped).
+      * `refresh_token_issued_at` isn't a parseable ISO-8601 string.
+      * The token is younger than the threshold.
+
+    Inform-don't-block: we don't force re-auth, just nudge.
+    """
+    from datetime import UTC as _UTC
+    from datetime import datetime as _datetime
+    from datetime import timedelta as _timedelta
+
+    issued_at_str = tokens.get("refresh_token_issued_at")
+    if not isinstance(issued_at_str, str):
+        return
+    try:
+        issued_at = _datetime.fromisoformat(issued_at_str)
+    except ValueError:
+        return
+    if issued_at.tzinfo is None:
+        # Treat naive timestamps as UTC for safety; old files might
+        # be naive.
+        issued_at = issued_at.replace(tzinfo=_UTC)
+
+    age = _datetime.now(_UTC) - issued_at
+    if age <= _timedelta(days=90):
+        return
+    output_fn(
+        f"OAuth refresh token is {age.days} days old. Google may invalidate "
+        f"refresh tokens after ~6 months of non-use; if migrate fails on the "
+        f"next API call, delete <repo>/.ergodix_tokens.json and run again to "
+        f"re-authenticate."
+    )
