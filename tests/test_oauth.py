@@ -1044,3 +1044,286 @@ def test_acquire_emits_generic_message_on_unknown_oauth_error(
     assert any(token in joined for token in ("network", "credential", "again", "fail")), (
         "should suggest a remediation path"
     )
+
+
+# ─── PR Review 1 follow-up: finding #7 (deserialization validation) ────────
+
+
+def test_credentials_from_dict_rejects_missing_token_uri() -> None:
+    """A token file missing the load-bearing `token_uri` field should
+    fail at deserialization with a clear message — not silently produce
+    a Credentials object that fails cryptically on the first refresh
+    attempt."""
+    from ergodix.oauth import _credentials_from_dict
+
+    with pytest.raises(ValueError, match="token_uri"):
+        _credentials_from_dict(
+            {
+                "token": "at",
+                "refresh_token": "rt",
+                # no token_uri
+                "client_id": "ci",
+                "client_secret": "cs",
+                "scopes": [],
+                "expiry": None,
+            }
+        )
+
+
+def test_credentials_from_dict_rejects_missing_client_id() -> None:
+    from ergodix.oauth import _credentials_from_dict
+
+    with pytest.raises(ValueError, match="client_id"):
+        _credentials_from_dict(
+            {
+                "token": "at",
+                "refresh_token": "rt",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                # no client_id
+                "client_secret": "cs",
+            }
+        )
+
+
+def test_credentials_from_dict_rejects_empty_string_client_secret() -> None:
+    """Empty-string is treated as missing for required fields — a
+    falsy required field is just as broken as an absent one."""
+    from ergodix.oauth import _credentials_from_dict
+
+    with pytest.raises(ValueError, match="client_secret"):
+        _credentials_from_dict(
+            {
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "client_id": "ci",
+                "client_secret": "",  # empty
+                "refresh_token": "rt",
+            }
+        )
+
+
+def test_credentials_from_dict_lists_all_missing_fields_at_once() -> None:
+    """Don't fail on the first missing field; list them all so the
+    user fixes the file in one pass."""
+    from ergodix.oauth import _credentials_from_dict
+
+    with pytest.raises(ValueError, match="missing or empty") as excinfo:
+        _credentials_from_dict({"token": "at", "refresh_token": "rt"})
+
+    msg = str(excinfo.value)
+    assert "token_uri" in msg
+    assert "client_id" in msg
+    assert "client_secret" in msg
+
+
+# ─── PR Review 1 follow-up: finding #3 (refresh-token age check) ───────────
+
+
+def test_acquire_records_refresh_token_issued_at(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The dict returned by `acquire_oauth_credentials` should include
+    a `refresh_token_issued_at` ISO-8601 timestamp so a future load
+    can detect stale tokens."""
+    from ergodix.oauth import acquire_oauth_credentials
+
+    _stub_get_credential(monkeypatch)
+    _setup_mock_flow(monkeypatch)
+
+    result = acquire_oauth_credentials(prompt_fn=lambda _: "code", output_fn=lambda _: None)
+
+    assert "refresh_token_issued_at" in result
+    issued_at_str = result["refresh_token_issued_at"]
+    assert isinstance(issued_at_str, str)
+    # Should parse as a Z-suffixed timestamp.
+    from datetime import datetime as _datetime
+
+    parsed = _datetime.fromisoformat(issued_at_str)
+    assert parsed is not None
+
+
+def test_load_or_acquire_warns_on_stale_refresh_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A token file whose `refresh_token_issued_at` is >90 days old
+    should emit a warning via `output_fn` (Google may invalidate
+    refresh tokens after 6 months of non-use). Doesn't force re-auth —
+    just informs the user."""
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+
+    # 100 days ago — clearly past the 90-day warning threshold.
+    save_oauth_tokens(
+        {
+            "token": "at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+            "refresh_token_issued_at": "2026-01-30T00:00:00Z",
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+    fake_creds.client_id = "ci"
+
+    import ergodix.oauth as oauth_module
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+    monkeypatch.setattr(
+        "ergodix.auth.get_credential",
+        lambda name: "ci" if name == "google_oauth_client_id" else "x",
+    )
+
+    captured: list[str] = []
+    load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=captured.append)
+
+    joined = "\n".join(captured).lower()
+    assert any(token in joined for token in ("days old", "stale", "invalidate", "6 months"))
+
+
+def test_load_or_acquire_no_warning_for_fresh_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A recently-issued refresh token should NOT warn."""
+    from datetime import datetime as _datetime
+    from datetime import timedelta as _timedelta
+
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+
+    # 5 days ago — well within the warning threshold.
+    recent = (_datetime.now(UTC) - _timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    save_oauth_tokens(
+        {
+            "token": "at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+            "refresh_token_issued_at": recent,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+    fake_creds.client_id = "ci"
+
+    import ergodix.oauth as oauth_module
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+    monkeypatch.setattr(
+        "ergodix.auth.get_credential",
+        lambda name: "ci" if name == "google_oauth_client_id" else "x",
+    )
+
+    captured: list[str] = []
+    load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=captured.append)
+
+    joined = "\n".join(captured).lower()
+    # No staleness-related warning. (Other captures from the flow are fine.)
+    assert "days old" not in joined
+    assert "stale" not in joined
+
+
+def test_load_or_acquire_silent_when_issued_at_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Token files written before chunk 6c (no `refresh_token_issued_at`
+    field) should not warn — we don't know their age."""
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+
+    save_oauth_tokens(
+        {
+            "token": "at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+            # no refresh_token_issued_at
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+    fake_creds.client_id = "ci"
+
+    import ergodix.oauth as oauth_module
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+    monkeypatch.setattr(
+        "ergodix.auth.get_credential",
+        lambda name: "ci" if name == "google_oauth_client_id" else "x",
+    )
+
+    captured: list[str] = []
+    load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=captured.append)
+
+    joined = "\n".join(captured).lower()
+    assert "days old" not in joined
+    assert "stale" not in joined
+
+
+def test_refresh_preserves_refresh_token_issued_at(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the access token expires and we refresh it, the
+    `refresh_token_issued_at` timestamp must NOT be reset — only the
+    access token has rolled over, not the refresh token."""
+    from ergodix.oauth import load_oauth_tokens, load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+
+    issued_at = "2026-04-01T00:00:00Z"
+    save_oauth_tokens(
+        {
+            "token": "stale-at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+            "refresh_token_issued_at": issued_at,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = False
+    fake_creds.expired = True
+    fake_creds.refresh_token = "rt"
+    fake_creds.client_id = "ci"
+    # Refresh succeeds; new access token populated.
+    fake_creds.token = "fresh-at"
+    fake_creds.token_uri = "https://oauth2.googleapis.com/token"
+    fake_creds.client_secret = "cs"
+    fake_creds.scopes = ["scope-a"]
+    fake_creds.expiry = None
+
+    import ergodix.oauth as oauth_module
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+    monkeypatch.setattr(
+        "ergodix.auth.get_credential",
+        lambda name: "ci" if name == "google_oauth_client_id" else "x",
+    )
+
+    load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    persisted = load_oauth_tokens()
+    assert persisted is not None
+    assert persisted["refresh_token_issued_at"] == issued_at, (
+        "refresh_token_issued_at must be preserved across access-token refresh"
+    )

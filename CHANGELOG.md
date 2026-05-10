@@ -13,7 +13,19 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.57.0`, next docs PR as `1.56.1`.)
+(Nothing yet — next code PR will land as `1.58.0`, next docs PR as `1.57.1`.)
+
+## [1.57.0] - 2026-05-10
+
+**OAuth review backlog cleanup — findings #3 and #7.** Closes the last two non-security items from the original OAuth security review (`reviews/0015.external-review.md`). After this PR, all 7 findings from that review are addressed.
+
+- **#7 (Low): Credentials deserialization validation.** `_credentials_from_dict` now validates the load-bearing fields (`token_uri`, `client_id`, `client_secret`) up-front and raises `ValueError` listing all missing fields at once. Empty-string is treated as missing. A corrupted token file now fails immediately with a clear message instead of producing a `Credentials` object that fails cryptically (`NoneType has no attribute …`) on the next refresh. 4 new tests covering individual missing fields, empty-string-as-missing, and "lists all missing at once."
+
+- **#3 (Low): Refresh-token age tracking + staleness warning.** New optional `refresh_token_issued_at` field in the saved tokens dict (ISO-8601 UTC). `acquire_oauth_credentials` stamps this on initial auth; `load_or_acquire_credentials` preserves it across access-token refreshes (only re-acquire-from-scratch resets it). On load, if the refresh token is older than 90 days, an inform-don't-block warning fires via `output_fn` ("Google may invalidate refresh tokens after ~6 months of non-use"). Backwards-compatible: token files written before this PR have no `refresh_token_issued_at`; they're silently treated as unknown-age (no warning, no re-auth). 4 new tests covering: timestamp recorded on acquire, stale-token warning, fresh-token silence, missing-timestamp silence, refresh preserves the timestamp.
+
+OAuth review status: **0 open findings**. Prior PRs closed #1, #2, #4, #5, #6.
+
+8 new tests total. Full suite: 654 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.56.0] - 2026-05-10
 
