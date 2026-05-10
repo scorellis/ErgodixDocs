@@ -547,3 +547,196 @@ def test_credentials_from_dict_roundtrip() -> None:
     assert rebuilt.client_id == "ci"
     assert rebuilt.client_secret == "cs"
     assert list(rebuilt.scopes) == ["scope-a"]
+
+
+# ─── load_or_acquire_credentials (sub-chunk 1c) ────────────────────────────
+
+
+def test_load_or_acquire_returns_valid_loaded_creds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tokens on disk + creds.valid → return the loaded creds without
+    refresh, without acquire. Pure load-from-disk path."""
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+    save_oauth_tokens(
+        {
+            "token": "valid-at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+    fake_creds.expired = False
+    fake_creds.token = "valid-at"
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+
+    # acquire and refresh paths must NOT be hit
+    monkeypatch.setattr(
+        oauth_module,
+        "acquire_oauth_credentials",
+        lambda **_kwargs: pytest.fail("acquire should not be called"),
+    )
+
+    result = load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    assert result is fake_creds
+
+
+def test_load_or_acquire_refreshes_expired_creds_and_persists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tokens on disk + expired access token + refresh token present
+    → call creds.refresh(), persist the new state, return."""
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+    save_oauth_tokens(
+        {
+            "token": "stale-at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": "2020-01-01T00:00:00+00:00",
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = False
+    fake_creds.expired = True
+    fake_creds.refresh_token = "rt"
+    refresh_called = []
+
+    def fake_refresh(_request):
+        refresh_called.append(True)
+        fake_creds.token = "fresh-at"
+        fake_creds.valid = True
+
+    fake_creds.refresh.side_effect = fake_refresh
+    fake_creds.token = "stale-at"
+    fake_creds.token_uri = "https://oauth2.googleapis.com/token"
+    fake_creds.client_id = "ci"
+    fake_creds.client_secret = "cs"
+    fake_creds.scopes = ["scope-a"]
+    fake_creds.expiry = None
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+
+    result = load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    assert refresh_called == [True]
+    assert result is fake_creds
+
+
+def test_load_or_acquire_falls_through_to_acquire_when_refresh_revoked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tokens on disk but refresh raises (revocation simulated) →
+    clear the stale file + run acquire + persist + return new creds."""
+    from google.auth.exceptions import RefreshError
+
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+    save_oauth_tokens(
+        {
+            "token": "stale-at",
+            "refresh_token": "revoked-rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = False
+    fake_creds.expired = True
+    fake_creds.refresh_token = "revoked-rt"
+    fake_creds.refresh.side_effect = RefreshError("token revoked")
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+
+    new_token_dict = {
+        "token": "fresh-at",
+        "refresh_token": "fresh-rt",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": "ci",
+        "client_secret": "cs",
+        "scopes": ["scope-a"],
+        "expiry": None,
+    }
+    monkeypatch.setattr(
+        oauth_module,
+        "acquire_oauth_credentials",
+        lambda **_kwargs: new_token_dict,
+    )
+
+    rebuilt = MagicMock()
+    rebuilt.token = "fresh-at"
+
+    def from_dict(data):
+        # First call (load path): fake_creds. Second call (post-acquire): rebuilt.
+        if data == new_token_dict:
+            return rebuilt
+        return fake_creds
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", from_dict)
+
+    result = load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    assert result is rebuilt
+    # Saved file should now contain fresh tokens
+    from ergodix.oauth import load_oauth_tokens
+
+    persisted = load_oauth_tokens()
+    assert persisted == new_token_dict
+
+
+def test_load_or_acquire_runs_full_flow_when_no_tokens_on_disk(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No token file → run acquire → persist → return."""
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_oauth_tokens, load_or_acquire_credentials
+
+    monkeypatch.chdir(tmp_path)
+
+    new_token_dict = {
+        "token": "fresh-at",
+        "refresh_token": "fresh-rt",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": "ci",
+        "client_secret": "cs",
+        "scopes": ["scope-a"],
+        "expiry": None,
+    }
+    monkeypatch.setattr(
+        oauth_module,
+        "acquire_oauth_credentials",
+        lambda **_kwargs: new_token_dict,
+    )
+    rebuilt = MagicMock()
+    rebuilt.token = "fresh-at"
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: rebuilt)
+
+    result = load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    assert result is rebuilt
+    # File was created with the acquired tokens
+    persisted = load_oauth_tokens()
+    assert persisted == new_token_dict

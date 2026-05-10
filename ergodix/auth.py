@@ -284,15 +284,46 @@ def get_google_oauth_client() -> tuple[str, str]:
 # ─── Per-project Google API service builders (stubs) ────────────────────────
 
 
-def get_drive_service() -> Any:
-    raise NotImplementedError(
-        "Drive API access not yet wired up. Mirror mode covers v1 needs. "
-        "Implement when Sprint 0 Story 0.3 (comment sync) starts."
-    )
+def get_drive_service(
+    *,
+    prompt_fn: Callable[[str], str] = input,
+    output_fn: Callable[[str], None] = print,
+) -> Any:
+    """Return an authorized Google Drive API client.
+
+    Loads existing OAuth credentials from ``<repo>/.ergodix_tokens.json``
+    if present, refreshing the access token via the refresh token if
+    expired. If no tokens exist or the refresh fails (revocation,
+    network error), runs the paste-the-code OAuth flow to acquire
+    fresh ones.
+
+    Tests inject ``prompt_fn`` / ``output_fn``; production uses the
+    builtins ``input`` / ``print``.
+
+    Wired per ADR 0015 §1 (sub-chunk 1c). Replaces the prior
+    ``NotImplementedError`` stub.
+    """
+    from googleapiclient.discovery import build
+
+    from ergodix.oauth import load_or_acquire_credentials
+
+    creds = load_or_acquire_credentials(prompt_fn=prompt_fn, output_fn=output_fn)
+    return build("drive", "v3", credentials=creds)
 
 
-def get_docs_service() -> Any:
-    raise NotImplementedError("Docs API access not yet wired up. Implement with Story 0.3.")
+def get_docs_service(
+    *,
+    prompt_fn: Callable[[str], str] = input,
+    output_fn: Callable[[str], None] = print,
+) -> Any:
+    """Return an authorized Google Docs API client. Same load-or-
+    acquire flow as ``get_drive_service``."""
+    from googleapiclient.discovery import build
+
+    from ergodix.oauth import load_or_acquire_credentials
+
+    creds = load_or_acquire_credentials(prompt_fn=prompt_fn, output_fn=output_fn)
+    return build("docs", "v1", credentials=creds)
 
 
 # ─── CLI ────────────────────────────────────────────────────────────────────

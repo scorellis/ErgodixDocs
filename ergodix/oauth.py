@@ -322,3 +322,53 @@ def acquire_oauth_credentials(
 
     flow.fetch_token(code=code)
     return _credentials_to_dict(flow.credentials)
+
+
+def load_or_acquire_credentials(
+    *,
+    prompt_fn: PromptFn = input,
+    output_fn: OutputFn = print,
+) -> Credentials:
+    """Return a usable ``Credentials`` for Drive / Docs API access.
+
+    Decision tree:
+      1. Try ``load_oauth_tokens()``. If a token file exists:
+         - Reconstruct ``Credentials`` from it.
+         - If the access token is still valid, return it.
+         - If expired but a refresh token is present, attempt
+           ``creds.refresh(Request())``. On success, persist the
+           refreshed creds + return.
+         - On refresh failure (token revoked, network unreachable,
+           etc.), clear the stale file and fall through to step 2.
+      2. No usable token on disk → run ``acquire_oauth_credentials``
+         (the paste-the-code dance), persist the result, return.
+
+    Tests inject ``prompt_fn`` / ``output_fn`` so the dance is
+    exercised without real stdin / stdout. Production uses
+    ``input`` / ``print`` defaults.
+    """
+    from google.auth.exceptions import RefreshError
+    from google.auth.transport.requests import Request
+
+    tokens = load_oauth_tokens()
+    if tokens is not None:
+        creds = _credentials_from_dict(tokens)
+        if creds.valid:
+            return creds
+        if creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())  # type: ignore[no-untyped-call]
+            except RefreshError:
+                # Refresh token was revoked or otherwise invalid. Clear
+                # the stale file so the fall-through to acquire writes
+                # a clean replacement.
+                clear_oauth_tokens()
+            else:
+                # Refresh succeeded — persist the new access token +
+                # any updated expiry the server returned.
+                save_oauth_tokens(_credentials_to_dict(creds))
+                return creds
+
+    new_tokens = acquire_oauth_credentials(prompt_fn=prompt_fn, output_fn=output_fn)
+    save_oauth_tokens(new_tokens)
+    return _credentials_from_dict(new_tokens)
