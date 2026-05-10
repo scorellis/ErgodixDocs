@@ -198,3 +198,102 @@ def test_unknown_paragraph_styles_pass_through_as_plain_text(tmp_path: Path) -> 
     md = docx_importer.extract(path)
     assert "Normal-style content." in md
     assert "Subtitle content." in md
+
+
+# ─── Embedded images (chunk 6) ─────────────────────────────────────────────
+
+
+# Minimal valid 1x1 black PNG — pre-encoded so tests don't need PIL/Pillow.
+_TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a"
+    "0000000d49484452"
+    "0000000100000001"
+    "0100000000376ef9"
+    "240000000a494441"
+    "54789c6300000000"
+    "0200015fc7c2bd00"
+    "00000049454e44ae"
+    "426082"
+)
+
+
+def _make_docx_with_image(tmp_path: Path) -> Path:
+    """Build a .docx with one normal paragraph + one embedded image."""
+    from docx import Document
+    from docx.shared import Inches
+
+    image_source = tmp_path / "tiny.png"
+    image_source.write_bytes(_TINY_PNG)
+
+    document = Document()
+    document.add_paragraph("Before the image.")
+    document.add_picture(str(image_source), width=Inches(1.0))
+    document.add_paragraph("After the image.")
+
+    out = tmp_path / "with-image.docx"
+    document.save(str(out))
+    return out
+
+
+def test_extract_writes_image_bytes_to_media_dir(tmp_path: Path) -> None:
+    """When `media_dir` is provided, images embedded in the .docx are
+    saved as files there. Filename follows `img-NNN.<ext>` per ADR 0015 §3."""
+    docx_path = _make_docx_with_image(tmp_path)
+    media = tmp_path / "_media" / "with-image"
+
+    md = docx_importer.extract(docx_path, media_dir=media)
+
+    images = sorted(media.iterdir()) if media.exists() else []
+    assert len(images) == 1
+    assert images[0].suffix == ".png"
+    assert images[0].read_bytes() == _TINY_PNG
+    # Markdown contains a reference to the saved image.
+    assert "![" in md
+    assert images[0].name in md
+
+
+def test_extract_skips_image_extraction_when_media_dir_omitted(tmp_path: Path) -> None:
+    """Without `media_dir`, the importer doesn't fail on embedded images;
+    it just doesn't write them. Mirrors the behavior the orchestrator
+    relies on for `--check` (dry-run)."""
+    docx_path = _make_docx_with_image(tmp_path)
+
+    # Should not raise, even though there's an image.
+    md = docx_importer.extract(docx_path)
+
+    assert "Before the image." in md
+    assert "After the image." in md
+    assert not (tmp_path / "_media").exists()
+
+
+def test_extract_handles_multiple_images_in_one_doc(tmp_path: Path) -> None:
+    """Two distinct embedded images get sequential filenames
+    (img-001, img-002)."""
+    from docx import Document
+    from docx.shared import Inches
+
+    # Two distinct image sources so python-docx doesn't dedupe via a
+    # single shared relationship. The second is the same byte content
+    # plus a tiny tail — different content fingerprint, different part.
+    image_a = tmp_path / "tiny-a.png"
+    image_b = tmp_path / "tiny-b.png"
+    image_a.write_bytes(_TINY_PNG)
+    image_b.write_bytes(_TINY_PNG[:-3] + b"\x00\x00\x00" + _TINY_PNG[-3:])
+
+    document = Document()
+    document.add_paragraph("Para 1.")
+    document.add_picture(str(image_a), width=Inches(1.0))
+    document.add_paragraph("Para 2.")
+    document.add_picture(str(image_b), width=Inches(1.0))
+    document.add_paragraph("Para 3.")
+
+    docx_path = tmp_path / "two-images.docx"
+    document.save(str(docx_path))
+
+    media = tmp_path / "_media" / "two-images"
+    docx_importer.extract(docx_path, media_dir=media)
+
+    images = sorted(media.iterdir())
+    assert len(images) == 2
+    assert images[0].name.startswith("img-001")
+    assert images[1].name.startswith("img-002")
