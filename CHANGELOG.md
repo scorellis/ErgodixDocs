@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.52.0`, next docs PR as `1.51.1`.)
+(Nothing yet — next code PR will land as `1.53.0`, next docs PR as `1.52.1`.)
+
+## [1.52.0] - 2026-05-10
+
+**Migrate chunk 5 — `.docx` importer.** New `ergodix/importers/docx.py` extracts Word / Scrivener `.docx` files to Pandoc-Markdown via the `python-docx` runtime dep that's already in `pyproject.toml` (no new deps). Coverage matches the gdocs importer: paragraphs (Normal), headings (Heading 1-6, Title, Subtitle), bold + italic + bold-italic combined, bulleted lists ("List Bullet" style). Tables / images / footnotes silently skipped — chunk 6 (image extraction) and a future polish pass cover them. Registered in `ergodix/importers/__init__.py`'s explicit registry alongside `gdocs`. Empty paragraphs (the trailing one python-docx adds automatically, plus user-inserted empties) are dropped so re-render Markdown doesn't accumulate blank-line gaps. The orchestrator's `docs_service` kwarg is accepted-and-ignored via `**_kwargs` so non-OAuth importers slot into the registry without per-importer signature plumbing. 15 new tests building real `.docx` files via `python-docx` in tmp_path then asserting on rendered Markdown. Full suite: 631 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.51.0] - 2026-05-10
 
