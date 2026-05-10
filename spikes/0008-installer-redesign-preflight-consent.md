@@ -1,7 +1,7 @@
 # Spike 0008: Installer redesign — pre-flight scan + consent gate
 
 - **Date range**: 2026-05-05
-- **Sprint story**: [Story 0.11 — Installer redesign](../SprintLog.md) (new; elevated above remaining Story 0.10 implementation work)
+- **Sprint story**: [Story 0.11 — Installer redesign](../stories/SprintLog.md) (new; elevated above remaining Story 0.10 implementation work)
 - **ADRs produced**: [ADR 0010 — Pre-flight scan, single consent gate, atomic execute](../adrs/0010-installer-preflight-consent-gate.md)
 - **Touches**: [ADR 0003](../adrs/0003-cantilever-bootstrap-orchestrator.md) — refines the failure / consent semantics. [ADR 0007](../adrs/0007-bootstrap-prereqs-cli-entry.md) — partially supersedes the `check() -> CheckResult` contract (now distinguishes read-only inspect from mutative apply).
 

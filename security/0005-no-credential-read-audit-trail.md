@@ -41,4 +41,4 @@ or shared surface, this finding becomes load-bearing and the audit
 log must land before that surface ships.
 
 Cross-referenced from the future MCP-server-with-AI-user-persona
-parking-lot story in [SprintLog.md](../SprintLog.md).
+parking-lot story in [SprintLog.md](../stories/SprintLog.md).

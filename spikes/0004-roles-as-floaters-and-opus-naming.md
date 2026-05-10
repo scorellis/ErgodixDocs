@@ -1,7 +1,7 @@
 # Spike 0004: All roles as floaters; multi-corpus container named "opus"
 
 - **Date range**: 2026-05-03
-- **Sprint story**: [Story 0.8 — Architecture spike](../SprintLog.md), Topic 4
+- **Sprint story**: [Story 0.8 — Architecture spike](../stories/SprintLog.md), Topic 4
 - **ADRs produced**: [ADR 0005 — Single registry for roles, all-floaters model, multi-opus naming](../adrs/0005-roles-as-floaters-and-opus-naming.md)
 
 ## Question

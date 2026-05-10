@@ -3,7 +3,7 @@
 - **Date filed**: 2026-05-10
 - **Sprint story**: Parking-lot until [Spike 0013](0013-style-sentinel-and-certificate.md)'s ergodite registry ships (ADR-X1). This spike is the first concrete instance of the ergodite plugin contract.
 - **ADRs to produce**: none of its own — fits inside ADR-X1's plugin contract once that lands.
-- **Touches**: [Spike 0013](0013-style-sentinel-and-certificate.md) (ergodite registry, integrity manifest), [Devil's Toolbox parking-lot story](../SprintLog.md) (rhetoric primitives the eloquence sub-check references), [Spike 0010](0010-user-writing-preferences-interview.md) (preference-gated structural analysis).
+- **Touches**: [Spike 0013](0013-style-sentinel-and-certificate.md) (ergodite registry, integrity manifest), [Devil's Toolbox parking-lot story](../stories/SprintLog.md) (rhetoric primitives the eloquence sub-check references), [Spike 0010](0010-user-writing-preferences-interview.md) (preference-gated structural analysis).
 - **Status**: Open — design surface enumerated, not yet resolved.
 
 ## Question
@@ -11,7 +11,7 @@
 A single ergodite that grades the *form* of a chapter on three orthogonal axes:
 
 1. **Readability / grade level.** What grade level (US K-12 + college) is the prose pitched at? Is the author writing too low or too high for the intended audience? Mostly a settled science — public formulas exist, no need to invent.
-2. **Rhetorical eloquence.** Density of recognized rhetorical figures (anaphora, polysyndeton, chiasmus, etc.) per paragraph. Pulls primitive definitions from the [Devil's Toolbox](../SprintLog.md) reference; the form-analyzer is one of its first concrete consumers.
+2. **Rhetorical eloquence.** Density of recognized rhetorical figures (anaphora, polysyndeton, chiasmus, etc.) per paragraph. Pulls primitive definitions from the [Devil's Toolbox](../stories/SprintLog.md) reference; the form-analyzer is one of its first concrete consumers.
 3. **Fibonacci / golden-mean structural arc.** Does the chapter's tension/intensity curve follow the author's preferred narrative shape? This corresponds to the user's "Fibonacci writing prompt" — the prompt itself isn't yet captured in-tree (flagged in Spike 0013 cross-references); resolving that is a precondition.
 
 The form-analyzer wraps these as a single `ErgoditeReport` so the writer / editor / publisher can see one combined readout per chapter rather than three separate runs.
@@ -146,7 +146,7 @@ The author's writing-preferences interview (Spike 0010) supplies `target_band_fr
 ## Cross-references
 
 - [Spike 0013 — style sentinel + ergodite registry](0013-style-sentinel-and-certificate.md): defines the ergodite plugin contract this spike instantiates.
-- [Devil's Toolbox parking-lot story](../SprintLog.md#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated): canonical rhetoric reference the eloquence sub-check will eventually consume.
+- [Devil's Toolbox parking-lot story](../stories/SprintLog.md#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated): canonical rhetoric reference the eloquence sub-check will eventually consume.
 - [Spike 0010 — user writing preferences interview](0010-user-writing-preferences-interview.md): supplies target reading band + Fibonacci preferences.
 - Fibonacci writing prompt — TBD; not yet captured in-tree (Spike 0013's cross-references flag this as a precondition for the climax-detection / arc-analysis work).
 

@@ -1,7 +1,7 @@
 # Spike 0006: Bootstrap, prereqs layout, CLI entry point
 
 - **Date range**: 2026-05-03
-- **Sprint story**: [Story 0.8 — Architecture spike](../SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topics 2, 9, 10
+- **Sprint story**: [Story 0.8 — Architecture spike](../stories/SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topics 2, 9, 10
 - **ADRs produced**: [ADR 0007 — Bootstrap scripts, prereqs module layout, console-script CLI entry](../adrs/0007-bootstrap-prereqs-cli-entry.md)
 
 ## Question

@@ -121,4 +121,4 @@ If the volume of AI artifacts later justifies an automated AI → branch → PR 
 - [Spike 0002](../spikes/0002-repo-topology-editor-onboarding.md) — full discussion record.
 - [ADR 0001](0001-click-cli-with-persona-floater-registries.md) — persona registry that this ADR plugs into.
 - [Hierarchy.md](../Hierarchy.md) — narrative model the corpus repo mirrors in folder structure.
-- [SprintLog.md](../SprintLog.md) Story 0.8 — parent design spike.
+- [SprintLog.md](../stories/SprintLog.md) Story 0.8 — parent design spike.

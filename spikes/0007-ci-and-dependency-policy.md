@@ -1,7 +1,7 @@
 # Spike 0007: CI workflow design and dependency-pin policy
 
 - **Date range**: 2026-05-04
-- **Sprint story**: [Story 0.10 — TDD scaffolding](../SprintLog.md). The CI task in Story 0.10 was deferred until this spike answered the policy questions surfaced by the Copilot review of 2026-05-04.
+- **Sprint story**: [Story 0.10 — TDD scaffolding](../stories/SprintLog.md). The CI task in Story 0.10 was deferred until this spike answered the policy questions surfaced by the Copilot review of 2026-05-04.
 - **ADRs produced**: [ADR 0009 — CI workflow and dependency-pin policy](../adrs/0009-ci-and-dependency-policy.md)
 
 ## Question

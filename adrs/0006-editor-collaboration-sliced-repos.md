@@ -212,7 +212,7 @@ When implementing this ADR:
 
 This ADR settles questions earlier ADRs left ambiguous and overrides earlier ADRs in specific ways:
 
-- **CriticMarkup is no longer the primary editorial review surface** ([ADR 0002](0002-repo-topology-and-editor-onboarding.md), [Story 0.3](../SprintLog.md)). With slice repos, the editor edits prose directly via signed git commits; the author reviews via three-way merge in a review branch. CriticMarkup remains useful for the editor's own annotations or the author's self-notes, but is no longer the central mechanism.
+- **CriticMarkup is no longer the primary editorial review surface** ([ADR 0002](0002-repo-topology-and-editor-onboarding.md), [Story 0.3](../stories/SprintLog.md)). With slice repos, the editor edits prose directly via signed git commits; the author reviews via three-way merge in a review branch. CriticMarkup remains useful for the editor's own annotations or the author's self-notes, but is no longer the central mechanism.
 - **The "editor pushes to a per-day feature branch on the shared corpus repo" workflow** ([ADR 0002](0002-repo-topology-and-editor-onboarding.md)) is replaced by "editor pushes to their slice repo; author runs `ergodix ingest`."
 - **The "all editors share one private corpus repo" topology** ([ADR 0002](0002-repo-topology-and-editor-onboarding.md)) is replaced by "master repo + per-editor slice repos."
 - **Auto-sync via Cmd+S** ([ADR 0002](0002-repo-topology-and-editor-onboarding.md)) — the editor's slice repo can still use a Cmd+S → debounced sync hook; it just pushes to the slice repo, not to a feature branch on a shared repo.

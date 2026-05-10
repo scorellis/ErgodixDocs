@@ -8,7 +8,7 @@
 
 ## Context
 
-Topic 4 of [Story 0.8](../SprintLog.md) was meant to be a fill-in-the-table exercise mapping cantilever's 22 operations to personas and floaters. The work surfaced three problems:
+Topic 4 of [Story 0.8](../stories/SprintLog.md) was meant to be a fill-in-the-table exercise mapping cantilever's 22 operations to personas and floaters. The work surfaced three problems:
 
 1. **Persona/floater duality was nominal, not structural.** `--developer` already added operations rather than modifying behavior, breaking the clean "personas add ops; floaters change behavior" framing.
 2. **Most roles compose freely.** Writer composes with developer, with publisher, with both. Editor composes with developer. Only `focus-reader` is genuinely mutex with everything else.
@@ -153,4 +153,4 @@ This naming and CLI shape is **locked now** even though the implementation is de
 - [ADR 0002](0002-repo-topology-and-editor-onboarding.md) — terminology touched.
 - [ADR 0003](0003-cantilever-bootstrap-orchestrator.md) — settings paths touched.
 - [Hierarchy.md](../Hierarchy.md) — the narrative model whose vocabulary `opus` is chosen to avoid colliding with.
-- [SprintLog.md](../SprintLog.md) Story 0.X — multi-opus implementation deferred.
+- [SprintLog.md](../stories/SprintLog.md) Story 0.X — multi-opus implementation deferred.

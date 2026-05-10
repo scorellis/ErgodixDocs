@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-05-09
 - **Spike**: None — direct architectural decision based on author's clear specification.
-- **Touches**: [CLAUDE.md](../CLAUDE.md) principle #2 (the "AI-prose boundary" tightens, narrows, and gains a small mechanical-edits exception). [Plot-Planner story](../SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated). [Continuity-Engine story](../SprintLog.md#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated). [Devil's Toolbox story](../SprintLog.md#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated). [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md). Future MCP server story.
+- **Touches**: [CLAUDE.md](../CLAUDE.md) principle #2 (the "AI-prose boundary" tightens, narrows, and gains a small mechanical-edits exception). [Plot-Planner story](../stories/SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated). [Continuity-Engine story](../stories/SprintLog.md#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated). [Devil's Toolbox story](../stories/SprintLog.md#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated). [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md). Future MCP server story.
 
 ## Context
 
@@ -30,12 +30,12 @@ The AI may perform exactly the following four actions on the author's corpus:
    - Boundary: this exception is **narrow**. Anything ambiguous between mechanical and creative — e.g., comma splice repair that changes meaning, sentence-fragment "corrections" that the author intended as style — defaults back to flag-not-fix.
 
 2. **Chapter scoring.**
-   - Scope: running the author's encoded scoring methodology (from the [Plot-Planner story](../SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated)) over a chapter or the corpus and producing a structured report.
+   - Scope: running the author's encoded scoring methodology (from the [Plot-Planner story](../stories/SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated)) over a chapter or the corpus and producing a structured report.
    - Output is *report data* (TOML/JSON/markdown), never mutations to the chapter.
    - The methodology must be encoded as a stable rubric (see Plot-Planner activation tasks); ad-hoc "score this however the model thinks best" is **not** in scope.
 
 3. **Structural analysis aligned to the author's interview.**
-   - Scope: continuity checks, plot-hole detection, character-arc reports, timeline reconciliation, worldbuilding consistency — the kind of output the [Continuity-Engine story](../SprintLog.md#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated) describes.
+   - Scope: continuity checks, plot-hole detection, character-arc reports, timeline reconciliation, worldbuilding consistency — the kind of output the [Continuity-Engine story](../stories/SprintLog.md#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated) describes.
    - **Hard gate**: every analysis tool reads the author's preferences from `_AI/preferences.toml` (per Spike 0010) and respects them as constraints. An author who has said "don't comment on dialogue" gets no dialogue analysis output, even if the underlying model has opinions.
    - Output is *report data*, never mutations.
 
@@ -61,7 +61,7 @@ Anything not on the closed list is barred. Specifically, the AI **must not**:
 - **Every Skill** (`.claude/skills/<name>/`) must declare which of the four permitted actions it performs in its skill manifest. A Skill that performs none of them is not a corpus-touching Skill (e.g., the Devil's Toolbox is a *reference Skill* — it produces no corpus output, just structured data other tools consume).
 - **Plot-Planner / Continuity-Engine tools** must publish their output as report data (TOML/markdown/JSON), never as edits. Tool implementers can lean on this guarantee in API design.
 - **Mechanical-correction tooling** lives primarily in the editor (LTeX, VS Code spell-check) per CLAUDE.md's existing tool-chain. ErgodixDocs Skills that perform mechanical corrections (rare; mostly headless / CI cases) must produce *patches the author reviews*, not silent edits.
-- **The MCP server** (when it exists, per the [parking-lot story](../SprintLog.md#story--mcp-server--ai-user-persona-sprint-2-when-activated)) must enforce this boundary at the tool-registration layer: tools registered with the MCP server declare their permitted-action category, and the server refuses tool calls that exceed it.
+- **The MCP server** (when it exists, per the [parking-lot story](../stories/SprintLog.md#story--mcp-server--ai-user-persona-sprint-2-when-activated)) must enforce this boundary at the tool-registration layer: tools registered with the MCP server declare their permitted-action category, and the server refuses tool calls that exceed it.
 - **The author interview** ([Spike 0010](../spikes/0010-user-writing-preferences-interview.md)) becomes load-bearing: structural-analysis tools (action #3) require interview output to gate their critique. Tools running before the interview is complete must either degrade gracefully (no output) or block on the interview.
 - **Suggestion-only semantics need a UI distinction.** Output from action #4 (craft advice) must be visually / structurally distinguishable from output from actions #2 / #3 (analysis reports), so the author never confuses "AI is showing me a framework" with "AI has analyzed my work."
 

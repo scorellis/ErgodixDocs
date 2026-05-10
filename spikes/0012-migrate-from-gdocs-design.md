@@ -1,7 +1,7 @@
 # Spike 0012: `ergodix migrate --from gdocs` — design
 
 - **Date filed**: 2026-05-09
-- **Sprint story**: [Story 0.2 — Define canonical repo format](../SprintLog.md#story-02---define-canonical-repo-format) (the corpus-bootstrap half of the story; the other half — the format itself — is locked by ADR 0001 + ADR 0005).
+- **Sprint story**: [Story 0.2 — Define canonical repo format](../stories/SprintLog.md#story-02---define-canonical-repo-format) (the corpus-bootstrap half of the story; the other half — the format itself — is locked by ADR 0001 + ADR 0005).
 - **ADRs to produce**: ADR 0015 (will lock the design decisions resolved here).
 - **Touches**: [ADR 0001](../adrs/0001-click-cli-with-persona-floater-registries.md) (CLI subcommand surface), [ADR 0003](../adrs/0003-cantilever-bootstrap-orchestrator.md) (auth scope policy), [ADR 0005](../adrs/0005-roles-as-floaters-and-opus-naming.md) (opus naming), [ADR 0006](../adrs/0006-editor-collaboration-sliced-repos.md) (corpus repo per opus), [ADR 0014](../adrs/0014-sync-transport-and-settings-cascade.md) (sync transport detection), [Hierarchy.md](../Hierarchy.md) (opus → compendium → book → section → chapter), `ergodix/auth.py` (Google OAuth flow currently `NotImplementedError`).
 - **Status**: Open question — design surface enumerated, not yet resolved. ADR 0015 lands when the questions below are settled.
@@ -96,7 +96,7 @@ The `source` and `migrated_at` fields are migrate-specific provenance — let th
 **Drift detection:**
 - The first call after the v1 `_archive/_runs/` infrastructure ships is the baseline.
 - Subsequent runs compare each source file's hash to the stored hash from the prior run. Unchanged → skip. Changed → re-migrate (under `--force` semantics).
-- This dovetails with the [`ergodix index` parking-lot story](../SprintLog.md#story--ergodix-index--ergodixmap-corpus-content-index-near-term--after-b2) (the `_AI/ergodix.map` file). The migrate manifest and the AI-index both want per-file hashes; they could share infrastructure. Decide at activation.
+- This dovetails with the [`ergodix index` parking-lot story](../stories/SprintLog.md#story--ergodix-index--ergodixmap-corpus-content-index-near-term--after-b2) (the `_AI/ergodix.map` file). The migrate manifest and the AI-index both want per-file hashes; they could share infrastructure. Decide at activation.
 
 **Partial-failure recovery:**
 - Migrate runs in **two phases per file**: (1) extract + convert in memory, (2) write target + archive original atomically.
@@ -145,5 +145,5 @@ Each chunk is a separate PR per the smaller-units cadence.
 ## Cross-references
 
 - [Spike 0010 — UserWritingPreferencesInterview](0010-user-writing-preferences-interview.md): the post-migrate onboarding flow assumes the corpus is already migrated. Sequence: migrate → interview → first Plot-Planner / Continuity-Engine tool runs.
-- [`ergodix index` + `_AI/ergodix.map` parking-lot story](../SprintLog.md): shares hash-based content-tracking infrastructure with migrate's manifest. Cross-pollinate when both activate.
+- [`ergodix index` + `_AI/ergodix.map` parking-lot story](../stories/SprintLog.md): shares hash-based content-tracking infrastructure with migrate's manifest. Cross-pollinate when both activate.
 - [ADR 0014 — sync transport](../adrs/0014-sync-transport-and-settings-cascade.md): migrate runs against `CORPUS_FOLDER` regardless of whether sync transport is drive-mirror or indy. The detected mode doesn't change migrate's behavior — both modes have the same source files at the same path.
