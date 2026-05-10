@@ -37,6 +37,23 @@ If multiple PRs map to the same ADR, use suffixes:
 
 Reviews with open security findings are held until the corresponding fixes ship — published alongside the follow-up PR rather than ahead of it.
 
+## Integration smoke test
+
+`scripts/integration-smoke.sh` runs an end-to-end deployment-pipeline smoke against a fresh test deploy. It:
+
+1. Syncs the source tree to a deploy directory (default `/tmp/ergodix-smoke-deploy`, override via `ERGODIX_SMOKE_DEPLOY`).
+2. Runs `bootstrap.sh` to install ergodix into a fresh venv and run cantilever's inspect/plan phases.
+3. Verifies the `ergodix` console-script is registered and that `ergodix --version` matches the source's `VERSION` file.
+4. Runs `ergodix status` and `ergodix migrate --from docx --check --corpus examples/migrate-fixture`, asserting expected counts.
+
+Run locally from the repo root:
+
+```bash
+scripts/integration-smoke.sh
+```
+
+The script is structured so it can be lifted to GitHub Actions later by referencing the same script — no rewrite needed when CI/CD shifts off-machine.
+
 ## AI Boundaries — Prose Is Human-Written
 
 The chapters and prose files authored by the human are **not to be touched, edited, or rewritten by the AI**. There is significant community sentiment opposed to books being written by AI, and that concern is respected here.
