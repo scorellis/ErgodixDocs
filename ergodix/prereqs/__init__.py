@@ -33,6 +33,7 @@ from ergodix.prereqs import (
     check_mactex,
     check_pandoc,
     check_platform,
+    check_prose_linter_hook,
     check_python_packages,
     check_python_venv,
     check_vscode,
@@ -67,6 +68,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_branch_tracking,
     check_editor_signing_key,
     check_launchagent_poller,
+    check_prose_linter_hook,
 ]
 
 
