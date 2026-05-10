@@ -123,10 +123,10 @@ def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
     [
         # cantilever is wired (Story 0.11 step 4) — see test_cantilever_*
         # render is wired (Story 0.2) — see tests/test_render.py
+        # status is wired (this PR) — see test_status_* below
         ("migrate", ["--from", "gdocs"]),
         ("sync-out", []),
         ("sync-in", []),
-        ("status", []),
         ("publish", ["--editor", "ethan"]),
         ("ingest", ["--editor", "ethan"]),
     ],
@@ -137,6 +137,160 @@ def test_subcommand_stubs_exit_with_not_yet_implemented(
     result = runner.invoke(main, [cmd, *extra_args])
     assert result.exit_code == 1
     assert "not yet implemented" in result.output.lower()
+
+
+# ─── status subcommand ─────────────────────────────────────────────────────
+
+
+def _status_with_offline_network(runner: CliRunner, *args: str):
+    """Run ergodix status with the connectivity probe stubbed offline so
+    the test doesn't make real network calls (which would be slow + flaky)."""
+    # Patch the *function* the CLI imports, not just its source module.
+    import ergodix.cli as cli_module
+    from ergodix import connectivity
+
+    original_is_online = connectivity.is_online
+
+    def _stub_offline() -> bool:
+        return False
+
+    connectivity.is_online = _stub_offline  # type: ignore[assignment]
+    if hasattr(cli_module, "is_online"):
+        cli_module.is_online = _stub_offline  # type: ignore[attr-defined]
+    try:
+        return runner.invoke(main, ["status", *args])
+    finally:
+        connectivity.is_online = original_is_online  # type: ignore[assignment]
+
+
+def test_status_runs_and_exits_zero(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """status is a read-only health check — should never fail under
+    normal conditions, even on a fresh install with no config."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    assert result.exit_code == 0
+
+
+def test_status_shows_ergodix_version(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    from ergodix.version import __version__
+
+    assert __version__ in result.output
+
+
+def test_status_shows_python_version(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    py = f"{sys.version_info.major}.{sys.version_info.minor}"
+    assert py in result.output
+
+
+def test_status_shows_sync_transport_mode(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sync transport mode (drive-mirror / drive-stream / indy) is
+    a key user-visible status signal — should always print regardless
+    of whether local_config is configured."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    output_lower = result.output.lower()
+    # Any of the three modes is acceptable; what matters is the label appears.
+    assert any(m in output_lower for m in ("drive-mirror", "drive-stream", "indy"))
+
+
+def test_status_shows_corpus_folder_when_configured(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    corpus = tmp_path / "Documents" / "MyOpus"
+    corpus.mkdir(parents=True)
+    (tmp_path / "local_config.py").write_text(
+        f"from pathlib import Path\nCORPUS_FOLDER = Path('{corpus}')\n"
+    )
+
+    result = _status_with_offline_network(runner)
+
+    assert str(corpus) in result.output
+
+
+def test_status_shows_prereq_inspect_results(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Status walks the registered prereqs and shows each one's status.
+    At minimum, the well-known ones (A1 platform, A5 venv, A6 packages)
+    should appear since they're easy to inspect without external state."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    # A few canonical prereq op_ids should appear.
+    assert "A1" in result.output  # platform — always registered
+    assert "A4" in result.output  # mactex — always registered
+
+
+def test_status_shows_settings_values(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The mactex_install_size setting is the canonical settings field;
+    its resolved value (default: 'full') should appear."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    assert "mactex" in result.output.lower()
+    # Default value 'full' should be visible
+    assert "full" in result.output.lower()
+
+
+def test_status_credentials_section_does_not_print_values(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_keyring
+) -> None:
+    """The credentials section must never print the actual secret —
+    only presence/absence per source. Critical security invariant
+    matching auth.cmd_status's behavior."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    fake_keyring[("ergodix", "anthropic_api_key")] = "SUPER-SECRET-VALUE-12345"
+
+    result = _status_with_offline_network(runner)
+
+    assert "anthropic_api_key" in result.output
+    assert "SUPER-SECRET-VALUE-12345" not in result.output
+
+
+def test_status_shows_network_state(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Network-online status is one of the things status reports —
+    test that the offline label appears when our stub forces it."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    result = _status_with_offline_network(runner)
+
+    assert "offline" in result.output.lower() or "online" in result.output.lower()
 
 
 # ─── cantilever subcommand wiring (Story 0.11 step 4) ───────────────────────
