@@ -284,18 +284,87 @@ def test_get_google_oauth_client_returns_tuple(fake_keyring):
 # ─── NotImplemented stubs (forward-looking; replace as features land) ───────
 
 
-def test_get_drive_service_is_stub():
+# ─── Drive / Docs service builders (sub-chunk 1c per ADR 0015) ────────────
+
+
+def test_get_drive_service_builds_drive_v3_with_loaded_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """get_drive_service uses the OAuth helper to obtain creds and
+    builds a Drive v3 service with them. Pin the wiring so a future
+    refactor can't accidentally swap the API version or skip auth."""
+    from unittest.mock import MagicMock
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+
+    # Stub load_or_acquire so the test doesn't touch disk or run OAuth
+    import ergodix.oauth
+
+    monkeypatch.setattr(
+        ergodix.oauth,
+        "load_or_acquire_credentials",
+        lambda **_kwargs: fake_creds,
+    )
+
+    # Stub googleapiclient.discovery.build to verify what it gets called with
+    captured: dict = {}
+
+    def fake_build(service_name, version, *, credentials=None):
+        captured["service_name"] = service_name
+        captured["version"] = version
+        captured["credentials"] = credentials
+        return MagicMock(name=f"{service_name}-v{version}-service")
+
+    import googleapiclient.discovery
+
+    monkeypatch.setattr(googleapiclient.discovery, "build", fake_build)
+
     from ergodix import auth
 
-    with pytest.raises(NotImplementedError):
-        auth.get_drive_service()
+    auth.get_drive_service(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    assert captured["service_name"] == "drive"
+    assert captured["version"] == "v3"
+    assert captured["credentials"] is fake_creds
 
 
-def test_get_docs_service_is_stub():
+def test_get_docs_service_builds_docs_v1_with_loaded_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Same wiring as Drive, but service=docs version=v1."""
+    from unittest.mock import MagicMock
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+
+    import ergodix.oauth
+
+    monkeypatch.setattr(
+        ergodix.oauth,
+        "load_or_acquire_credentials",
+        lambda **_kwargs: fake_creds,
+    )
+
+    captured: dict = {}
+
+    def fake_build(service_name, version, *, credentials=None):
+        captured["service_name"] = service_name
+        captured["version"] = version
+        captured["credentials"] = credentials
+        return MagicMock(name=f"{service_name}-v{version}-service")
+
+    import googleapiclient.discovery
+
+    monkeypatch.setattr(googleapiclient.discovery, "build", fake_build)
+
     from ergodix import auth
 
-    with pytest.raises(NotImplementedError):
-        auth.get_docs_service()
+    auth.get_docs_service(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+
+    assert captured["service_name"] == "docs"
+    assert captured["version"] == "v1"
+    assert captured["credentials"] is fake_creds
 
 
 # ─── Keyring error narrowing (per ADR 0008) ─────────────────────────────────
