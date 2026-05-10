@@ -19,6 +19,7 @@ from types import ModuleType
 
 from ergodix.prereqs import (
     check_corpus_path,
+    check_credential_prompts,
     check_credential_store,
     check_dev_dependencies,
     check_drive_desktop,
@@ -29,6 +30,8 @@ from ergodix.prereqs import (
     check_mactex,
     check_pandoc,
     check_platform,
+    check_python_packages,
+    check_python_venv,
     check_vscode,
 )
 from ergodix.prereqs.types import ApplyResult, InspectResult
@@ -47,6 +50,8 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_homebrew,
     check_pandoc,
     check_mactex,
+    check_python_venv,
+    check_python_packages,
     check_vscode,
     check_drive_desktop,
     check_local_config,
@@ -54,6 +59,7 @@ _REGISTERED_MODULES: list[ModuleType] = [
     check_credential_store,
     check_gh_auth,
     check_git_config,
+    check_credential_prompts,
     check_dev_dependencies,
 ]
 

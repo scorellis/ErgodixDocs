@@ -584,6 +584,78 @@ _SUCCESS_OUTCOMES: frozenset[CantileverOutcome] = frozenset(
 )
 
 
+# ─── E2: persona-tailored "you're done" message (per ADR 0003) ─────────────
+#
+# Lives in orchestrator code (not as a prereq module) for the same reason
+# F1 / F2 do per ADR 0014: no install-vs-not state, just a side effect at
+# the end of a successful run. Failure outcomes get nothing — the user
+# already saw remediation messages from the failed phase.
+
+_PERSONA_DONE_MESSAGES: dict[str, str] = {
+    "writer": (
+        "You're set up to write. Next steps:\n"
+        "  • Open your corpus folder in VS Code to start writing.\n"
+        "  • Render a chapter to PDF: `ergodix render <path/to/chapter.md>`."
+    ),
+    "editor": (
+        "You're set up to review. Next steps:\n"
+        "  • Pull the latest sliced repo with `ergodix ingest`.\n"
+        "  • Sign your editor key (see ADR 0006)."
+    ),
+    "developer": (
+        "You're set up to develop. Next steps:\n"
+        "  • Run `pytest` to verify the test suite.\n"
+        "  • Smoke the render pipeline:\n"
+        "    `ergodix render examples/showcase/showcase.md`."
+    ),
+    "publisher": ("You're set up to publish. (Publish workflows are TBD; track CHANGELOG / ADRs.)"),
+    "focus-reader": (
+        "You're set up to read. (Focus-reader features are TBD; track CHANGELOG / ADRs.)"
+    ),
+}
+
+_PERSONA_ORDER: tuple[str, ...] = (
+    "writer",
+    "editor",
+    "developer",
+    "publisher",
+    "focus-reader",
+)
+
+
+def _print_done_message(
+    outcome: CantileverOutcome,
+    floaters: dict[str, bool],
+    output_fn: Callable[[str], None],
+) -> None:
+    """Print a persona-tailored "you're done" message at the end of a
+    successful cantilever run.
+
+    No-op for failure outcomes (``inspect-failed``, ``consent-declined``,
+    ``admin-denied``, ``applied-with-failures``, ``configure-failed``,
+    ``verify-failed``) — the user already saw remediation; piling a
+    cheerful "you're done" on top of failures would feel pushy.
+
+    Multiple active personas → one tailored message per persona, in the
+    canonical order from ADR 0005. No active persona → just the generic
+    ``Cantilever complete.`` line.
+
+    Behavior floaters (``dry-run``, ``ci``, ``verbose``) are not personas
+    and don't trigger tailored messages — they modify *how* cantilever
+    runs, not *who* the user is.
+    """
+    if outcome not in _SUCCESS_OUTCOMES:
+        return
+
+    output_fn("\n✓ Cantilever complete.")
+
+    active_personas = [p for p in _PERSONA_ORDER if floaters.get(p)]
+    for persona in active_personas:
+        msg = _PERSONA_DONE_MESSAGES.get(persona)
+        if msg:
+            output_fn(f"\n{msg}")
+
+
 def _default_log_path() -> Path:
     """Resolve the F2 log path lazily (per CLAUDE.md: no Path.home() at
     module level). Tests monkeypatch this to redirect into tmp_path."""
@@ -717,6 +789,11 @@ def run_cantilever(
                 duration_seconds=time.monotonic() - started_at,
                 floaters=floaters,
             )
+        # E2 (per ADR 0003): print persona-tailored "you're done" message
+        # on successful outcomes. No-op on failure paths (which already
+        # surfaced their own remediation).
+        with contextlib.suppress(Exception):
+            _print_done_message(result.outcome, floaters, output_fn)
         return result
 
     # Pre-flight: op_ids must be unique (Copilot review 2026-05-05 finding #3).
