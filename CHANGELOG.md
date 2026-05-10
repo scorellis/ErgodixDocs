@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.48.0`, next docs PR as `1.47.1`.)
+(Nothing yet — next code PR will land as `1.49.0`, next docs PR as `1.48.1`.)
+
+## [1.48.0] - 2026-05-10
+
+**Migrate chunk 3b — manifest TOML I/O + archive mover.** Adds the chunk 3b surface to `ergodix/migrate.py`: `Manifest` / `ManifestEntry` dataclasses (frozen, schema version 1) capturing the per-run record locked by ADR 0015 §4, plus `format_run_id`, `manifest_path_for_run`, `archive_path_for`, `write_manifest` (atomic tmp+rename), `read_manifest` (round-trip via stdlib `tomllib`), `find_latest_manifest`, and `move_to_archive` (refuses to overwrite, portable POSIX/Windows behavior). TOML serializer is hand-written rather than pulling in `tomli-w` — small controlled schema, dependency footprint stays minimal. 26 new tests (round-trip, escape handling, empty-files, schema-version rejection, atomic write, archive collision). Chunk 3c is next: `migrate_run()` orchestrator stitching helpers + walker + manifest + archive together with re-run idempotency, two-phase atomicity, and partial-failure recovery.
 
 ## [1.47.0] - 2026-05-10
 

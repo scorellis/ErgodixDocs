@@ -1,45 +1,46 @@
 """
-Migration walker, helpers, and (eventually) orchestrator.
+Migration walker, helpers, manifest I/O, archive mover.
 
-Chunk 3a (this module's first slice) provides the pure helpers and the
-read-only corpus walker that the migrate command will compose with the
-manifest writer (chunk 3b) and the orchestrator (chunk 3c). All public
-surface here is side-effect-free — `walk_corpus` reads the filesystem
-but doesn't write — so unit tests don't need network or OAuth.
+Chunks 3a + 3b together. The orchestrator (chunk 3c) will compose
+these into the full migrate run.
 
-Per ADR 0015 §3 / §4:
+Chunk 3a — pure helpers + read-only walker:
 
-  * `slugify_filename` — humans get nice filenames; filesystems get
-    portable ones.
-  * `build_target_path` — slugifies just the basename, leaves parent
-    folder names untouched (the user organizes their corpus tree along
-    the opus → compendium → book hierarchy and we don't second-guess
-    folder names).
-  * `compute_sha256` — hashes the EXTRACTED markdown, not the source
-    file's raw bytes. Drives idempotency: same extracted content =
-    skip on re-run.
-  * `build_frontmatter` — produces the YAML block that every migrated
-    chapter gets, including migrate-specific provenance (`source`,
-    `migrated_at`).
-  * `walk_corpus` — yields one `WalkEntry` per file under the corpus
-    root, skipping hidden dirs, scratch dirs, the `_archive` tree we
-    own, and any folder containing a `.ergodix-skip` marker.
+  * `slugify_filename`
+  * `build_target_path`
+  * `compute_sha256`
+  * `build_frontmatter`
+  * `walk_corpus` / `WalkEntry`
 
-Everything is pure-ish on purpose. Chunk 3b adds the manifest TOML
-schema and archive mover; chunk 3c stitches the orchestrator together
-with re-run idempotency, two-phase atomicity, and partial-failure
-recovery.
+Chunk 3b — manifest schema + I/O + archive mover:
+
+  * `Manifest`, `ManifestEntry` (frozen dataclasses)
+  * `format_run_id(dt)`
+  * `manifest_path_for_run(corpus_root, run_id)`
+  * `archive_path_for(corpus_root, run_id, source_rel)`
+  * `write_manifest(manifest, path)` — atomic tmp+rename
+  * `read_manifest(path)` — round-trip
+  * `find_latest_manifest(corpus_root)`
+  * `move_to_archive(source_path, target_path)` — fails if dst exists
+
+Schema is locked by ADR 0015 §4. The TOML serializer is hand-written
+(rather than pulling in `tomli-w`) because the schema is small, stdlib
+`tomllib` already handles the read side, and the dependency footprint
+stays minimal per CLAUDE.md.
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import tomllib
 import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from ergodix.importers import extension_to_importer
 
@@ -217,3 +218,231 @@ def _walk(current: Path, root: Path) -> Iterator[WalkEntry]:
             relative_path=entry.relative_to(root),
             importer_name=importer.name if importer is not None else None,
         )
+
+
+# ─── Manifest schema (ADR 0015 §4) ─────────────────────────────────────────
+
+
+ManifestStatus = Literal["migrated", "skipped", "failed", "drift-detected"]
+
+_MANIFEST_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class ManifestEntry:
+    """One file's outcome inside a run manifest.
+
+    Field presence varies by status — `migrated` carries target +
+    sha256 + size_bytes, `skipped`/`failed` carry a `reason`,
+    `drift-detected` carries the existing target. The serializer omits
+    fields whose value is ``None`` so the on-disk TOML stays compact
+    and matches the ADR 0015 §4 example exactly.
+    """
+
+    source: Path
+    status: ManifestStatus
+    target: Path | None = None
+    sha256: str | None = None
+    size_bytes: int | None = None
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class Manifest:
+    """One run's manifest, written to `_archive/_runs/<run_id>.toml`."""
+
+    version: int
+    started_at: datetime
+    finished_at: datetime
+    generator: str
+    corpus_root: Path
+    files: tuple[ManifestEntry, ...]
+
+
+# ─── Path / id helpers ─────────────────────────────────────────────────────
+
+
+def format_run_id(dt: datetime) -> str:
+    """`YYYY-MM-DD-HHMMSS` per ADR 0015 §4. Microseconds dropped.
+
+    The format is intentionally lex-sortable so plain string ordering
+    over filenames in `_archive/_runs/` matches chronological order —
+    `find_latest_manifest` relies on this.
+    """
+    return dt.strftime("%Y-%m-%d-%H%M%S")
+
+
+def manifest_path_for_run(corpus_root: Path, run_id: str) -> Path:
+    """`<corpus>/_archive/_runs/<run_id>.toml`."""
+    return corpus_root / "_archive" / "_runs" / f"{run_id}.toml"
+
+
+def archive_path_for(corpus_root: Path, run_id: str, source_rel: Path) -> Path:
+    """`<corpus>/_archive/<run_id>/<source_rel>`."""
+    return corpus_root / "_archive" / run_id / source_rel
+
+
+# ─── TOML serialization (hand-written, small + controlled schema) ──────────
+
+
+def _toml_string(s: str) -> str:
+    """Quote ``s`` as a TOML basic string with full escape handling.
+
+    Per TOML 1.0: `\\`, `"`, `\\b`, `\\t`, `\\n`, `\\f`, `\\r` get
+    backslash-escaped. Other control chars (U+0000 to U+001F, U+007F)
+    use `\\uXXXX`. Everything else passes through unchanged so unicode
+    titles ("Cafe Muller") survive intact.
+    """
+    out: list[str] = ['"']
+    for c in s:
+        if c == "\\":
+            out.append("\\\\")
+        elif c == '"':
+            out.append('\\"')
+        elif c == "\b":
+            out.append("\\b")
+        elif c == "\t":
+            out.append("\\t")
+        elif c == "\n":
+            out.append("\\n")
+        elif c == "\f":
+            out.append("\\f")
+        elif c == "\r":
+            out.append("\\r")
+        elif ord(c) < 0x20 or ord(c) == 0x7F:
+            out.append(f"\\u{ord(c):04X}")
+        else:
+            out.append(c)
+    out.append('"')
+    return "".join(out)
+
+
+def _iso_z(dt: datetime) -> str:
+    """RFC-3339 / ISO-8601 with literal Z suffix; microseconds dropped."""
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _serialize_manifest(manifest: Manifest) -> str:
+    lines: list[str] = ["[meta]"]
+    lines.append(f"version = {manifest.version}")
+    lines.append(f"started_at = {_toml_string(_iso_z(manifest.started_at))}")
+    lines.append(f"finished_at = {_toml_string(_iso_z(manifest.finished_at))}")
+    lines.append(f"generator = {_toml_string(manifest.generator)}")
+    lines.append(f"corpus_root = {_toml_string(manifest.corpus_root.as_posix())}")
+
+    for entry in manifest.files:
+        lines.append("")
+        lines.append("[[files]]")
+        lines.append(f"source = {_toml_string(entry.source.as_posix())}")
+        lines.append(f"status = {_toml_string(entry.status)}")
+        if entry.target is not None:
+            lines.append(f"target = {_toml_string(entry.target.as_posix())}")
+        if entry.sha256 is not None:
+            lines.append(f"sha256 = {_toml_string(entry.sha256)}")
+        if entry.size_bytes is not None:
+            lines.append(f"size_bytes = {entry.size_bytes}")
+        if entry.reason is not None:
+            lines.append(f"reason = {_toml_string(entry.reason)}")
+
+    return "\n".join(lines) + "\n"
+
+
+# ─── Read / write / find ───────────────────────────────────────────────────
+
+
+def write_manifest(manifest: Manifest, path: Path) -> None:
+    """Write ``manifest`` to ``path`` atomically.
+
+    Creates parent dirs. Writes to a sibling `.tmp` file then
+    `os.replace`s it onto the target so a crashed write never leaves a
+    half-written manifest visible. On a re-run with the same path, the
+    old manifest is replaced with no leftover `.tmp` siblings.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    body = _serialize_manifest(manifest)
+    tmp.write_text(body, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _parse_iso_z(value: str) -> datetime:
+    """Parse a Z-suffixed ISO-8601 timestamp into a UTC-aware datetime."""
+    return datetime.fromisoformat(value)
+
+
+def read_manifest(path: Path) -> Manifest:
+    """Parse a run manifest from ``path``.
+
+    Validates the schema version — we refuse to interpret a manifest
+    written by a future migrate version we don't understand. The
+    caller deals with that by either upgrading or aborting the run.
+    """
+    with path.open("rb") as fh:
+        data = tomllib.load(fh)
+
+    meta = data.get("meta") or {}
+    version = meta.get("version")
+    if version != _MANIFEST_SCHEMA_VERSION:
+        raise ValueError(
+            f"unknown manifest schema version: {version!r} "
+            f"(this migrate understands {_MANIFEST_SCHEMA_VERSION})"
+        )
+
+    files: list[ManifestEntry] = []
+    for raw in data.get("files") or []:
+        files.append(
+            ManifestEntry(
+                source=Path(raw["source"]),
+                status=raw["status"],
+                target=Path(raw["target"]) if raw.get("target") else None,
+                sha256=raw.get("sha256"),
+                size_bytes=raw.get("size_bytes"),
+                reason=raw.get("reason"),
+            )
+        )
+
+    return Manifest(
+        version=version,
+        started_at=_parse_iso_z(meta["started_at"]),
+        finished_at=_parse_iso_z(meta["finished_at"]),
+        generator=meta["generator"],
+        corpus_root=Path(meta["corpus_root"]),
+        files=tuple(files),
+    )
+
+
+def find_latest_manifest(corpus_root: Path) -> Manifest | None:
+    """Return the most recent run manifest, or ``None`` if no runs yet.
+
+    Looks under `_archive/_runs/`, takes the lex-largest `.toml` file
+    (which equals chronological-latest given the run-id format), and
+    parses it. Non-`.toml` files in the runs dir are ignored.
+    """
+    runs_dir = corpus_root / "_archive" / "_runs"
+    if not runs_dir.is_dir():
+        return None
+    candidates = sorted(p for p in runs_dir.iterdir() if p.suffix == ".toml")
+    if not candidates:
+        return None
+    return read_manifest(candidates[-1])
+
+
+# ─── Archive mover ─────────────────────────────────────────────────────────
+
+
+def move_to_archive(source_path: Path, target_path: Path) -> None:
+    """Move ``source_path`` to ``target_path``, refusing to overwrite.
+
+    Creates parent dirs. Two distinct runs would land in different
+    timestamped subfolders so collisions shouldn't happen; if one does
+    (clock skew, manual archive surgery), we raise rather than
+    silently clobber. ``os.rename`` semantics differ between POSIX
+    (silently replaces) and Windows (raises), so we do an explicit
+    pre-check for portable "fail if exists" behavior.
+    """
+    if not source_path.exists():
+        raise FileNotFoundError(source_path)
+    if target_path.exists():
+        raise FileExistsError(f"archive target already exists: {target_path}")
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    os.rename(source_path, target_path)
