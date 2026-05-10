@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.63.0`, next docs PR as `1.62.1`.)
+(Nothing yet — next code PR will land as `1.63.0`, next docs PR as `1.62.2`.)
+
+## [1.62.1] - 2026-05-10
+
+**Spike 0015 — `ergodix index` + `_AI/ergodix.map` design.** Activates the parking-lot story as the first Sprint 1 implementation arc. Captures the design surface: TOML schema (versioned, per-file SHA-256 + size + advisory mtime, `[meta]` block matching migrate's manifest shape), location at `<corpus>/_AI/ergodix.map`, scope (walks `.md` + `_preamble.tex` + custom `.tex`; skips hidden / `_archive/` / scratch / `.ergodix-skip` dirs — same rules as migrate's walker), CLI surface (`ergodix index [--check] [--corpus <path>] [--quiet]` with exit-code conventions matching migrate), re-run semantics (regenerate-from-scratch; per-file hash caching deferred until corpus size warrants it), and the lean: **tracked, not gitignored**, with conflicts auto-recovered by re-running. 9 open questions enumerated for ADR 0016. 6 implementation chunks proposed for the smaller-units cadence. Cross-refs to ADR 0015 (manifest shape parallel) + Continuity-Engine + Plot-Planner parking-lot stories (downstream consumers) + Spike 0013 (ergodite registry — every ergodite reads the map first).
 
 ## [1.62.0] - 2026-05-10
 
