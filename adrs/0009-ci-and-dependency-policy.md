@@ -163,3 +163,22 @@ Diff-coverage tooling (per-PR coverage on new lines only) is rejected for v1: re
 - [ADR 0008](0008-cleanup-sync-rename-ownership-autofix-static-analysis.md) — the policy this ADR makes real.
 - [uv documentation](https://docs.astral.sh/uv/) — lockfile tooling chosen.
 - ["Applications pin, libraries don't"](https://caremad.io/posts/2013/07/setup-vs-requirement/) — Donald Stufft's canonical writeup of the pattern this ADR adopts.
+
+## Note — pragmatic v1 (2026-05-10)
+
+The full uv + 9-cell-matrix design above is the locked target. The `.github/workflows/ci.yml` that ships in the PR landing CI is a **pragmatic v1**: single Ubuntu + Python 3.13 cell, using `pip install -e ".[dev]"` rather than `uv sync`, no `uv.lock`. It still runs ruff check / ruff format --check / mypy --strict / pytest — the same gating steps in the same order.
+
+Why deviate:
+
+- `uv` is not yet installed on the project's dev machine, so adopting it requires both a local-environment migration and a `uv.lock` generation pass. That's its own arc (bootstrap.sh update + README + CLAUDE.md docs).
+- The integration smoke (PR #85) already exercises bootstrap.sh + the migrate CLI on a fresh deploy; the pragmatic CI catches the unit-test / lint / mypy regression layer that the smoke doesn't touch.
+- Sprint 1 implementation is the next major arc and benefits more from "CI catches regressions starting now" than "CI matches ADR 0009 exactly but lands later."
+
+What's deferred to the uv-migration follow-up arc:
+
+- `uv` adoption + committed `uv.lock`.
+- The 9-cell matrix (macOS / Ubuntu / Windows × 3.11 / 3.12 / 3.13).
+- The `test-latest` informational tripwire job.
+- Branch-protection settings on `main` requiring all 9 cells (currently only the single Ubuntu+3.13 cell will be available to require).
+
+When the uv-migration PR lands, replace `.github/workflows/ci.yml`'s body with the full ADR-0009 design, regenerate the lockfile, and update bootstrap.sh to use `uv sync`. Leave this Note in place as a record of why the pragmatic step happened.
