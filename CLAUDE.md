@@ -91,7 +91,7 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - **ADRs** (`adrs/NNNN-kebab-title.md`): a single decision, write-once. Modified Michael Nygard format. Status / Date / Spike / Supersedes / Touches in frontmatter.
 - **Spikes** (`spikes/NNNN-kebab-title.md`): the *journey* of a discussion that produced one or more ADRs. Free-form narrative.
 - ADRs and spikes use independent numbering (Spike 0003 may produce ADR 0007).
-- A new design decision goes through: spike → ADR → tasks in SprintLog → implementation behind tests.
+- A new design decision goes through: spike → ADR → tasks in `stories/active/<slug>.md` → implementation behind tests.
 
 ## What goes in which doc
 
@@ -99,14 +99,14 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - **`CLAUDE.md`** (this file): persistent conventions for AI sessions. Steady-state, not session-specific.
 - **`WorkingContext.md`**: running session log. Updated when sessions pause or pivot.
 - **`ai.summary.md`**: resume prompt for the next AI session. Re-written every time work pauses for the day.
-- **`SprintLog.md`**: ASVRAT stories (As a [persona], So that, Value, Risk, Assumptions, Tasks). The "As a" lead-in names the floater/persona perspective the story serves (writer, editor, developer, publisher, focus-reader, or a system actor like "the cantilever orchestrator"). Stories without a meaningful persona may omit the "A" line and fall back to SVRAT, but persona-driven stories must lead with it. Sprint planning + status.
+- **`stories/`**: one file per story. `stories/active/<slug>.md` for in-flight stories, `stories/parking-lot/<slug>.md` for deferred ones. ASVRAT shape (As a [persona], So that, Value, Risk, Assumptions, Tasks) per ADR 0011 for persona-driven stories; infrastructure / chore stories may use a lighter shape. `stories/README.md` is the index. `stories/SprintLog.md` is the frozen monolith from before the per-file migration (kept as a geological layer of history; not edited going forward).
 - **`CHANGELOG.md`**: Keep-a-Changelog format. `[Unreleased]` section gets the in-flight work; release entries get added at version bumps.
 - **`Hierarchy.md`**: the narrative-content model (EPOCH → Compendium → Book → Section → Chapter).
 - **`docs/`**: external-facing reference docs (`gcp-setup.md`, `comments-explained.md`, future `vscode-setup.md`).
 
 ## When to ask vs. when to proceed
 
-- **Proceed**: any tested change that satisfies an existing ADR or SprintLog task.
+- **Proceed**: any tested change that satisfies an existing ADR or story task.
 - **Ask**: any change that conflicts with an ADR (would require supersession), introduces a new dependency, or expands scope beyond the current story.
 - **Always ask before pushing to remote.** Local commits are fine; pushes go through user approval every time. The user may have reasons (timing, account context, work boundaries) for wanting visibility into when public-repo activity happens.
 - **Always ask**: anything destructive (force-push, branch deletion, history rewrite). Never run a destructive git command without explicit user approval.
@@ -141,5 +141,5 @@ The collaboration on this project is treated as a partnership, not a transaction
 
 - **Push back on principle violations.** When the user directs an action that contradicts a CLAUDE.md rule or a locked ADR, name the conflict in one sentence and let the user decide. Don't lecture. "I'm violating it on purpose, here's why" is a fine answer — the check is just that both parties know.
 - **Late-arriving principles are normal.** A working principle (like TDD-first) might be declared partway through a story, after some code has already shipped without it. Apply the principle forward and accept that prior code may need rework. Capture the "why now" in a doc edit so the rationale survives.
-- **Course corrections cost cycles but are healthy.** Reopening a topic mid-discussion, introducing a new concern, switching priorities mid-implementation — all expected. Absorb the change; capture it in the right doc (spike for design discussion, ADR for locked decisions, SprintLog for story re-prioritization). Future readers should see the reasoning, not just the result.
+- **Course corrections cost cycles but are healthy.** Reopening a topic mid-discussion, introducing a new concern, switching priorities mid-implementation — all expected. Absorb the change; capture it in the right doc (spike for design discussion, ADR for locked decisions, `stories/` for story re-prioritization). Future readers should see the reasoning, not just the result.
 - **The persistent record is how partnership survives sessions.** Each new AI session rebuilds context from CLAUDE.md, the ADRs, the spikes, WorkingContext.md, and ai.summary.md. Treat additions to those documents as durable. Treat the conversation itself as ephemeral. Capture insights *before* moving on.

@@ -1,7 +1,7 @@
 # Spike 0002: Repo topology, editor onboarding, and the bidirectional flow
 
 - **Date range**: 2026-05-03
-- **Sprint story**: [Story 0.8 — Architecture spike](../SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topics 5, 6, 8
+- **Sprint story**: [Story 0.8 — Architecture spike](../stories/SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topics 5, 6, 8
 - **ADRs produced**: [ADR 0002 — Two-repo topology with auto-sync editor persona](../adrs/0002-repo-topology-and-editor-onboarding.md)
 
 ## Question

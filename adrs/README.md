@@ -7,7 +7,7 @@ This folder holds the canonical record of significant architectural decisions fo
 An ADR captures a single decision, the context that made it necessary, and its consequences. ADRs are write-once and append-only — a decision doesn't get revised, it gets *superseded* by a new ADR that points back to the one it replaces.
 
 ADRs are not:
-- Sprint stories (those live in [SprintLog.md](../SprintLog.md))
+- Sprint stories (those live in [SprintLog.md](../stories/SprintLog.md))
 - Design exploration / discussion notes (those live in [spikes/](../spikes/))
 - General documentation (that lives in [docs/](../docs/) or the [README](../README.md))
 

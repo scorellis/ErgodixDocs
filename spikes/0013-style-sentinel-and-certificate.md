@@ -315,7 +315,7 @@ Grouped by likely ADR boundaries:
 - [ADR 0005 — Roles as floaters and opus naming](../adrs/0005-roles-as-floaters-and-opus-naming.md): student=writer, teacher=editor mapping.
 - [ADR 0006 — Editor collaboration via sliced repos](../adrs/0006-editor-collaboration-sliced-repos.md): teacher reads student's slice; signed-commit topology.
 - [ADR 0014 — Sync transport and settings cascade](../adrs/0014-sync-transport-and-settings-cascade.md): drive-mirror mode for school-managed Drive folders; settings cascade for `InfringementThreatLevelWords` and friends.
-- [Devil's Toolbox parking-lot story](../SprintLog.md): pattern detection (anaphora, near-rhyme topography) — related analysis surface, same registry.
+- [Devil's Toolbox parking-lot story](../stories/SprintLog.md): pattern detection (anaphora, near-rhyme topography) — related analysis surface, same registry.
 - [Fibonacci writing prompt — TBD]: the user's chapter-arc prompt for ChatGPT, referenced in Message 1. Not yet captured in the repo. Action: add `docs/fibonacci-writing-prompt.md` (or wherever the user wants it) before the climax-detection analysis is designed.
 
 ## Why we're not implementing today

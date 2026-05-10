@@ -3,7 +3,7 @@
 - **Date filed**: 2026-05-09
 - **Sprint story**: Parking lot — onboarding flow for new authors/editors. Activates when a Plot-Planner / Continuity-Engine tool needs author preference data.
 - **ADRs produced**: TBD (pending resolution).
-- **Touches**: [Plot-Planner story](../SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated), [Devil's Toolbox story](../SprintLog.md), [ADR 0005](../adrs/0005-roles-as-floaters-and-opus-naming.md) (floater/persona model).
+- **Touches**: [Plot-Planner story](../stories/SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated), [Devil's Toolbox story](../stories/SprintLog.md), [ADR 0005](../adrs/0005-roles-as-floaters-and-opus-naming.md) (floater/persona model).
 - **Status**: Open question — design surface enumerated, not yet resolved.
 
 ## Question

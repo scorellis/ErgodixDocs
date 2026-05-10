@@ -1,7 +1,7 @@
 # Spike 0011: Sync transport auto-detect + settings cascade
 
 - **Date**: 2026-05-09
-- **Sprint story**: [Story 0.11 — Installer redesign](../SprintLog.md#story-011---installer-redesign-per-adr-0010-elevated-to-highest-active-priority--blocks-remaining-story-010-work) — phase 2, B-tier prereqs.
+- **Sprint story**: [Story 0.11 — Installer redesign](../stories/SprintLog.md#story-011---installer-redesign-per-adr-0010-elevated-to-highest-active-priority--blocks-remaining-story-010-work) — phase 2, B-tier prereqs.
 - **ADRs to produce**: ADR 0014 (lock the resolutions below).
 - **Touches**: [ADR 0003](../adrs/0003-cantilever-bootstrap-orchestrator.md) (B1 and B2 prereq definitions), [ADR 0008](../adrs/0008-cleanup-sync-rename-ownership-autofix-static-analysis.md) (`settings/` vs. `local_config.py` ownership split), `local_config.example.py` (the existing `SYNC_MODE` field), `ergodix/settings.py` (the existing single-file loader), future B1 and B2 prereq modules.
 - **Status**: All six questions resolved in conversation 2026-05-09. ADR 0014 pending.

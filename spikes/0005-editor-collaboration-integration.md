@@ -1,7 +1,7 @@
 # Spike 0005: Integration of the editor-collaboration-sliced-repos proposal
 
 - **Date range**: 2026-05-03
-- **Sprint story**: [Story 0.8 — Architecture spike](../SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topics 5/6/8 (revisited)
+- **Sprint story**: [Story 0.8 — Architecture spike](../stories/SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topics 5/6/8 (revisited)
 - **ADRs produced**: [ADR 0006 — Editor collaboration via sliced git repositories with baseline-tracked resync](../adrs/0006-editor-collaboration-sliced-repos.md)
 
 ## Question

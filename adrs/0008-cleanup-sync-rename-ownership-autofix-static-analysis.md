@@ -106,6 +106,6 @@ Rationale: `ruff` is the modern Python convention as of 2026 — it's faster and
 
 ## References
 
-- [Story 0.8 self-audit](../SprintLog.md) — origin of the items in this ADR.
+- [Story 0.8 self-audit](../stories/SprintLog.md) — origin of the items in this ADR.
 - [ADR 0007](0007-bootstrap-prereqs-cli-entry.md) — `CheckResult` dataclass that this ADR bounds.
 - [ADR 0001](0001-click-cli-with-persona-floater-registries.md), [ADR 0002](0002-repo-topology-and-editor-onboarding.md), [ADR 0004](0004-continuous-repo-polling.md), [ADR 0006](0006-editor-collaboration-sliced-repos.md) — touched by the `sync` rename.

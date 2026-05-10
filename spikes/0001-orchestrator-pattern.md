@@ -1,7 +1,7 @@
 # Spike 0001: Orchestrator pattern, persona model, floater registry
 
 - **Date range**: 2026-05-03
-- **Sprint story**: [Story 0.8 — Architecture spike](../SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topic 1
+- **Sprint story**: [Story 0.8 — Architecture spike](../stories/SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topic 1
 - **ADRs produced**: [ADR 0001 — Click CLI with persona and floater registries](../adrs/0001-click-cli-with-persona-floater-registries.md)
 
 ## Question

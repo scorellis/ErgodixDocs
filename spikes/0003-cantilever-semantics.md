@@ -1,7 +1,7 @@
 # Spike 0003: Cantilever semantics, settings architecture, run-record
 
 - **Date range**: 2026-05-03
-- **Sprint story**: [Story 0.8 — Architecture spike](../SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topic 3
+- **Sprint story**: [Story 0.8 — Architecture spike](../stories/SprintLog.md#story-08---architecture-spike-orchestrator-pattern-role-based-cantilever-editor-collaboration-model-design-spike), Topic 3
 - **ADRs produced**: [ADR 0003 — Cantilever bootstrap orchestrator](../adrs/0003-cantilever-bootstrap-orchestrator.md), [ADR 0004 — Continuous repo polling](../adrs/0004-continuous-repo-polling.md)
 
 ## Question

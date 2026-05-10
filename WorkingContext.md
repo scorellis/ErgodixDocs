@@ -9,7 +9,7 @@ Update it whenever a session changes direction, a window/session is lost, or a m
 
 - Date: 2026-05-02
 - Workspace: ErgodixDocs
-- Active reference files: README.md, Hierarchy.md, SprintLog.md, ai.summary.md, auth.py, install_dependencies.sh
+- Active reference files: README.md, Hierarchy.md, stories/SprintLog.md, ai.summary.md, auth.py, install_dependencies.sh
 - Repo shape: planning docs + install_dependencies.sh + auth.py + local_config.example.py + .gitignore
 - Prior chat/session context was not recoverable in the current VS Code session
 - Restored context from user summary captured below
@@ -39,7 +39,7 @@ Update it whenever a session changes direction, a window/session is lost, or a m
   - `local_config.example.py` — Python config template.
   - `.gitignore` — excludes `local_config.py`, all `.ergodix_*` files, `.venv/`, `*.gdoc`/`.gsheet`/`.gslides`, build artifacts, creative folders.
 - **Removed:** `update.sh` (single-directory decision) and earlier rsync/deploy/config JSON experiments.
-- **Canonical chapter format LOCKED:** Pandoc Markdown with raw LaTeX passthrough, file extension `.md`, mandatory YAML frontmatter declaring `format: pandoc-markdown` plus the active `pandoc-extensions` list. See SprintLog.md Story 0.2 "Format Decisions" for the full feature inventory.
+- **Canonical chapter format LOCKED:** Pandoc Markdown with raw LaTeX passthrough, file extension `.md`, mandatory YAML frontmatter declaring `format: pandoc-markdown` plus the active `pandoc-extensions` list. See stories/SprintLog.md Story 0.2 "Format Decisions" for the full feature inventory.
 - **Authoring direction reversed:** VS Code (not Google Docs) is the primary editor going forward. After one-time migration, chapters live as `.md` files in the private corpus repo (`tapestry-of-the-mind`), edited in VS Code by author and editor, version-controlled via git per [ADR 0006](adrs/0006-editor-collaboration-sliced-repos.md). No Drive/Docs API at runtime for content. CriticMarkup remains as optional annotation; editor's primary review is direct prose edits via signed git commits in their slice repo.
 - **Pre-release timeline (2026-05-03):** the author intends ~1 year of private development in `--writer --developer` floater combination before inviting other authors. This pacing informs Story 0.7 (distribution prep) — no urgency to ship installers, app-store packaging, etc. until the tool has stabilized through real daily use.
 
@@ -103,7 +103,7 @@ When work resumes, append a short dated note covering:
 
 ### What remains next
 - **Open the PR** for `feature/installer-redesign` against `main` (17 commits, Copilot-clean).
-- **Phase 2 first wave** (next 3 prereqs, per Plan-subagent output 2026-05-07): C1 (`gh auth login`), C2 (clone corpus repo), A2 (install/verify Homebrew). Full Plan output in [SprintLog Story 0.11](SprintLog.md).
+- **Phase 2 first wave** (next 3 prereqs, per Plan-subagent output 2026-05-07): C1 (`gh auth login`), C2 (clone corpus repo), A2 (install/verify Homebrew). Full Plan output in [SprintLog Story 0.11](stories/SprintLog.md).
 - **Design decisions to resolve before phase 2:** C3/C6 interactive-in-apply pattern, A4 MacTeX-vs-BasicTeX default, D6 signing-key auth scope, F1 prereq-vs-orchestrator framing, `needs_admin` escalation semantics in `ApplyResult`. These are captured in SprintLog.
 
 ## Immediate Next Step
@@ -122,7 +122,7 @@ State now:
 - **Tests: 158 passing, 1 skipped, 80% coverage. ruff + mypy strict clean.**
 
 Story 0.11 phase 2 remaining (per Plan subagent 2026-05-07):
-- Recommended next 3 in order: **C1** (`gh auth login`), **C2** (clone corpus repo), **A2** (install/verify Homebrew). Full plan + design-decision list in [SprintLog Story 0.11](SprintLog.md).
+- Recommended next 3 in order: **C1** (`gh auth login`), **C2** (clone corpus repo), **A2** (install/verify Homebrew). Full plan + design-decision list in [SprintLog Story 0.11](stories/SprintLog.md).
 - 19 more prereqs after that — see SprintLog for tier grouping and dependencies.
 
 Next-session opening move: open the PR for `feature/installer-redesign` against `main`. After merge, start phase 2 from a fresh branch off main, opening with the design-decisions resolution (C3/C6 interactivity, A4 MacTeX default, D6 auth scope, F1 framing, `needs_admin` escalation) — likely a short spike or ADR — before any new prereq code.

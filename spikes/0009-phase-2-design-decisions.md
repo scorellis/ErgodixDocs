@@ -1,7 +1,7 @@
 # Spike 0009: Story 0.11 phase 2 — design decisions before cookie-cutting prereqs
 
 - **Date range**: 2026-05-07
-- **Sprint story**: [Story 0.11 — Installer redesign](../SprintLog.md), phase 2 (next 21 prereqs after F1 reframed as orchestrator code).
+- **Sprint story**: [Story 0.11 — Installer redesign](../stories/SprintLog.md), phase 2 (next 21 prereqs after F1 reframed as orchestrator code).
 - **ADRs produced**: ADR 0012 (codifies the four resolved patterns); plus Notes added to ADR 0010 (sudo-cache assumption, new "configure" 5th phase) and ADR 0006 (signing-key scope-refresh-on-demand).
 - **Touches**: [ADR 0003](../adrs/0003-cantilever-bootstrap-orchestrator.md), [ADR 0006](../adrs/0006-editor-collaboration-sliced-repos.md), [ADR 0010](../adrs/0010-installer-preflight-consent-gate.md).
 - **Status**: All six decisions resolved 2026-05-07. ADR 0012 implementation pending; lands as the first commit on the phase-2 branch after Story 0.11 phase-1 PR ([#6](https://github.com/scorellis/ErgodixDocs/pull/6)) merges.

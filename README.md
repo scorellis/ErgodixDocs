@@ -109,7 +109,7 @@ Clone one repo, run the installer there, and keep local machine-specific files g
 **Tracked in git** (safe for GitHub):
 - `bootstrap.sh`, `ergodix/auth.py`
 - `local_config.example.py` (template, only `Path.home()`-relative defaults — no real values)
-- `README.md`, `Hierarchy.md`, `WorkingContext.md`, `SprintLog.md`, `ai.summary.md`
+- `README.md`, `Hierarchy.md`, `WorkingContext.md`, `stories/` (sprint planning + status; see `stories/README.md`), `ai.summary.md`
 - Future tooling code
 
 **Ignored** (see `.gitignore`):

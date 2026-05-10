@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.63.0`, next docs PR as `1.62.2`.)
+(Nothing yet — next code PR will land as `1.63.0`, next docs PR as `1.62.3`.)
+
+## [1.62.2] - 2026-05-10
+
+**Establish `stories/` per-file convention; move SprintLog.md into it as a geological layer.** Migrates the project's story-tracking from a single ~700-line `SprintLog.md` at the repo root to a per-file convention mirroring `adrs/` and `spikes/`. Layout: `stories/active/<slug>.md` for in-flight stories, `stories/parking-lot/<slug>.md` for deferred ones, `stories/README.md` as the index. The monolithic `SprintLog.md` moves to `stories/SprintLog.md` as a frozen historical record — no longer edited going forward. First two per-file stories landed here: `stories/active/ergodix-index.md` (the Sprint 1 starter activated alongside Spike 0015) and `stories/parking-lot/uv-migration.md` (the follow-up that was previously hiding only in ADR 0009's "Note — pragmatic v1" section). All cross-references in `spikes/`, `adrs/`, `security/`, `CLAUDE.md`, `README.md`, and `WorkingContext.md` updated to `../stories/SprintLog.md` (or `stories/SprintLog.md` from root). The remaining ~14 parking-lot stories still live in the monolith pending extraction in a follow-up PR; the index README documents which ones are pending.
 
 ## [1.62.1] - 2026-05-10
 
