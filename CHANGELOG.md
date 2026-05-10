@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.62.0`, next docs PR as `1.61.1`.)
+(Nothing yet — next code PR will land as `1.63.0`, next docs PR as `1.62.1`.)
+
+## [1.62.0] - 2026-05-10
+
+**`.github/workflows/integration.yml` — GitHub Actions integration smoke.** Invokes `scripts/integration-smoke.sh` on every PR and every push to main, in parallel with `.github/workflows/ci.yml`. The two are complementary: `ci.yml` catches unit-test / lint / type-check regressions; this one catches install + console-script registration + migrate-against-fixture regressions that the unit tests don't reach. Ubuntu runner with Python 3.13. Uses `$RUNNER_TEMP/ergodix-smoke-deploy` (workflow-local) via the `ERGODIX_SMOKE_DEPLOY` env var override so parallel runs from different PRs don't collide. Closes the second half of the "shift CI/CD to GitHub" arc the user flagged after PR #85 — the local-runnable smoke and the GitHub-hosted smoke are now the **same script**.
 
 ## [1.61.0] - 2026-05-10
 
