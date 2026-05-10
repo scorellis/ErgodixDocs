@@ -502,3 +502,46 @@ def test_extract_handles_multiple_inline_images(tmp_path: Path) -> None:
     assert len(images) == 2
     assert images[0].name.startswith("img-001")
     assert images[1].name.startswith("img-002")
+
+
+def test_guess_extension_prefers_magic_bytes_over_uri() -> None:
+    """Magic-byte sniffing wins over URI suffix when they conflict."""
+    png_bytes = bytes.fromhex("89504e470d0a1a0a") + b"\x00" * 20
+    assert gdocs._guess_image_extension(png_bytes, "https://example.com/wrong.jpg") == ".png"
+
+
+def test_guess_extension_uri_fallback_when_magic_unknown() -> None:
+    """When magic bytes don't match a known type, fall back to URI
+    suffix scan. `.jpeg` normalizes to `.jpg`."""
+    unknown = b"\x00\x01\x02\x03" + b"\x00" * 20
+    assert gdocs._guess_image_extension(unknown, "https://example.com/x.jpeg") == ".jpg"
+    assert gdocs._guess_image_extension(unknown, "https://example.com/x.png") == ".png"
+    assert gdocs._guess_image_extension(unknown, "https://example.com/x.webp") == ".webp"
+
+
+def test_guess_extension_strips_query_string_from_uri() -> None:
+    """URI-suffix detection should ignore query parameters."""
+    unknown = b"\x00\x01\x02\x03" + b"\x00" * 20
+    assert (
+        gdocs._guess_image_extension(unknown, "https://example.com/img.png?cache=42&v=3") == ".png"
+    )
+
+
+def test_guess_extension_falls_back_to_bin_for_docs_style_url() -> None:
+    """Docs API contentUris look like `https://lh3.googleusercontent.com/...`
+    — typically no recognizable extension suffix in the path. With
+    no magic-byte match either, fallback is `.bin`."""
+    unknown = b"\x00\x01\x02\x03" + b"\x00" * 20
+    docs_uri = "https://lh3.googleusercontent.com/J3-_E2gQUEH_xX-fixture-blob"
+    assert gdocs._guess_image_extension(unknown, docs_uri) == ".bin"
+
+
+def test_guess_extension_recognizes_jpeg_gif_webp_magic() -> None:
+    jpeg_bytes = b"\xff\xd8\xff" + b"\x00" * 20
+    gif87 = b"GIF87a" + b"\x00" * 20
+    gif89 = b"GIF89a" + b"\x00" * 20
+    webp_bytes = b"RIFF" + b"\x00\x00\x00\x00" + b"WEBP" + b"\x00" * 20
+    assert gdocs._guess_image_extension(jpeg_bytes, "https://example/x") == ".jpg"
+    assert gdocs._guess_image_extension(gif87, "https://example/x") == ".gif"
+    assert gdocs._guess_image_extension(gif89, "https://example/x") == ".gif"
+    assert gdocs._guess_image_extension(webp_bytes, "https://example/x") == ".webp"

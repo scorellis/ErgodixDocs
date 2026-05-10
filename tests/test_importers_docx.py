@@ -266,6 +266,44 @@ def test_extract_skips_image_extraction_when_media_dir_omitted(tmp_path: Path) -
     assert not (tmp_path / "_media").exists()
 
 
+def test_render_paragraph_handles_none_style() -> None:
+    """A pathological / corrupt .docx where `paragraph.style` is `None`
+    should still render its text rather than crash. Pins the defensive
+    null guard in `_render_paragraph`."""
+    from unittest.mock import MagicMock
+
+    fake_run = MagicMock()
+    fake_run.text = "Plain content with no style."
+    fake_run.bold = False
+    fake_run.italic = False
+
+    fake_paragraph = MagicMock()
+    fake_paragraph.runs = [fake_run]
+    fake_paragraph.style = None  # the malformed-doc case
+
+    rendered = docx_importer._render_paragraph(fake_paragraph)
+    assert rendered == "Plain content with no style."
+
+
+def test_suffix_for_image_part_falls_back_to_bin() -> None:
+    """A malformed .docx where the image part has no `partname` (or
+    a partname without an extension) should produce `.bin` rather
+    than crash."""
+    from unittest.mock import MagicMock
+
+    no_partname = MagicMock()
+    no_partname.partname = None
+    assert docx_importer._suffix_for_image_part(no_partname) == ".bin"
+
+    extensionless = MagicMock()
+    extensionless.partname = "/word/media/image_no_ext"
+    assert docx_importer._suffix_for_image_part(extensionless) == ".bin"
+
+    typical = MagicMock()
+    typical.partname = "/word/media/image1.png"
+    assert docx_importer._suffix_for_image_part(typical) == ".png"
+
+
 def test_extract_handles_multiple_images_in_one_doc(tmp_path: Path) -> None:
     """Two distinct embedded images get sequential filenames
     (img-001, img-002)."""

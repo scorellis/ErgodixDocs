@@ -1327,3 +1327,108 @@ def test_refresh_preserves_refresh_token_issued_at(
     assert persisted["refresh_token_issued_at"] == issued_at, (
         "refresh_token_issued_at must be preserved across access-token refresh"
     )
+
+
+# ─── Review 0015.2: extra coverage requested ────────────────────────────────
+
+
+def test_credentials_from_dict_partial_field_corruption_token_uri_only_missing() -> None:
+    """Realistic hand-edit corruption: two of three required fields
+    present, one missing. Error should still name the specific
+    missing field."""
+    from ergodix.oauth import _credentials_from_dict
+
+    with pytest.raises(ValueError, match="token_uri"):
+        _credentials_from_dict(
+            {
+                "token": "at",
+                "refresh_token": "rt",
+                "client_id": "ci",
+                "client_secret": "cs",
+                # token_uri missing
+            }
+        )
+
+
+def test_credentials_from_dict_happy_path_all_required_present() -> None:
+    """Happy path: all required fields present. No exception, returns
+    a Credentials object."""
+    from ergodix.oauth import _credentials_from_dict
+
+    creds = _credentials_from_dict(
+        {
+            "token": "at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+        }
+    )
+    assert creds is not None
+    assert creds.token == "at"
+
+
+def test_emit_diagnostic_invalid_grant_bucket() -> None:
+    """Direct test of the invalid_grant heuristic bucket."""
+    from ergodix.oauth import _emit_token_exchange_diagnostic
+
+    captured: list[str] = []
+    _emit_token_exchange_diagnostic(
+        RuntimeError("invalid_grant: Token has been expired"),
+        captured.append,
+    )
+    joined = "\n".join(captured).lower()
+    assert "fresh code" in joined or "expire" in joined or "rejected" in joined
+
+
+def test_emit_diagnostic_already_used_phrase_anchored() -> None:
+    """The phrase-anchored bucket catches "already used" but NOT a
+    bare "used" embedded in unrelated text."""
+    from ergodix.oauth import _emit_token_exchange_diagnostic
+
+    captured_phrase: list[str] = []
+    _emit_token_exchange_diagnostic(RuntimeError("OAuth code already used"), captured_phrase.append)
+    assert any("fresh code" in m.lower() or "rejected" in m.lower() for m in captured_phrase)
+
+    captured_unrelated: list[str] = []
+    _emit_token_exchange_diagnostic(
+        RuntimeError("connection failed: address used by another process"),
+        captured_unrelated.append,
+    )
+    joined = "\n".join(captured_unrelated).lower()
+    # Should land in the GENERIC bucket, not the bad-code bucket.
+    assert "rejected" not in joined
+    assert "network" in joined or "credential" in joined or "again" in joined
+
+
+def test_emit_diagnostic_rate_limit_bucket() -> None:
+    from ergodix.oauth import _emit_token_exchange_diagnostic
+
+    for trigger in (
+        "HTTP 429 Too Many Requests",
+        "rate-limited by Google",
+        "quota exceeded for OAuth token endpoint",
+        "too many requests; backoff",
+    ):
+        captured: list[str] = []
+        _emit_token_exchange_diagnostic(RuntimeError(trigger), captured.append)
+        joined = "\n".join(captured).lower()
+        assert (
+            "wait" in joined or "rate" in joined or "60 seconds" in joined or "minute" in joined
+        ), f"trigger {trigger!r} didn't land in rate-limit bucket"
+
+
+def test_emit_diagnostic_generic_bucket_for_unknown_errors() -> None:
+    """Errors that match neither known bucket get the generic message
+    + the raw error text preserved."""
+    from ergodix.oauth import _emit_token_exchange_diagnostic
+
+    captured: list[str] = []
+    _emit_token_exchange_diagnostic(
+        RuntimeError("completely-unknown-network-blip-xyz"), captured.append
+    )
+    joined = "\n".join(captured).lower()
+    assert "completely-unknown-network-blip-xyz" in joined
+    assert any(token in joined for token in ("network", "credential", "again", "fail"))
