@@ -13,7 +13,23 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.3`.)
+(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.4`.)
+
+## [1.63.3] - 2026-05-10
+
+**ADR 0016 — `ergodix index` + `_AI/ergodix.map` locked decisions.** Resolves the 9 open questions Spike 0015 left for ADR resolution. Decision highlights:
+
+1. **Schema** declares `version = 1`; readers refuse unknown versions (matches migrate manifest posture).
+2. **No `kind` field per file** — path + extension carry kind information.
+3. **`mtime` is advisory only**; SHA-256 is authoritative for drift detection.
+4. **Map is tracked in git, not gitignored** — merge conflicts auto-recover by re-running `ergodix index`; audit value outweighs friction.
+5. **Walker factoring deferred to chunk-1 impl** — duplicate the small loop first, refactor to `corpus_walker.py` only when chunks 2–4 show real coupling pressure.
+6. **`--check` exits 1 on drift** (mirrors migrate's exit-code convention).
+7. **First-consumer interface**: downstream tools (Continuity-Engine, Plot-Planner, MCP server) read via a `read_map(path) -> Map` helper, never raw TOML. Helper survives schema evolution.
+8. **Sliced editor repos regenerate locally** — the map is tooling metadata, not corpus content; carrying it would force a filter-to-slice step. Editors run `ergodix index` against their slice after sync-in.
+9. **`_AI/` namespace is project-wide canonical** for AI-emitted artifacts — codifies the implicit convention growing across Continuity-Engine, Plot-Planner, Skill-factory-seal parking-lot stories.
+
+Spike 0015's status updated from "Open" → "Resolved." The active story ([stories/active/ergodix-index.md](stories/active/ergodix-index.md)) now points at ADR 0016 directly. Six-chunk implementation arc is unblocked.
 
 ## [1.63.2] - 2026-05-10
 
