@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.54.0`, next docs PR as `1.53.1`.)
+(Nothing yet — next code PR will land as `1.55.0`, next docs PR as `1.54.1`.)
+
+## [1.54.0] - 2026-05-10
+
+**OAuth review follow-up — finding #4 (rate-limit / token-exchange messaging).** `acquire_oauth_credentials` now wraps `flow.fetch_token(code=code)` in a try/except that classifies common failure modes via heuristics on the error message and emits a friendlier explanation through `output_fn` before re-raising. Three buckets: (1) `invalid_grant` / expired / re-used codes → "codes expire ~10 minutes after issue and can only be used once; run again with a fresh code"; (2) 429 / rate-limited / quota / "too many" → "Google rate-limited the OAuth exchange; wait ~60 seconds and run again"; (3) anything else → generic "re-run; check your network and OAuth client credentials." The exception is preserved (re-raised after the diagnostic) so technical info isn't lost. Closes the third item from the original PR Review 1 pre-migrate checklist (#1, #2, #5, #6 shipped in PR #72; #3 token-age and #7 deserialization-validation remain as deferred non-security UX polish). 3 new tests covering the three buckets. Full suite: 638 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.53.0] - 2026-05-10
 

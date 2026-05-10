@@ -974,3 +974,73 @@ def test_token_file_path_no_warning_when_local_config_clean(
         result = oauth_module._token_file_path()
 
     assert result == custom_path
+
+
+# ─── PR Review 1 follow-up: finding #4 (rate-limit / OAuth-exchange messaging) ─
+
+
+def test_acquire_emits_friendly_message_on_invalid_grant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bad / expired / re-used code raises with `invalid_grant` in
+    the message. Surface a friendlier explanation via output_fn before
+    re-raising."""
+    from ergodix.oauth import acquire_oauth_credentials
+
+    _stub_get_credential(monkeypatch)
+    _, fake_flow = _setup_mock_flow(monkeypatch)
+    fake_flow.fetch_token.side_effect = RuntimeError(
+        "(invalid_grant: Token has been expired or revoked.)"
+    )
+
+    captured: list[str] = []
+    with pytest.raises(RuntimeError, match="invalid_grant"):
+        acquire_oauth_credentials(prompt_fn=lambda _: "bad-code", output_fn=captured.append)
+
+    joined = "\n".join(captured)
+    assert "code" in joined.lower()
+    assert any(token in joined.lower() for token in ("expire", "fresh", "rejected")), (
+        "should explain that codes expire / be fresh"
+    )
+
+
+def test_acquire_emits_friendly_message_on_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Google rate-limit errors look different to the eye but indicate
+    the user needs to wait, not retry immediately."""
+    from ergodix.oauth import acquire_oauth_credentials
+
+    _stub_get_credential(monkeypatch)
+    _, fake_flow = _setup_mock_flow(monkeypatch)
+    fake_flow.fetch_token.side_effect = RuntimeError("HTTP 429 Too Many Requests: rate-limited")
+
+    captured: list[str] = []
+    with pytest.raises(RuntimeError, match="429"):
+        acquire_oauth_credentials(prompt_fn=lambda _: "code", output_fn=captured.append)
+
+    joined = "\n".join(captured).lower()
+    assert "rate" in joined or "wait" in joined
+    assert any(token in joined for token in ("60", "minute", "later"))
+
+
+def test_acquire_emits_generic_message_on_unknown_oauth_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Errors that don't match invalid_grant or rate-limit get a
+    generic 'try again, check network/credentials' message."""
+    from ergodix.oauth import acquire_oauth_credentials
+
+    _stub_get_credential(monkeypatch)
+    _, fake_flow = _setup_mock_flow(monkeypatch)
+    fake_flow.fetch_token.side_effect = RuntimeError("completely-unexpected-network-blip-xyz")
+
+    captured: list[str] = []
+    with pytest.raises(RuntimeError, match="completely-unexpected-network-blip"):
+        acquire_oauth_credentials(prompt_fn=lambda _: "code", output_fn=captured.append)
+
+    joined = "\n".join(captured).lower()
+    assert "completely-unexpected-network-blip" in joined  # raw error preserved
+    assert any(token in joined for token in ("network", "credential", "again", "fail")), (
+        "should suggest a remediation path"
+    )
