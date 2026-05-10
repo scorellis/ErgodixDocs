@@ -102,17 +102,141 @@ def cantilever_cmd(ctx: click.Context) -> None:
     sys.exit(0 if result.outcome in success_outcomes else 1)
 
 
+def _git_config_user_name() -> str | None:
+    """Return ``git config user.name`` or None if git/config unavailable.
+
+    Used as the second-tier fallback for the migrate frontmatter
+    `author` field per ADR 0015 §3 (after `local_config.AUTHOR`).
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "config", "user.name"],  # noqa: S607 — `git` from PATH is the project convention
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    name = result.stdout.strip()
+    return name or None
+
+
+def _read_author_from_local_config() -> str | None:
+    """Read ``AUTHOR`` from local_config.py at cwd, or None if absent.
+
+    Mirrors the defensive shape of
+    ``read_corpus_folder_from_local_config`` — surfaces a value or a
+    None, never raises on a malformed config.
+    """
+    config_path = Path.cwd() / "local_config.py"
+    if not config_path.exists():
+        return None
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_migrate_local_config", config_path)
+    if spec is None or spec.loader is None:
+        return None
+    try:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception:
+        return None
+    author = getattr(module, "AUTHOR", None)
+    if isinstance(author, str) and author.strip():
+        return author.strip()
+    return None
+
+
 @main.command(name="migrate")
 @click.option(
     "--from",
     "from_",
     type=str,
     required=True,
-    help="Importer name (e.g. gdocs, scrivener).",
+    help="Importer name (e.g. gdocs).",
 )
-def migrate_cmd(from_: str) -> None:
-    """Import an existing corpus (ADR 0001). Not yet implemented."""
-    _not_yet_implemented(f"migrate --from {from_}")
+@click.option(
+    "--check",
+    is_flag=True,
+    help="Dry-run: classify what would happen but make no filesystem changes.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Re-process every file regardless of prior runs (mutex with --check).",
+)
+@click.option(
+    "--corpus",
+    "corpus",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the corpus folder. Defaults to CORPUS_FOLDER from local_config.py.",
+)
+@click.option(
+    "--limit",
+    type=int,
+    default=None,
+    help="Process at most N matching files. Useful for early validation runs.",
+)
+def migrate_cmd(
+    from_: str,
+    check: bool,
+    force: bool,
+    corpus: Path | None,
+    limit: int | None,
+) -> None:
+    """Import an existing corpus (ADR 0015 — `ergodix migrate --from <importer>`)."""
+    if check and force:
+        click.echo("error: --check and --force are mutually exclusive.", err=True)
+        sys.exit(2)
+
+    from ergodix.sync_transport import read_corpus_folder_from_local_config
+
+    corpus_root = corpus if corpus is not None else read_corpus_folder_from_local_config()
+    if corpus_root is None:
+        click.echo(
+            "error: no corpus folder configured. "
+            "Set CORPUS_FOLDER in local_config.py or pass --corpus <path>.",
+            err=True,
+        )
+        sys.exit(1)
+
+    author = _read_author_from_local_config() or _git_config_user_name() or ""
+
+    # Importers that need OAuth resolve the service via auth.get_docs_service;
+    # importers that don't (.docx, .txt) ignore the kwarg via their **_kwargs.
+    docs_service: object = None
+    if from_ == "gdocs":
+        from ergodix.auth import get_docs_service
+
+        docs_service = get_docs_service()
+
+    from ergodix.migrate import migrate_run
+
+    result = migrate_run(
+        corpus_root=corpus_root,
+        importer_name=from_,
+        docs_service=docs_service,
+        author=author,
+        force=force,
+        check=check,
+        limit=limit,
+        output_fn=click.echo,
+    )
+
+    counts_str = ", ".join(f"{k}={v}" for k, v in sorted(result.counts.items())) or "(no files)"
+    click.echo(f"migrate run {result.run_id}: {counts_str}")
+    if result.manifest_path is not None:
+        click.echo(f"manifest: {result.manifest_path}")
+
+    failed = result.counts.get("failed", 0)
+    sys.exit(1 if failed > 0 else 0)
 
 
 @main.command(name="render")

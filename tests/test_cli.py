@@ -123,8 +123,8 @@ def test_focus_reader_alone_is_valid(runner: CliRunner) -> None:
     [
         # cantilever is wired (Story 0.11 step 4) — see test_cantilever_*
         # render is wired (Story 0.2) — see tests/test_render.py
-        # status is wired (this PR) — see test_status_* below
-        ("migrate", ["--from", "gdocs"]),
+        # status is wired — see test_status_* below
+        # migrate is wired (chunk 4) — see test_migrate_* below
         ("sync-out", []),
         ("sync-in", []),
         ("publish", ["--editor", "ethan"]),
@@ -381,3 +381,194 @@ def test_python_m_ergodix_cli_help_runs() -> None:
     )
     assert result.returncode == 0
     assert "ergodix" in result.stdout.lower() or "ergodix" in result.stderr.lower()
+
+
+# ─── migrate subcommand (chunk 4 of ADR 0015) ──────────────────────────────
+
+
+def _stub_migrate_run(monkeypatch: pytest.MonkeyPatch, captured: dict) -> None:
+    """Replace `ergodix.migrate.migrate_run` with a stub that records the
+    call and returns a synthetic MigrateResult so we can assert on the
+    CLI's wiring without exercising the real orchestrator."""
+    import ergodix.migrate as migrate_module
+
+    def fake_run(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return migrate_module.MigrateResult(
+            run_id="2026-05-10-120000",
+            manifest_path=Path("/tmp/manifest.toml"),  # noqa: S108
+            counts={"migrated": 2, "skipped": 1},
+            files=(),
+        )
+
+    monkeypatch.setattr(migrate_module, "migrate_run", fake_run)
+
+
+def _stub_get_docs_service(monkeypatch: pytest.MonkeyPatch) -> object:
+    """Stub `ergodix.auth.get_docs_service` so the CLI doesn't trigger
+    OAuth during tests."""
+    sentinel = object()
+    monkeypatch.setattr("ergodix.auth.get_docs_service", lambda **_kwargs: sentinel)
+    return sentinel
+
+
+def _write_local_config(tmp_path: Path, *, corpus: Path, author: str | None = None) -> None:
+    body = "from pathlib import Path\n"
+    body += f"CORPUS_FOLDER = Path('{corpus}')\n"
+    if author is not None:
+        body += f'AUTHOR = "{author}"\n'
+    (tmp_path / "local_config.py").write_text(body, encoding="utf-8")
+
+
+def test_migrate_requires_from_flag(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["migrate"])
+    assert result.exit_code != 0
+    assert "--from" in result.output
+
+
+def test_migrate_check_and_force_are_mutually_exclusive(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_local_config(tmp_path, corpus=tmp_path / "corpus")
+    captured: dict[str, object] = {}
+    _stub_migrate_run(monkeypatch, captured)
+    _stub_get_docs_service(monkeypatch)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs", "--check", "--force"])
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output.lower() or "cannot" in result.output.lower()
+    # migrate_run must not have been called.
+    assert captured == {}
+
+
+def test_migrate_invokes_migrate_run_with_resolved_args(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    corpus = tmp_path / "my-corpus"
+    corpus.mkdir()
+    _write_local_config(tmp_path, corpus=corpus, author="Test Author")
+    captured: dict[str, object] = {}
+    sentinel_service = _stub_get_docs_service(monkeypatch)
+    _stub_migrate_run(monkeypatch, captured)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["importer_name"] == "gdocs"
+    assert captured["corpus_root"] == corpus
+    assert captured["author"] == "Test Author"
+    assert captured["docs_service"] is sentinel_service
+    assert captured["check"] is False
+    assert captured["force"] is False
+    assert captured["limit"] is None
+
+
+def test_migrate_corpus_flag_overrides_local_config(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_corpus = tmp_path / "config-corpus"
+    config_corpus.mkdir()
+    flag_corpus = tmp_path / "flag-corpus"
+    flag_corpus.mkdir()
+    _write_local_config(tmp_path, corpus=config_corpus, author="A")
+    captured: dict[str, object] = {}
+    _stub_get_docs_service(monkeypatch)
+    _stub_migrate_run(monkeypatch, captured)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs", "--corpus", str(flag_corpus)])
+
+    assert result.exit_code == 0, result.output
+    assert captured["corpus_root"] == flag_corpus
+
+
+def test_migrate_passes_check_and_force_and_limit(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_local_config(tmp_path, corpus=tmp_path / "corpus", author="A")
+    captured: dict[str, object] = {}
+    _stub_get_docs_service(monkeypatch)
+    _stub_migrate_run(monkeypatch, captured)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs", "--check", "--limit", "5"])
+    assert result.exit_code == 0, result.output
+    assert captured["check"] is True
+    assert captured["force"] is False
+    assert captured["limit"] == 5
+
+
+def test_migrate_falls_back_to_git_config_user_name_for_author(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    # No AUTHOR in local_config.
+    _write_local_config(tmp_path, corpus=tmp_path / "corpus")
+    captured: dict[str, object] = {}
+    _stub_get_docs_service(monkeypatch)
+    _stub_migrate_run(monkeypatch, captured)
+
+    monkeypatch.setattr("ergodix.cli._git_config_user_name", lambda: "Git User")
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs"])
+    assert result.exit_code == 0, result.output
+    assert captured["author"] == "Git User"
+
+
+def test_migrate_errors_when_corpus_unconfigured(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    # No local_config.py at all.
+    captured: dict[str, object] = {}
+    _stub_get_docs_service(monkeypatch)
+    _stub_migrate_run(monkeypatch, captured)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs"])
+    assert result.exit_code != 0
+    assert "corpus" in result.output.lower()
+    assert captured == {}
+
+
+def test_migrate_prints_summary_counts(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_local_config(tmp_path, corpus=tmp_path / "corpus", author="A")
+    captured: dict[str, object] = {}
+    _stub_get_docs_service(monkeypatch)
+    _stub_migrate_run(monkeypatch, captured)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs"])
+
+    assert result.exit_code == 0, result.output
+    assert "migrated" in result.output.lower()
+    assert "2" in result.output  # the stub returned counts={"migrated": 2, "skipped": 1}
+    assert "1" in result.output
+
+
+def test_migrate_exits_one_when_failures_present(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _write_local_config(tmp_path, corpus=tmp_path / "corpus", author="A")
+    _stub_get_docs_service(monkeypatch)
+
+    import ergodix.migrate as migrate_module
+
+    def fake_run_with_failures(**_kwargs: object) -> object:
+        return migrate_module.MigrateResult(
+            run_id="2026-05-10-120000",
+            manifest_path=Path("/tmp/manifest.toml"),  # noqa: S108
+            counts={"migrated": 1, "failed": 2},
+            files=(),
+        )
+
+    monkeypatch.setattr(migrate_module, "migrate_run", fake_run_with_failures)
+
+    result = runner.invoke(main, ["migrate", "--from", "gdocs"])
+
+    assert result.exit_code == 1
+    assert "failed" in result.output.lower()

@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.51.0`, next docs PR as `1.50.1`.)
+(Nothing yet — next code PR will land as `1.52.0`, next docs PR as `1.51.1`.)
+
+## [1.51.0] - 2026-05-10
+
+**Migrate chunk 4 — CLI wiring.** Replaces the `migrate` stub in `ergodix/cli.py` with the real command per ADR 0015 §6: `ergodix migrate --from <importer> [--check] [--force] [--corpus <path>] [--limit N]`. Resolves `corpus_root` from `--corpus` override or `local_config.CORPUS_FOLDER`; resolves `author` from `local_config.AUTHOR` → `git config user.name` → empty string. For the gdocs importer, calls `auth.get_docs_service()` (which triggers the OAuth dance on first use); ignored kwarg for non-gdocs importers. `--check` and `--force` mutually exclusive. Prints a one-line summary `migrate run <id>: migrated=N, skipped=N, ...` plus the manifest path; exits 1 if any files have status="failed", else 0. The `migrate` row in `test_cli.py`'s "stubs exit with not-yet-implemented" parametrize list is removed; the new `test_migrate_*` tests pin the real surface. 10 new tests covering `--from` required, `--check`/`--force` mutex, arg-resolution wiring, `--corpus` override, `--check`/`--force`/`--limit` plumbing, AUTHOR fallback to `git config`, error when corpus unconfigured, summary output, exit-1 on failures.
 
 ## [1.50.0] - 2026-05-10
 
