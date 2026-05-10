@@ -26,11 +26,16 @@ The repository hosts the tooling and non-sensitive planning docs. Creative sourc
 
 ## Reviews
 
-Copilot PR reviews are collected in:
+External PR reviews (Copilot, ChatGPT, human peers — reviewer-agnostic) are collected in `reviews/` using ADR-scoped filenames:
 
-- [reviews/copilot-pr-reviews.md](reviews/copilot-pr-reviews.md)
+- [reviews/0013.external-review.md](reviews/0013.external-review.md)
 
-This file is append-only by convention: each review lands under its own heading so historical findings stay easy to audit.
+If multiple PRs map to the same ADR, use suffixes:
+
+- `reviews/0015.1.external-review.md`
+- `reviews/0015.2.external-review.md`
+
+Reviews with open security findings are held until the corresponding fixes ship — published alongside the follow-up PR rather than ahead of it.
 
 ## AI Boundaries — Prose Is Human-Written
 

@@ -11,6 +11,8 @@ Versioning policy (post-2026-05-10): **`1.MINOR.PATCH`**.
 
 This intentionally departs from strict SemVer. Project progress is best read through merged increments rather than API stability — the API isn't stable yet, and won't be for a while. Earlier `0.1.0` policy (1.0 = migrate + render + Sprint 1 story end-to-end) is superseded; that milestone now corresponds to a tagged feature line, not a major version bump.
 
+## [Unreleased]
+
 (Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.2`.)
 
 ## [1.49.1] - 2026-05-10
@@ -19,7 +21,7 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 Incorporates two findings from the Copilot review of this PR (see [reviews/copilot-pr-reviews.md](reviews/copilot-pr-reviews.md) §"PR Review 2"): C.2 gains an explicit *Threat-model honesty* paragraph clarifying that Approach 1 is tamper-evident under a trusted distribution channel and **does not** resist a local attacker with write access to both ergodites and manifest — adversarial resistance starts at Approach 2. Open-questions numbering renumbered monotonically (1-8 ADR-X1, 9-13 ADR-X2, 14-18 ADR-X3, 19-20 cross-cutting) so cross-references in future ADRs aren't ambiguous.
 
-**Reviews convention.** Adds `reviews/copilot-pr-reviews.md` as the append-only collection point for Copilot PR reviews; CLAUDE.md gains a rule directing future reviews into the same file (each under its own heading) instead of one-off review files; README.md gains a §Reviews pointer. First two reviews already collected: PR #62-#64 OAuth security review (no blocking findings; four medium/low improvements queued for follow-up) and PR #71 spike-amendment review (both findings addressed in this same PR).
+**Reviews convention.** Adds a `reviews/` folder with ADR-scoped filenames (`NNNN.external-review.md`, optionally `NNNN.X.external-review.md` when multiple PRs map to the same ADR). Reviewer-agnostic — Copilot, ChatGPT, human peers all land in the same scheme. CLAUDE.md gains the rule; README.md gains a §Reviews pointer. First review committed: `reviews/0013.external-review.md` (this PR's review). The OAuth security review (`reviews/0015.external-review.md`) is `.gitignore`d for now: it enumerates 7 low/medium findings against `ergodix/oauth.py` / `ergodix/auth.py`, and publishing it before the queued follow-ups merge would hand attackers a code-path roadmap. Will commit alongside the follow-up PR that closes the findings.
 
 ## [1.49.0] - 2026-05-10
 
