@@ -47,10 +47,3 @@ htmlcov/
 # Claude Code session logs (PreToolUse hook output — local backtrack only,
 # never committed). See .claude/hooks/log-bash.sh.
 ai.bashcommands.log
-
-# Reviews held until the corresponding fixes ship. The OAuth security review
-# enumerates 7 low/medium findings against ergodix/oauth.py and ergodix/auth.py;
-# publishing it before the queued follow-ups merge would hand attackers a
-# specific code-path roadmap. When those fixes land, drop this line and
-# commit the file alongside the follow-up PR.
-reviews/0015.external-review.md

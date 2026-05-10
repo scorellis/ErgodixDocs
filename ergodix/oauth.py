@@ -32,6 +32,7 @@ import contextlib
 import errno
 import json
 import os
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -45,8 +46,12 @@ def _token_file_path() -> Path:
     ``local_config.py`` at cwd if defined; falls back to
     ``<cwd>/.ergodix_tokens.json``.
 
-    Defensive: import errors / missing field → fallback. Tests use
-    ``monkeypatch.chdir`` to control the resolved path.
+    A broken ``local_config.py`` (syntax error, import failure, etc.)
+    no longer falls back silently — we emit a ``UserWarning`` so the
+    user can see they have a config they wanted to honor that we
+    couldn't load. The fallback path is still returned so OAuth doesn't
+    refuse to start over a broken config; the verify phase is the loud
+    surface for the deeper "fix your config" workflow.
     """
     config_path = Path.cwd() / "local_config.py"
     if config_path.exists():
@@ -54,13 +59,21 @@ def _token_file_path() -> Path:
 
         spec = importlib.util.spec_from_file_location("_oauth_local_config", config_path)
         if spec is not None and spec.loader is not None:
-            # Defensive: any failure (syntax error, missing import, etc.)
-            # falls back to the default. Don't crash OAuth startup over
-            # a broken local_config.py — the verify phase is the loud
-            # surface for config validation.
-            with contextlib.suppress(Exception):
+            try:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
+            except Exception as exc:
+                warnings.warn(
+                    (
+                        f"local_config.py at {config_path} could not be loaded "
+                        f"({type(exc).__name__}: {exc}); falling back to default "
+                        f"token file path. Any TOKEN_FILE override in local_config.py "
+                        f"is being ignored until you fix the file."
+                    ),
+                    UserWarning,
+                    stacklevel=2,
+                )
+            else:
                 token_file = getattr(module, "TOKEN_FILE", None)
                 if isinstance(token_file, Path):
                     return token_file
@@ -136,7 +149,20 @@ def save_oauth_tokens(tokens: dict[str, Any]) -> None:
     """
     path = _token_file_path()
     parent = path.parent
-    parent.mkdir(parents=True, exist_ok=True)
+    # When we have to create the parent ourselves, apply mode 0o700 to
+    # the leaf at creation time — `mode=` on `Path.mkdir` only affects
+    # newly-created leaves (existing dirs are untouched even with
+    # exist_ok=True). That way fresh installs sail through; a
+    # pre-existing parent is left alone and validated on the next line.
+    parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+    # Mirror the load-side check: a 0o755 parent silently undermines the
+    # file's 0o600 invariant. C5 (cantilever prereq) ensures
+    # ``~/.config/ergodix/`` is mode 0o700, but if save_oauth_tokens()
+    # runs against a different pre-existing parent (a sibling repo, an
+    # ad-hoc test, a hand-edited deploy), we want the failure loud
+    # rather than a quiet false-secure write. PR Review 1 finding #5.
+    _check_parent_dir_mode(parent)
 
     # Write atomically: tmp file with mode 600, then rename into place.
     # The rename is atomic on POSIX so an interrupted save can't leave
@@ -324,6 +350,39 @@ def acquire_oauth_credentials(
     return _credentials_to_dict(flow.credentials)
 
 
+def _client_id_matches_config(creds: Credentials, output_fn: OutputFn) -> bool:
+    """Return True if ``creds.client_id`` matches the current config's
+    ``google_oauth_client_id``, else False.
+
+    On mismatch, emits a clear message via ``output_fn`` so the user
+    sees that their token is being thrown away because their OAuth
+    client credentials rotated. PR Review 1 finding #2.
+
+    Returns True (assume match, proceed normally) when the current
+    config can't be read — ``get_credential`` raising RuntimeError
+    means C6 hasn't run, or the keyring is unreachable, and the
+    downstream flow will surface that as a clearer error.
+    """
+    try:
+        from ergodix.auth import get_credential
+
+        current_client_id = get_credential("google_oauth_client_id")
+    except RuntimeError:
+        return True
+
+    if not current_client_id or not creds.client_id:
+        return True
+    if creds.client_id == current_client_id:
+        return True
+
+    output_fn(
+        f"OAuth client ID changed (token was issued for '{creds.client_id}', "
+        f"current config is '{current_client_id}'). Clearing stale tokens and "
+        f"re-authenticating with the new client."
+    )
+    return False
+
+
 def load_or_acquire_credentials(
     *,
     prompt_fn: PromptFn = input,
@@ -334,12 +393,18 @@ def load_or_acquire_credentials(
     Decision tree:
       1. Try ``load_oauth_tokens()``. If a token file exists:
          - Reconstruct ``Credentials`` from it.
+         - **Client-ID consistency check** (PR Review 1 #2): if the
+           token's client_id doesn't match the current configured
+           ``google_oauth_client_id``, the refresh is doomed — clear
+           and fall through to acquire.
          - If the access token is still valid, return it.
          - If expired but a refresh token is present, attempt
            ``creds.refresh(Request())``. On success, persist the
            refreshed creds + return.
          - On refresh failure (token revoked, network unreachable,
-           etc.), clear the stale file and fall through to step 2.
+           etc.), surface the underlying error via ``output_fn``
+           (PR Review 1 #1), clear the stale file, fall through to
+           acquire.
       2. No usable token on disk → run ``acquire_oauth_credentials``
          (the paste-the-code dance), persist the result, return.
 
@@ -353,21 +418,31 @@ def load_or_acquire_credentials(
     tokens = load_oauth_tokens()
     if tokens is not None:
         creds = _credentials_from_dict(tokens)
-        if creds.valid:
-            return creds
-        if creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())  # type: ignore[no-untyped-call]
-            except RefreshError:
-                # Refresh token was revoked or otherwise invalid. Clear
-                # the stale file so the fall-through to acquire writes
-                # a clean replacement.
-                clear_oauth_tokens()
-            else:
-                # Refresh succeeded — persist the new access token +
-                # any updated expiry the server returned.
-                save_oauth_tokens(_credentials_to_dict(creds))
+        if not _client_id_matches_config(creds, output_fn):
+            # Stale tokens — issued for a different OAuth client than
+            # the one currently configured. Clear and fall through.
+            clear_oauth_tokens()
+        else:
+            if creds.valid:
                 return creds
+            if creds.expired and creds.refresh_token:
+                try:
+                    creds.refresh(Request())  # type: ignore[no-untyped-call]
+                except RefreshError as exc:
+                    # Surface the underlying error so the user knows why
+                    # they're being re-prompted, instead of seeing a
+                    # silent restart of the OAuth dance.
+                    output_fn(
+                        f"Refresh token couldn't be used (Google reports: {exc}). "
+                        f"Re-authenticating. If this persists, check your network "
+                        f"and that your OAuth client credentials are still valid."
+                    )
+                    clear_oauth_tokens()
+                else:
+                    # Refresh succeeded — persist the new access token +
+                    # any updated expiry the server returned.
+                    save_oauth_tokens(_credentials_to_dict(creds))
+                    return creds
 
     new_tokens = acquire_oauth_credentials(prompt_fn=prompt_fn, output_fn=output_fn)
     save_oauth_tokens(new_tokens)
