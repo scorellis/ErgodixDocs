@@ -13,7 +13,22 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.50.0`, next docs PR as `1.49.2`.)
+(Nothing yet — next code PR will land as `1.51.0`, next docs PR as `1.50.1`.)
+
+## [1.50.0] - 2026-05-10
+
+**OAuth security review — follow-up fixes (PR Review 1, findings #1, #2, #5, #6).** Closes the four pre-migrate-checklist items from the external review of chunks 1a/1b/1c. Specifically:
+
+- **#1 (Medium): RefreshError messaging.** `load_or_acquire_credentials` now surfaces the underlying `RefreshError` via `output_fn` before clearing tokens and re-acquiring, so the user sees *why* re-auth is happening instead of a silent silent re-prompt.
+- **#2 (Low): Client-ID consistency check.** New helper `_client_id_matches_config` runs before any refresh attempt: if the token's `client_id` doesn't match the current `google_oauth_client_id` from the credential store (i.e. the user rotated their OAuth client), tokens are cleared immediately with a clear message rather than burning a refresh attempt that's guaranteed to fail. Skipped gracefully when the credential isn't set yet (lets downstream flow handle it).
+- **#5 (Low): Parent-dir mode safety net in `save_oauth_tokens`.** Mirrors the load-side check: parent dir is created at mode 0o700 when missing, and `_check_parent_dir_mode` is invoked after to reject any pre-existing parent at loose perms (the file's 0o600 invariant is meaningless when the parent is 0o755).
+- **#6 (Low): Broken local_config.py warning.** `_token_file_path` no longer silently swallows import errors — broken `local_config.py` now emits a `UserWarning` so the user sees their `TOKEN_FILE` override is being ignored.
+
+The three remaining findings (#3 token-age check, #4 OAuth rate-limit handling, #7 lenient deserialization validation) are non-security UX/robustness improvements deferred to a future polish pass.
+
+**Reviews convention follow-through.** With the four security findings closed, the OAuth review is now safe to publish: `reviews/0015.external-review.md` is removed from `.gitignore` (line dropped, since #71 added it) and committed alongside the fixes.
+
+7 new tests covering all four fixes (RefreshError messaging path, client_id mismatch path, client_id-skip path when config unset, save with loose parent, warn on broken local_config, no-warn on clean local_config). Full suite: 594 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.49.1] - 2026-05-10
 

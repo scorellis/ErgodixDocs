@@ -740,3 +740,237 @@ def test_load_or_acquire_runs_full_flow_when_no_tokens_on_disk(
     # File was created with the acquired tokens
     persisted = load_oauth_tokens()
     assert persisted == new_token_dict
+
+
+# ─── PR Review 1 follow-ups (Findings 1, 2, 5, 6) ──────────────────────────
+
+
+def test_load_or_acquire_explains_refresh_failure_via_output_fn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Finding 1 (Medium): on RefreshError, the user previously got
+    silently re-prompted. Now we surface the underlying error via
+    output_fn so the user understands why re-auth is happening."""
+    from google.auth.exceptions import RefreshError
+
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+    save_oauth_tokens(
+        {
+            "token": "stale-at",
+            "refresh_token": "revoked-rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = False
+    fake_creds.expired = True
+    fake_creds.refresh_token = "revoked-rt"
+    fake_creds.client_id = "ci"
+    fake_creds.refresh.side_effect = RefreshError(
+        "invalid_grant: Token has been expired or revoked."
+    )
+
+    new_token_dict = {
+        "token": "fresh-at",
+        "refresh_token": "fresh-rt",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": "ci",
+        "client_secret": "cs",
+        "scopes": ["scope-a"],
+        "expiry": None,
+    }
+    rebuilt = MagicMock()
+
+    def from_dict(data: Any) -> Any:
+        return rebuilt if data == new_token_dict else fake_creds
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", from_dict)
+    monkeypatch.setattr(oauth_module, "acquire_oauth_credentials", lambda **_kwargs: new_token_dict)
+
+    captured: list[str] = []
+    load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=captured.append)
+
+    joined = "\n".join(captured)
+    assert "Refresh token couldn't be used" in joined
+    assert "invalid_grant" in joined
+    assert "Re-authenticating" in joined
+
+
+def test_load_or_acquire_clears_stale_tokens_on_client_id_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Finding 2 (Low): if the OAuth client_id in the token file doesn't
+    match the current config (user rotated GCP credentials), the
+    refresh token is useless. Clear immediately, surface a clear
+    message, run acquire — don't burn a refresh attempt that's
+    guaranteed to fail."""
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+    save_oauth_tokens(
+        {
+            "token": "stale-at",
+            "refresh_token": "old-rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "old-ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True  # Even valid tokens shouldn't be returned on mismatch.
+    fake_creds.client_id = "old-ci"
+
+    new_token_dict = {
+        "token": "fresh-at",
+        "refresh_token": "fresh-rt",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": "new-ci",
+        "client_secret": "cs",
+        "scopes": ["scope-a"],
+        "expiry": None,
+    }
+    rebuilt = MagicMock()
+
+    def from_dict(data: Any) -> Any:
+        return rebuilt if data == new_token_dict else fake_creds
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", from_dict)
+    monkeypatch.setattr(oauth_module, "acquire_oauth_credentials", lambda **_kwargs: new_token_dict)
+    # The current config says client_id is "new-ci" — mismatch with token's "old-ci".
+    monkeypatch.setattr(
+        "ergodix.auth.get_credential",
+        lambda name: "new-ci" if name == "google_oauth_client_id" else "x",
+    )
+
+    captured: list[str] = []
+    result = load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=captured.append)
+
+    # Stale tokens cleared, fresh acquire ran, fresh creds returned.
+    assert result is rebuilt
+    joined = "\n".join(captured)
+    assert "client" in joined.lower()
+    assert "id" in joined.lower()
+    assert "old-ci" in joined
+    assert "new-ci" in joined
+
+
+def test_load_or_acquire_skips_client_id_check_when_config_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If `get_credential` raises (no client_id in keyring/config), the
+    consistency check can't run — proceed normally and let any
+    downstream refresh failure handle the problem."""
+    import ergodix.oauth as oauth_module
+    from ergodix.oauth import load_or_acquire_credentials, save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o700)
+    save_oauth_tokens(
+        {
+            "token": "valid-at",
+            "refresh_token": "rt",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "client_id": "ci",
+            "client_secret": "cs",
+            "scopes": ["scope-a"],
+            "expiry": None,
+        }
+    )
+
+    fake_creds = MagicMock()
+    fake_creds.valid = True
+    fake_creds.client_id = "ci"
+
+    monkeypatch.setattr(oauth_module, "_credentials_from_dict", lambda _data: fake_creds)
+
+    def raise_runtime(name: str) -> str:
+        raise RuntimeError(f"No credential found for {name!r}.")
+
+    monkeypatch.setattr("ergodix.auth.get_credential", raise_runtime)
+
+    # Should not raise; should not call acquire; should return the loaded creds.
+    result = load_or_acquire_credentials(prompt_fn=lambda _: "x", output_fn=lambda _: None)
+    assert result is fake_creds
+
+
+def test_save_rejects_loose_parent_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Finding 5 (Low): save_oauth_tokens previously created the parent
+    dir but didn't check its mode. A 0o755 parent silently undermines
+    the file's 0o600 invariant. Now mirrors the load-side check and
+    raises with a clear remediation."""
+    from ergodix.oauth import save_oauth_tokens
+
+    monkeypatch.chdir(tmp_path)
+    tmp_path.chmod(0o755)  # Loose parent
+
+    with pytest.raises(PermissionError, match="loose permissions"):
+        save_oauth_tokens(
+            {
+                "token": "x",
+                "refresh_token": "y",
+                "token_uri": "z",
+                "client_id": "a",
+                "client_secret": "b",
+                "scopes": [],
+                "expiry": None,
+            }
+        )
+
+    # Make sure no token file was created with bad-mode parent.
+    assert not (tmp_path / ".ergodix_tokens.json").exists()
+
+
+def test_token_file_path_warns_when_local_config_is_broken(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Finding 6 (Low): a broken local_config.py previously caused a
+    silent fallback to <cwd>/.ergodix_tokens.json — meaning the user's
+    intended TOKEN_FILE override was ignored without warning. Now emit
+    a warning so --verbose / pytest can surface the problem."""
+    import ergodix.oauth as oauth_module
+
+    monkeypatch.chdir(tmp_path)
+    # Syntax error in local_config.py — should not crash but should warn.
+    (tmp_path / "local_config.py").write_text("THIS IS NOT VALID PYTHON =\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="local_config"):
+        result = oauth_module._token_file_path()
+
+    # Falls back to default location.
+    assert result == tmp_path / ".ergodix_tokens.json"
+
+
+def test_token_file_path_no_warning_when_local_config_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A valid local_config.py with TOKEN_FILE set should not warn."""
+    import warnings
+
+    import ergodix.oauth as oauth_module
+
+    monkeypatch.chdir(tmp_path)
+    custom_path = tmp_path / "custom-tokens.json"
+    (tmp_path / "local_config.py").write_text(
+        f"from pathlib import Path\nTOKEN_FILE = Path('{custom_path}')\n",
+        encoding="utf-8",
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # Any warning becomes an error
+        result = oauth_module._token_file_path()
+
+    assert result == custom_path
