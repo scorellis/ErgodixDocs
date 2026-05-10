@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.55.0`, next docs PR as `1.54.1`.)
+(Nothing yet — next code PR will land as `1.56.0`, next docs PR as `1.55.1`.)
+
+## [1.55.0] - 2026-05-10
+
+**Migrate chunk 6 — embedded image extraction (docx; gdocs deferred).** First slice of ADR 0015 §3 image handling. The `docx` importer now extracts every embedded image part to `<corpus>/<chapter parent>/_media/<chapter slug>/img-NNN.<ext>` (zero-padded sequential numbering, extension preserved from the original part) and appends `![](filename)` references to the rendered Markdown body. The orchestrator computes `media_dir = corpus_root / target_rel.parent / "_media" / target_rel.stem` per chapter and passes it to `importer.extract`; `--check` (dry-run) skips the dir entirely. The `gdocs` importer accepts `media_dir` for orchestrator-call-shape parity but doesn't yet fetch image bytes — the Docs API inline-image flow needs a Drive API auth path + contentUri fetch that's its own follow-up. Inline images in `.gdoc` sources are silently skipped in v1; the body content (paragraphs, headings, formatting, lists) extracts unchanged. Image references appear as a trailing block at the end of the markdown rather than positioned inline (python-docx's public API doesn't surface inline image positions cleanly without walking OOXML; v1 ships bytes + complete reference list, polish pass repositions). 3 new tests covering: image bytes written to media_dir, no media_dir = no extraction (dry-run safe), multiple distinct images get sequential filenames. Full suite: 641 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.54.0] - 2026-05-10
 

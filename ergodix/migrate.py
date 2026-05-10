@@ -579,9 +579,24 @@ def migrate_run(
     processed: list[ManifestEntry] = []
 
     for entry in eligible:
+        # Compute media_dir per ADR 0015 §3 — `_media/<chapter-slug>/`
+        # next to the chapter target. Importers that extract images
+        # (currently `docx`) save bytes there; importers that don't yet
+        # support image fetching (`gdocs` in v1) accept the kwarg and
+        # ignore it. None on `--check` so dry-run never creates dirs.
+        target_rel_for_media = build_target_path(entry.relative_path)
+        media_dir = (
+            None
+            if check
+            else corpus_root / target_rel_for_media.parent / "_media" / target_rel_for_media.stem
+        )
         # Phase 1: extract.
         try:
-            markdown = importer.extract(entry.source_path, docs_service=docs_service)
+            markdown = importer.extract(
+                entry.source_path,
+                docs_service=docs_service,
+                media_dir=media_dir,
+            )
         except Exception as exc:
             processed.append(
                 ManifestEntry(
