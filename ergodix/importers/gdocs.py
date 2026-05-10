@@ -203,7 +203,13 @@ def _render_text_run(text_run: dict[str, Any]) -> str:
 # ─── Public extractor ──────────────────────────────────────────────────────
 
 
-def extract(path: Path, *, docs_service: Any | None = None) -> str:
+def extract(
+    path: Path,
+    *,
+    docs_service: Any | None = None,
+    media_dir: Path | None = None,  # accepted for orchestrator parity; image fetching not yet wired
+    **_kwargs: Any,
+) -> str:
     """Fetch the Doc referenced by ``path`` and return Pandoc-Markdown.
 
     ``docs_service`` is a googleapiclient ``Resource`` for the Docs API.
@@ -211,6 +217,12 @@ def extract(path: Path, *, docs_service: Any | None = None) -> str:
     the OAuth dance on first use. Callers in tests pass an explicit
     mock; the migrate walker passes the long-lived service it built once
     per run.
+
+    ``media_dir`` is accepted for orchestrator-call-shape parity with
+    `docx.extract` (chunk 6) but image extraction over the Docs API
+    is **not yet wired** in v1 — Docs API inline images need a Drive
+    API auth flow + contentUri fetch that's its own polish chunk.
+    Inline images in the source doc are silently skipped for now.
     """
     doc_id = parse_gdoc_pointer(path)
     if docs_service is None:
