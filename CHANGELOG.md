@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.60.0`, next docs PR as `1.59.1`.)
+(Nothing yet — next code PR will land as `1.60.0`, next docs PR as `1.59.2`.)
+
+## [1.59.1] - 2026-05-10
+
+**`ai.summary.md` refresh — end-of-day 2026-05-10 checkpoint.** Replaces the 2026-05-09 (Story 0.11 closure) snapshot with the current state. Captures: migrate arc feature-complete (chunks 1-7 + 6b), OAuth security review backlog at 0 open findings, ~22 PRs merged today, two external reviews completed (0015 + 0015.2), versioning and reviews conventions established, branch-stacking discipline established, three remembered gotchas (GitHub stacked-PR base auto-retarget unreliable; force-push sandbox-blocked; zsh `interactivecomments` OFF means no `#` lines in paste blocks). v1.0.0 milestone (per the original CLAUDE.md bar: migrate + render + Sprint 1 story end-to-end) is ~85% — migrate ✅, render ✅, Sprint 1 story is the next major arc (likely starting move: `ergodix index` + `_AI/ergodix.map`).
 
 ## [1.59.0] - 2026-05-10
 
