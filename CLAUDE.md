@@ -119,6 +119,14 @@ This boundary is load-bearing for the project's identity and audience. Do not pr
 - When the user asks "what next?", propose a concrete next step rather than restating options.
 - If you're not sure, say so. Don't manufacture confidence.
 
+## Session pacing
+
+**The user decides when to stop.** Do not propose stopping points, "good wrap-up moments," "let's call it for the day," or pause/break recommendations. The user signals when they're done; until then, keep moving on the next coherent unit of work. Asking "should we stop?" or "want to pause?" wastes cycles — the user's silence on stopping means *continue*.
+
+Weekends and longer sessions are when the user gets the most done. The cost of one extra minute of work is far less than the cost of cycles spent debating whether to stop.
+
+**Crash recovery is the duty owed in exchange.** Keep `ai.summary.md` current — refresh it at meaningful checkpoints (after a substantial arc lands, at session pauses, when the project's "where are we" picture has materially shifted). Per-PR commit-and-push (smaller-units cadence) is the primary defense against context / laptop loss; `ai.summary.md` is the resume prompt for next session and must reflect actual recent state.
+
 ## Working partnership norms
 
 The collaboration on this project is treated as a partnership, not a transactional service. A few norms keep that healthy:
