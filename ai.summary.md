@@ -1,6 +1,6 @@
 # AI Session Summary
 
-## 2026-05-09 (Saturday — Story 0.11 closed at 100%)
+## 2026-05-10 (Sunday — migrate arc complete; OAuth review backlog closed)
 
 ### Prompt To Resume Conversation
 
@@ -10,93 +10,81 @@ You are an AI in the ErgodixDocs workspace. Continue from this saved state.
 - ErgodixDocs is a tool for any author who writes Ergodic-text fiction. AI as architectural co-author + continuity engine.
 - AI's permitted on-corpus actions are a **closed list** per [ADR 0013](adrs/0013-ai-permitted-actions-boundary.md): mechanical correction, chapter scoring, interview-aligned structural analysis, suggestion-only craft advice. Everything else is barred. **The author is always at the keyboard for creative work.**
 
-**Architecture phase complete.** ADRs 0001–0014 + Spikes 0001–0011 merged on `main`. Don't revisit unless explicitly asked.
+**Architecture phase complete.** ADRs 0001–0015 + Spikes 0001–0014 merged on `main`. Don't revisit unless explicitly asked.
 
 **License:** PolyForm Strict 1.0.0 (source-available; commercial use requires separate license from scorellis@gmail.com). Repo public.
 
-**Branch model:** trunk-based.
+**Branch model:** trunk-based. **Stack PRs linearly** when working in sequence — branch off the previous feature branch (not main) so VERSION conflicts don't accumulate. Single-engineer workflow.
 
 **Cadence rules (CLAUDE.md):**
-- **Smaller-units-per-PR** — every coherent unit ships immediately for crash recovery.
-- **Pause-after-each-PR** (added 2026-05-09 after a conflict cascade) — ship one PR, post the summary, stop. User merging or saying "next" is the continuation signal.
+- **Smaller-units-per-PR** — every coherent unit ships immediately.
+- **Pause-after-each-PR** — ship one PR, post the summary, stop. User merging or saying "next" is the continuation signal.
 - **Session pacing** — user decides when to stop. AI never proposes stopping points.
 
 **Author identity:** Scott R. Ellis. (`scorellis` is an abbreviated GitHub handle.)
 
-### Today's arc — 2026-05-09 (18 PRs merged in one day)
+**Versioning policy** (locked 2026-05-10, see `CHANGELOG.md` header): **`1.MINOR.PATCH`** — MINOR = cumulative count of merged code PRs, PATCH = doc-only PRs since the most recent code PR. Not strict SemVer. Each PR includes its own bump in the same commit so drift doesn't recur.
+
+**Reviews convention** (locked 2026-05-10): external PR reviews (Copilot, ChatGPT, human peer — reviewer-agnostic) live in `reviews/NNNN.external-review.md` (or `NNNN.X.external-review.md` for multiple reviews of the same ADR). Security reviews with open findings are held until fixes ship.
+
+### Today's arc — 2026-05-10 (≈22 PRs across the day)
 
 By topic:
-- **Architecture / docs**: Spike 0010 (UserWritingPreferencesInterview), Spike 0011 (sync transport + settings cascade), ADR 0013 (AI permitted-actions), ADR 0014 (sync transport + settings cascade), three new parking-lot stories (Devil's Toolbox, ergodix index, Skill factory-seal), CLAUDE.md additions (§Security review cadence, §Session pacing including pause-after-PR rule).
-- **Implementation — sync transport arc**: settings cascade scaffolding (defaults.toml + bootstrap.toml + future floaters/), `ergodix/sync_transport.py`, B1 conditional on indy mode, B2 corpus-path validation.
-- **Implementation — verify + status arc**: A5 (Python venv) + A6 (runtime packages) verify stubs, `ergodix status` real CLI command, E1 cantilever verify check (status exits 0), E2 persona-tailored "you're done" message.
-- **Implementation — D-tier**: C6 credential prompts (configure phase), D3 dev dependencies, D4 branch tracking, D6 editor signing key (verify-only).
-- **Security**: 0001 (TOCTOU+symlink) patched late last night; 0002 (parent-dir mode) + 0003 (migrate type validation) patched this morning. **Open security findings: 0.**
-- **Settings**: `.claude/settings.json` cleanup — `git branch -d/-D *` allowed for routine cleanup.
+- **Migrate arc — feature-complete.** Chunks 1-7 plus chunk 6b (gdocs image extraction) per ADR 0015 all merged on main. `ergodix migrate --from gdocs` works end-to-end with: OAuth paste-the-code flow + token persistence (chunks 1a/1b/1c), importer registry (chunk 2), corpus walker + manifest TOML + archive (chunks 3a/3b/3c), CLI wiring (chunk 4), `.docx` importer (chunk 5), embedded image extraction for both gdocs and docx (chunk 6 + 6b), and `examples/migrate-fixture/` for hermetic e2e tests (chunk 7).
+- **OAuth security review — backlog at 0 open findings.** All 7 findings from `reviews/0015.external-review.md` closed: #1 RefreshError messaging, #2 client_id consistency, #3 token-age tracking + staleness warning, #4 rate-limit / token-exchange messaging, #5 parent-dir mode safety net, #6 broken-local_config warning, #7 deserialization validation.
+- **Architecture — designed but parking-lot:** Spike 0012 (migrate-from-gdocs design), Spike 0013 (style sentinel + authorship certificate + ergodites + education-mode extension), Spike 0013 amendment (ergodites naming locked + integrity sub-section), Spike 0014 (form-analyzer ergodite). ADR 0015 (migrate locked).
+- **Two external reviews completed:** `reviews/0015.external-review.md` (chunks 1a-1c OAuth security) and `reviews/0015.2.external-review.md` (PRs #73-#77 + chunk 6/6b/oauth-backlog). All medium and low findings addressed; **0 critical, 0 open**.
+- **Versioning + reviews conventions** established mid-day: 1.MINOR.PATCH PR-cadence-based, reviews in `reviews/NNNN.external-review.md`.
+- **Branch-stacking discipline established:** linear chain (`main → branch-A → branch-B → branch-C`) is the default for sequential work. Sibling branches off main caused VERSION-conflict cascades earlier in the day.
 
-### Story 0.11 status — **CLOSED at 100% on 2026-05-09**
+### Status — where the project is now
 
-**24 of 24 prereqs registered.** All ADR 0003 prereq ops (A1–A7, B1–B2, C1–C6, D1–D6, E1–E2, F1–F2) have homes in the codebase. Cantilever's five phases per ADR 0012 (inspect → plan + consent → apply → configure → verify) are functionally complete.
+**Story 0.2 (canonical repo format + migrate):**
+- Format locked (Pandoc Markdown + raw LaTeX, YAML frontmatter) in earlier ADRs.
+- Migrate **feature-complete** end-to-end. `ergodix migrate --from gdocs --check --corpus <path>` is callable.
 
-**Real install actions** (mutative apply): A1 platform, A2 homebrew, A3 pandoc, A4 mactex, A7 vscode, B1 drive_desktop, C1 gh_auth, C3 git_config (configure phase), C4 local_config, C5 credential_store, C6 credential_prompts (configure phase).
+**Story 0.3 (auth):** OAuth flow real, token persistence secure (mode 0o600, parent dir 0o700, O_NOFOLLOW, fstat, atomic tmp+rename, paste-the-code dance). Refresh-token age tracking with staleness warning at 90 days.
 
-**Verify-only stubs** (apply is no-op; full install defers to follow-on commands): A5 venv, A6 packages, B2 corpus_path, C2 corpus_clone, D1 vscode_task, D2 prose_linter_hook, D3 dev_dependencies, D4 branch_tracking, D5 launchagent_poller, D6 editor_signing_key.
+**Story 0.11 (cantilever installer):** Closed at 100% on 2026-05-09. All A1-F2 prereqs registered.
 
-**Orchestrator-level concerns**: F1 connectivity + settings cascade, F2 run-record (JSONL append), E1 verify smoke (`ergodix status` exits 0), E2 persona-tailored done message.
+**Render:** Already working (Pandoc → XeLaTeX → PDF).
 
-**Follow-on commands implied by stub deferrals** (for future stories):
-- `ergodix opus clone` (drives C2's full install)
-- `ergodix opus init` (creates a fresh corpus folder + repo)
-- `ergodix vscode init` (drives D1)
-- `ergodix lint init` (drives D2 once Phil-trained linter ships)
-- `ergodix poller init` (drives D5 once `ergodix sync-in` is real)
-- `ergodix editor init` (drives D6's full keygen + gh scope refresh + git config flow)
-- `ergodix sync-in` / `ergodix sync-out` (real implementations; currently CLI stubs)
+**Sprint 1 features (Plot-Planner, Continuity-Engine, ergodix index, scoring):** Not started. **Next major arc.** All depend on migrate landing — which it now has.
 
-### Cantilever phases A–F (all complete)
-
-- **Phase A (system tools)**: A1–A7 all registered.
-- **Phase B (Drive/corpus)**: B1 conditional on indy mode, B2 dispatches on detected sync transport.
-- **Phase C (auth/repo scaffolding)**: C1–C6 all registered.
-- **Phase D (persona extras)**: D1–D6 all registered (D3 has real apply; rest are verify-only stubs deferring to follow-on commands).
-- **Phase E (verify + done)**: E1 (verify smoke = `ergodix status` exits 0) + E2 (persona-tailored done message).
-- **Phase F (orchestrator-level)**: F1 connectivity + settings, F2 run-record.
+**Tests:** 667 passing, 1 skipped (forward-looking PEP 440 gate). 88% coverage. ruff + format + `mypy --strict` clean.
 
 ### Open security findings
 
-**0.** All three (0001, 0002, 0003) closed via the CLAUDE.md §3 security review cadence within 24 hours each.
-
-### Permission system / settings state
-
-`.claude/settings.json` allows `git branch -d/-D *` for routine cleanup. Other destructive variants (force push, reset --hard, filter-branch, etc.) remain denied.
+**0.** All 7 OAuth review findings closed; security/0001-0005 from earlier closed.
 
 ### Next-session candidates
 
-Story 0.11 is closed. The next arcs are the user-facing features that turn cantilever into a working tool.
+The migrate arc is feature-complete. Render is working. The natural next big arc is **Sprint 1**.
 
 **Highest user-visible leverage:**
-- **`ergodix migrate --from gdocs`** — Story 0.2's other big task. Walks corpus folder, exports `.gdoc` → `.md`, archives originals. Needs spike + ADR first (Drive/Docs API mapping, hierarchy detection, idempotency). Without migrate, the user can't get their actual prose into the system.
-- **`ergodix sync-in` / `sync-out`** — implements the polling cycle from ADR 0004 + the editor-collaboration round-trip from ADR 0006. Unblocks D1 + D5's full install flows.
+- **`ergodix index` + `_AI/ergodix.map`** (parking-lot story, "near-term — after B2"): per-file SHA-256 hash map of the corpus so incremental AI tools (Plot-Planner, Continuity-Engine) only re-analyze changed chapters. Foundational for every Sprint 1 tool that runs over the corpus. Likely starting move.
+- **Plot-Planner** (Sprint 1+ parking-lot): AI-assisted authoring-analysis tool suite. Spike 0010's interview gates structural analysis preferences.
+- **Continuity-Engine** (Sprint 1+ parking-lot): plot-hole and continuity detection across chapters.
 
-**Stub-driven follow-on commands** (one per stub deferral — each turns a verify-only stub into a real install action):
-- `ergodix opus clone` (drives C2)
-- `ergodix opus init` (creates a fresh corpus folder + repo)
-- `ergodix vscode init` (drives D1)
-- `ergodix poller init` (drives D5; depends on `sync-in` real)
-- `ergodix editor init` (drives D6)
-- `ergodix lint init` (drives D2; depends on Phil-trained linter)
+**Migrate polish (smaller follow-ups):**
+- The author's Fibonacci writing prompt → `docs/fibonacci-writing-prompt.md` (Spike 0014's blocker).
+- Footnote handling in gdocs/docx importers (parking-lot).
+- Inline image positioning (current v1 emits refs as a trailing block; polish pass can position inline).
+- Tables — not in scope for v1.
 
-**Cleanup:**
-- **`BootstrapSettings` / `load_bootstrap_settings` rename** — names are misleading post-ADR-0014. Sweeping diff but pure cleanup.
-- **ADR 0003 D4 wording fix** — "develop branch tracking" predates the trunk-based decision; D4 is now main-branch-tracking. Already documented in the prereq module's docstring; could land as a Note on the ADR.
+**v1.0.0 milestone (per the original CLAUDE.md bar — migrate + render + at least one Sprint 1 story working e2e on real Tapestry content):** ~85% there. Migrate ✅, render ✅, Sprint 1 story remains.
 
-### Tomorrow's first move
+### Today's gotchas worth remembering
 
-Story 0.11's close-out is the natural punctuation mark. The next big arc is **`ergodix migrate --from gdocs`** — set up the spike + ADR first since the design surface is real (which Drive/Docs APIs to use, which auth flow, how to handle the .gdoc → markdown conversion, idempotency, archive layout). Implementation follows in subsequent PRs.
+- **GitHub stacked-PR base auto-retarget is NOT reliable.** PR #78 (chunk 6) merged into its stacked base branch instead of main when the parent merged; chunk 6's content had to be cherry-picked onto main as PR #79. When stacking, verify each PR's base after upstream merges.
+- **Force-push is sandbox-blocked** in the current environment. The user runs `git push --force-with-lease origin <branch>` from their terminal when a rebased/amended branch needs pushing.
+- **zsh's `interactivecomments` defaults to OFF.** Multi-line shell-paste blocks for the user must NOT include `#` comment lines — apostrophes inside what would be a "comment" trigger an unclosed-quote prompt the user can't easily escape from. Memory rule recorded.
 
 ### File state notes
 
-- `ergodix status` is a real read-only health check. Run it any time to see the full operational picture.
+- `ergodix migrate` is real. `ergodix status` is real. `ergodix render` is real.
 - Settings cascade has 3 layers: code defaults → `settings/defaults.toml` → `settings/bootstrap.toml`. `floaters/<name>.toml` deferred until first per-floater consumer.
-- Sync transport auto-detects from `CORPUS_FOLDER` location. `SYNC_MODE` field deleted from local_config per ADR 0014.
-- `_finalize` closure in `run_cantilever` runs F2 (run-record) + E2 (done message) on every return path. F2 is fail-safe; E2 fires on success outcomes only.
-- Cantilever's verify phase now runs `ergodix status` as the end-to-end smoke (E1).
+- Sync transport auto-detects from `CORPUS_FOLDER` location.
+- `_media/` directories under the corpus are intentionally created at umask default (not 0o700 like OAuth dirs) — they hold chapter images, not credentials. Documented in code comments per review 0015.2.
+- `examples/migrate-fixture/` is the canonical hermetic e2e fixture (Chapter 1.gdoc placeholder + Chapter 2.docx real binary + Notes.gsheet skip-test). Build script at `tests/build_migrate_docx_fixture.py` (lives outside the fixture so the migrate walker doesn't pick it up).
+- `reviews/` holds the ADR-scoped external review files: `0013.external-review.md`, `0015.external-review.md`, `0015.1.external-review.md`, `0015.2.external-review.md`.
