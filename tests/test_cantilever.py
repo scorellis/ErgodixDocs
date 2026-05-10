@@ -1015,6 +1015,100 @@ def test_verify_local_config_sane_fails_for_any_angle_bracket_placeholder(
     assert not result.passed
 
 
+# ─── E1 — _verify_ergodix_status verify check ──────────────────────────────
+
+
+def test_verify_ergodix_status_passes_when_status_exits_zero(monkeypatch) -> None:
+    """E1: `ergodix status` exits 0 → verify check passes."""
+    import subprocess
+
+    from ergodix.cantilever import _verify_ergodix_status
+
+    def fake_run(cmd, *args, **kwargs):
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout="status output", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    # Make Path("ergodix").exists() return True so the script-found check passes.
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "exists", lambda _self: True)
+
+    result = _verify_ergodix_status()
+
+    assert result.name == "ergodix_status_clean"
+    assert result.passed is True
+    assert "exits 0" in result.message
+
+
+def test_verify_ergodix_status_fails_when_status_exits_nonzero(monkeypatch) -> None:
+    import subprocess
+
+    from ergodix.cantilever import _verify_ergodix_status
+
+    def fake_run(cmd, *args, **kwargs):
+        return subprocess.CompletedProcess(
+            cmd, returncode=1, stdout="", stderr="something broke\nERROR: details here"
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "exists", lambda _self: True)
+
+    result = _verify_ergodix_status()
+
+    assert result.passed is False
+    assert "1" in result.message  # exit code surfaced
+    assert result.remediation is not None
+
+
+def test_verify_ergodix_status_fails_when_script_missing(monkeypatch) -> None:
+    """If the ergodix CLI script isn't on disk at sys.executable's dir,
+    E1 fails with a clear "script not found" message — same shape as
+    the existing _verify_ergodix_command does for the simpler smoke."""
+    from pathlib import Path
+
+    from ergodix.cantilever import _verify_ergodix_status
+
+    monkeypatch.setattr(Path, "exists", lambda _self: False)
+
+    result = _verify_ergodix_status()
+
+    assert result.passed is False
+    assert "not found" in result.message.lower()
+
+
+def test_verify_ergodix_status_handles_subprocess_exception(monkeypatch) -> None:
+    """Defensive: subprocess.run raises (FileNotFoundError, timeout, etc.)
+    → fail cleanly with a remediation, don't crash cantilever."""
+    import subprocess
+    from pathlib import Path
+
+    from ergodix.cantilever import _verify_ergodix_status
+
+    monkeypatch.setattr(Path, "exists", lambda _self: True)
+
+    def boom(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd=["ergodix", "status"], timeout=30)
+
+    monkeypatch.setattr(subprocess, "run", boom)
+
+    result = _verify_ergodix_status()
+
+    assert result.passed is False
+    assert result.remediation is not None
+
+
+def test_verify_ergodix_status_in_default_checks_list() -> None:
+    """E1 must be registered in _DEFAULT_VERIFY_CHECKS so cantilever
+    picks it up automatically."""
+    from ergodix.cantilever import _DEFAULT_VERIFY_CHECKS, _verify_ergodix_status
+
+    assert _verify_ergodix_status in _DEFAULT_VERIFY_CHECKS
+
+
 # ─── Phase 4: Configure (per ADR 0012) ──────────────────────────────────────
 
 

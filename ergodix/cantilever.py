@@ -392,10 +392,80 @@ def _verify_local_config_sane() -> VerifyResult:
     )
 
 
+def _verify_ergodix_status() -> VerifyResult:
+    """E1 smoke check (per ADR 0003): ``ergodix status`` exits 0.
+
+    The full read-only health command is the canonical "is the install
+    working end-to-end?" smoke. If status fails, something more
+    fundamental is broken — and the user already saw the output of
+    `ergodix --version` (the simpler smoke above), so this is the
+    next-tier confirmation.
+
+    Resolves the script via ``sys.executable``'s directory (matching
+    the pattern in ``_verify_ergodix_command``) so this works
+    regardless of ambient PATH. Captures output but only the exit code
+    drives pass / fail; status's own output is for users, not for the
+    verify check.
+    """
+    import platform
+    import subprocess
+    import sys
+
+    interpreter_dir = Path(sys.executable).parent
+    suffix = ".exe" if platform.system() == "Windows" else ""
+    ergodix_path = interpreter_dir / f"ergodix{suffix}"
+
+    if not ergodix_path.exists():
+        # _verify_ergodix_command will already have reported this; E1
+        # surfaces it again here so the verify table is complete and
+        # the user sees a unified picture.
+        return VerifyResult(
+            name="ergodix_status_clean",
+            passed=False,
+            message=f"`ergodix` script not found at {ergodix_path}; cannot run status",
+            remediation="Activate the venv and run: pip install -e .",
+        )
+
+    try:
+        result = subprocess.run(
+            [str(ergodix_path), "status"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError) as exc:
+        return VerifyResult(
+            name="ergodix_status_clean",
+            passed=False,
+            message=f"failed to run `{ergodix_path} status`: {exc}",
+            remediation="Re-run cantilever to repair the install.",
+        )
+
+    if result.returncode == 0:
+        return VerifyResult(
+            name="ergodix_status_clean",
+            passed=True,
+            message="`ergodix status` exits 0 (full read-only health check passed)",
+        )
+
+    stderr = result.stderr.strip()
+    last_line = stderr.splitlines()[-1] if stderr else f"exit {result.returncode}"
+    return VerifyResult(
+        name="ergodix_status_clean",
+        passed=False,
+        message=f"`ergodix status` exited {result.returncode}: {last_line}",
+        remediation=(
+            "Run `ergodix status` directly to see the full output and fix the underlying issue."
+        ),
+    )
+
+
 _DEFAULT_VERIFY_CHECKS: list[Callable[[], VerifyResult]] = [
     _verify_import_package,
     _verify_ergodix_command,
     _verify_local_config_sane,
+    _verify_ergodix_status,
 ]
 
 
