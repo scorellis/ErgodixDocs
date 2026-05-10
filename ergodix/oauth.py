@@ -32,8 +32,12 @@ import contextlib
 import errno
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from google.oauth2.credentials import Credentials
 
 
 def _token_file_path() -> Path:
@@ -168,3 +172,153 @@ def clear_oauth_tokens() -> None:
     # Idempotent: file may already be gone from a prior cleanup attempt.
     with contextlib.suppress(FileNotFoundError):
         os.unlink(os.fspath(path))
+
+
+# ─── OAuth flow (sub-chunk 1b per ADR 0015) ────────────────────────────────
+#
+# Paste-the-code dance: print the auth URL, user opens in browser, copies
+# the verification code from Google's confirmation page, pastes it back at
+# the prompt. Per ADR 0015 §1: simpler than localhost-redirect, port-conflict-
+# free, works over SSH.
+
+# Locked scopes per ADR 0001 / ergodix.auth: drive.readonly + documents.readonly.
+# Broader scopes require an explicit ADR amendment.
+DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+DOCS_SCOPE = "https://www.googleapis.com/auth/documents.readonly"
+ALL_SCOPES: list[str] = [DRIVE_SCOPE, DOCS_SCOPE]
+
+# Out-of-band redirect URI for the paste-the-code flow. Google displays the
+# verification code on a confirmation page rather than redirecting to a
+# localhost URL.
+_OOB_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
+
+
+PromptFn = Callable[[str], str]
+"""User-input callback. Default is ``input``; tests inject their own."""
+
+OutputFn = Callable[[str], None]
+"""User-output callback. Default is ``print``; tests inject their own."""
+
+
+def _build_client_config(client_id: str, client_secret: str) -> dict[str, Any]:
+    """Build the OAuth client config dict that
+    ``google_auth_oauthlib.flow.Flow.from_client_config`` expects.
+
+    Uses the ``installed`` shape (per Google's "Desktop application"
+    OAuth client type) — appropriate for ErgodixDocs since it's a
+    locally-installed CLI rather than a web service.
+    """
+    return {
+        "installed": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": [_OOB_REDIRECT_URI],
+        }
+    }
+
+
+def _credentials_to_dict(creds: Credentials) -> dict[str, Any]:
+    """Serialize a ``google.oauth2.credentials.Credentials`` instance to
+    a JSON-friendly dict that ``save_oauth_tokens`` can persist."""
+    return {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": list(creds.scopes) if creds.scopes else [],
+        "expiry": creds.expiry.isoformat() if creds.expiry else None,
+    }
+
+
+def _credentials_from_dict(data: dict[str, Any]) -> Credentials:
+    """Reconstruct a ``Credentials`` instance from a saved dict.
+
+    Mirror of ``_credentials_to_dict``. Used by sub-chunk 1c's
+    ``get_drive_service`` / ``get_docs_service`` to rebuild creds on
+    every cantilever / migrate run.
+    """
+    from datetime import datetime
+
+    from google.oauth2.credentials import Credentials
+
+    expiry_str = data.get("expiry")
+    expiry = datetime.fromisoformat(expiry_str) if isinstance(expiry_str, str) else None
+
+    return Credentials(  # type: ignore[no-untyped-call]
+        token=data.get("token"),
+        refresh_token=data.get("refresh_token"),
+        token_uri=data.get("token_uri"),
+        client_id=data.get("client_id"),
+        client_secret=data.get("client_secret"),
+        scopes=data.get("scopes"),
+        expiry=expiry,
+    )
+
+
+def acquire_oauth_credentials(
+    *,
+    prompt_fn: PromptFn = input,
+    output_fn: OutputFn = print,
+) -> dict[str, Any]:
+    """Run the paste-the-code OAuth flow.
+
+    Steps:
+      1. Read ``google_oauth_client_id`` + ``google_oauth_client_secret``
+         from the keyring (via ``ergodix.auth.get_credential``; C6's
+         configure phase sets these).
+      2. Build a ``google_auth_oauthlib.flow.Flow`` with the locked
+         readonly scopes.
+      3. Print the authorization URL via ``output_fn``.
+      4. Prompt the user via ``prompt_fn`` to paste the verification
+         code Google shows after sign-in.
+      5. Exchange the code for an access + refresh token pair.
+      6. Return a JSON-friendly dict ready for ``save_oauth_tokens``.
+
+    Caller is responsible for calling ``save_oauth_tokens`` on the
+    returned dict — keeping acquire and persist as separate concerns
+    means tests can verify acquire's exchange logic without filesystem
+    side effects.
+
+    Raises ``RuntimeError`` if the user enters an empty code (they
+    pressed Enter without pasting). Raises whatever ``Flow.fetch_token``
+    raises on a bad / expired / already-used code (typically
+    ``google.auth.exceptions.OAuthError``); migrate's caller surfaces
+    these to the user with a "code didn't work, run again" remediation.
+    """
+    from google_auth_oauthlib.flow import Flow
+
+    from ergodix.auth import get_credential
+
+    client_id = get_credential("google_oauth_client_id")
+    client_secret = get_credential("google_oauth_client_secret")
+
+    flow = Flow.from_client_config(
+        _build_client_config(client_id, client_secret),
+        scopes=ALL_SCOPES,
+        redirect_uri=_OOB_REDIRECT_URI,
+    )
+
+    # access_type=offline tells Google to issue a refresh token along
+    # with the access token. prompt=consent forces the consent screen
+    # even on re-auth — matters for users who previously authorized at
+    # different scopes.
+    auth_url, _state = flow.authorization_url(
+        access_type="offline",
+        prompt="consent",
+    )
+
+    output_fn("")
+    output_fn("Open this URL in your browser to authorize ErgodixDocs:")
+    output_fn(f"  {auth_url}")
+    output_fn("")
+    output_fn("After signing in, Google will display a verification code.")
+
+    code = prompt_fn("Paste the code here: ").strip()
+    if not code:
+        raise RuntimeError("No authorization code provided. OAuth aborted; re-run when ready.")
+
+    flow.fetch_token(code=code)
+    return _credentials_to_dict(flow.credentials)
