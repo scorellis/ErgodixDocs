@@ -13,7 +13,20 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.58.0`, next docs PR as `1.57.1`.)
+(Nothing yet — next code PR will land as `1.59.0`, next docs PR as `1.58.1`.)
+
+## [1.58.0] - 2026-05-10
+
+**Review 0015.2 follow-ups — code improvements.** Addresses the low/medium findings from the second external review (`reviews/0015.2.external-review.md`):
+
+- **VERSION sync** (housekeeping): main was at 1.56.0 with a `[1.57.0]` CHANGELOG entry — PR #81's VERSION bump didn't propagate through merge. This PR catches up to the [1.57.0] state and bumps to 1.58.0 for its own content.
+- **#74 (Low): silent author-config failure.** `_read_author_from_local_config` in `ergodix/cli.py` now emits a `UserWarning` on broken `local_config.py` instead of silently swallowing exceptions. Mirrors the pattern from `oauth.py::_token_file_path`. Users no longer migrate with empty author silently when their config is broken.
+- **#74 (Low): counts_str ordering.** `migrate_cmd` now emits `failed` first when non-zero (e.g. `migrate run 2026-...: failed=2, migrated=10, skipped=3`) so failures are at the front of the line, not buried alphabetically.
+- **#77 (Low): heuristic phrase-anchoring.** `_emit_token_exchange_diagnostic` no longer matches the bare words `"used"` / `"redeemed"` (which can appear in unrelated DNS-layer errors like "address already used"). Now anchored to phrases: `"already used"`, `"already redeemed"`, `"code has been"`. Reduces false-positive misclassification of generic errors as bad-OAuth-code errors.
+- **#oauth-backlog (Low): module constant for stale-token threshold.** Extracted `_REFRESH_TOKEN_STALE_DAYS = 90` as a module-level constant with a comment referencing Google's ~6-month invalidation policy. If the policy or lead time ever changes, it's a one-line edit instead of finding the magic number inside a function. Also documents the Python ≥3.11 dependency for `datetime.fromisoformat()`'s `Z` suffix support.
+- **#chunk-6 (Medium): `_media/` mkdir mode intentionality.** Added an in-code comment to both `docx.py::_extract_images` and `gdocs.py::_extract_inline_images` documenting that `_media/` directories are intentionally created at umask default (not 0o700 like OAuth dirs). Rationale: chapter images are readable artifacts the author may share / view in Preview, not credentials.
+
+No behavior changes that affect tests; existing 654 tests pass unchanged. ruff + format + `mypy --strict` clean.
 
 ## [1.57.0] - 2026-05-10
 

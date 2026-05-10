@@ -324,6 +324,10 @@ def _extract_inline_images(
             saved_count += 1
             ext = _guess_image_extension(image_bytes, content_uri)
             filename = f"img-{saved_count:03d}{ext}"
+            # `_media/` dirs are intentionally created at umask default —
+            # they hold chapter images, not credentials, and tightening
+            # to 0o700 would surprise users opening them in Preview /
+            # sharing with collaborators. Mirrors `docx.py::_extract_images`.
             media_dir.mkdir(parents=True, exist_ok=True)
             (media_dir / filename).write_bytes(image_bytes)
             refs.append(f"![]({filename})")
