@@ -113,5 +113,11 @@ files = ["ergodix"]
 exclude = ["tests/", "build/", "dist/"]
 
 [[tool.mypy.overrides]]
-module = ["keyring.*", "googleapiclient.*", "google_auth_oauthlib.*", "google.auth.*"]
+module = [
+    "keyring.*",
+    "googleapiclient.*",
+    "google_auth_oauthlib.*",
+    "google.auth.*",
+    "google.oauth2.*",
+]
 ignore_missing_imports = true
