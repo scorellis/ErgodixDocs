@@ -300,3 +300,205 @@ def test_extract_propagates_pointer_parse_error(tmp_path: Path) -> None:
 def test_module_declares_name_and_extensions() -> None:
     assert gdocs.NAME == "gdocs"
     assert ".gdoc" in gdocs.EXTENSIONS
+
+
+# ─── Inline image extraction (chunk 6b) ─────────────────────────────────────
+
+
+_TINY_PNG = bytes.fromhex(
+    "89504e470d0a1a0a"
+    "0000000d49484452"
+    "0000000100000001"
+    "0100000000376ef9"
+    "240000000a494441"
+    "54789c6300000000"
+    "0200015fc7c2bd00"
+    "00000049454e44ae"
+    "426082"
+)
+
+
+def _doc_with_inline_image(
+    *,
+    inline_object_id: str = "kix.inline.42",
+    content_uri: str = "https://lh3.googleusercontent.com/fixture-image-uri",
+) -> dict[str, Any]:
+    """Build a Docs API document containing one paragraph with an
+    inline-object element pointing at one image."""
+    return {
+        "documentId": "doc-with-image",
+        "title": "Doc with image",
+        "body": {
+            "content": [
+                {
+                    "paragraph": {
+                        "elements": [
+                            {"textRun": {"content": "Before. ", "textStyle": {}}},
+                            {
+                                "inlineObjectElement": {
+                                    "inlineObjectId": inline_object_id,
+                                },
+                            },
+                            {"textRun": {"content": " After.\n", "textStyle": {}}},
+                        ],
+                        "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+                    },
+                },
+            ],
+        },
+        "inlineObjects": {
+            inline_object_id: {
+                "inlineObjectProperties": {
+                    "embeddedObject": {
+                        "imageProperties": {
+                            "contentUri": content_uri,
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+
+def test_extract_writes_inline_image_to_media_dir(tmp_path: Path) -> None:
+    """When `media_dir` is set, gdocs.extract fetches inline-object
+    images via the supplied `image_fetcher`, saves bytes, emits a
+    `![](filename)` reference."""
+    pointer = _write_pointer(tmp_path, {"doc_id": "doc-with-image"})
+    fake_doc = _doc_with_inline_image(content_uri="https://lh3.test/x")
+
+    docs_service = MagicMock()
+    docs_service.documents.return_value.get.return_value.execute.return_value = fake_doc
+
+    fetched_uris: list[str] = []
+
+    def fetch(uri: str) -> bytes:
+        fetched_uris.append(uri)
+        return _TINY_PNG
+
+    media = tmp_path / "_media" / "chapter"
+    md = gdocs.extract(
+        pointer,
+        docs_service=docs_service,
+        media_dir=media,
+        image_fetcher=fetch,
+    )
+
+    assert fetched_uris == ["https://lh3.test/x"]
+    images = sorted(media.iterdir())
+    assert len(images) == 1
+    assert images[0].read_bytes() == _TINY_PNG
+    assert "Before." in md
+    assert "After." in md
+    assert "![](" + images[0].name + ")" in md
+
+
+def test_extract_skips_image_extraction_when_media_dir_omitted(
+    tmp_path: Path,
+) -> None:
+    """No `media_dir` → no fetcher invocation, no media files. Body
+    content still renders unchanged."""
+    pointer = _write_pointer(tmp_path, {"doc_id": "doc-with-image"})
+    fake_doc = _doc_with_inline_image()
+    docs_service = MagicMock()
+    docs_service.documents.return_value.get.return_value.execute.return_value = fake_doc
+
+    fetched: list[str] = []
+
+    def fetch(uri: str) -> bytes:
+        fetched.append(uri)
+        return b"unused"
+
+    md = gdocs.extract(pointer, docs_service=docs_service, image_fetcher=fetch)
+
+    assert fetched == []
+    assert "Before." in md
+    assert not (tmp_path / "_media").exists()
+
+
+def test_extract_handles_failed_image_fetch_gracefully(tmp_path: Path) -> None:
+    """Fetcher returning None (auth / network failure) doesn't crash
+    extract — body content still renders, the failed image is silently
+    omitted from the references."""
+    pointer = _write_pointer(tmp_path, {"doc_id": "doc-with-image"})
+    fake_doc = _doc_with_inline_image()
+    docs_service = MagicMock()
+    docs_service.documents.return_value.get.return_value.execute.return_value = fake_doc
+
+    media = tmp_path / "_media" / "chapter"
+    md = gdocs.extract(
+        pointer,
+        docs_service=docs_service,
+        media_dir=media,
+        image_fetcher=lambda _uri: None,
+    )
+
+    assert "Before." in md
+    assert "After." in md
+    # No image saved.
+    if media.exists():
+        assert list(media.iterdir()) == []
+    # No reference emitted for the failed image.
+    assert "![]" not in md
+
+
+def test_extract_handles_multiple_inline_images(tmp_path: Path) -> None:
+    """Two inline-object elements get fetched in document order with
+    sequential filenames (img-001, img-002)."""
+    pointer = _write_pointer(tmp_path, {"doc_id": "x"})
+    document: dict[str, Any] = {
+        "documentId": "x",
+        "title": "x",
+        "body": {
+            "content": [
+                {
+                    "paragraph": {
+                        "elements": [
+                            {"inlineObjectElement": {"inlineObjectId": "obj-1"}},
+                            {"textRun": {"content": " mid ", "textStyle": {}}},
+                            {"inlineObjectElement": {"inlineObjectId": "obj-2"}},
+                            {"textRun": {"content": "\n", "textStyle": {}}},
+                        ],
+                        "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+                    },
+                },
+            ],
+        },
+        "inlineObjects": {
+            "obj-1": {
+                "inlineObjectProperties": {
+                    "embeddedObject": {
+                        "imageProperties": {"contentUri": "https://example/img1"},
+                    },
+                },
+            },
+            "obj-2": {
+                "inlineObjectProperties": {
+                    "embeddedObject": {
+                        "imageProperties": {"contentUri": "https://example/img2"},
+                    },
+                },
+            },
+        },
+    }
+    docs_service = MagicMock()
+    docs_service.documents.return_value.get.return_value.execute.return_value = document
+
+    counter = {"n": 0}
+
+    def fetch(_uri: str) -> bytes:
+        counter["n"] += 1
+        return _TINY_PNG[: -counter["n"]] + bytes([counter["n"]])
+
+    media = tmp_path / "_media" / "chapter"
+    gdocs.extract(
+        pointer,
+        docs_service=docs_service,
+        media_dir=media,
+        image_fetcher=fetch,
+    )
+
+    images = sorted(media.iterdir())
+    assert len(images) == 2
+    assert images[0].name.startswith("img-001")
+    assert images[1].name.startswith("img-002")

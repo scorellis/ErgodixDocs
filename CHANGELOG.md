@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.56.0`, next docs PR as `1.55.1`.)
+(Nothing yet — next code PR will land as `1.57.0`, next docs PR as `1.56.1`.)
+
+## [1.56.0] - 2026-05-10
+
+**Migrate chunk 6b — gdocs inline image extraction.** Closes the gdocs half of ADR 0015 §3 image handling that was deferred from chunk 6 (#78). When `media_dir` is set, `gdocs.extract` walks the document body for `inlineObjectElement` references, resolves them against `document.inlineObjects.<id>.inlineObjectProperties.embeddedObject.imageProperties.contentUri`, fetches bytes via an authenticated HTTP session, saves to `media_dir / "img-NNN.<ext>"` with extension inferred from magic bytes (PNG / JPEG / GIF / WebP) falling back to URI-suffix scan, and appends `![](filename)` references to the rendered Markdown. New `image_fetcher: Callable[[str], bytes | None]` parameter lets tests inject a stub; production builds the default lazily from `oauth.load_or_acquire_credentials` + `google.auth.transport.requests.AuthorizedSession`. **Lazy fetcher construction** — only built when an image-bearing inline element is encountered, so docs without images never trigger OAuth or pull google-auth even with `media_dir` set. Failed fetches (network / auth errors → fetcher returns None) are silently dropped without crashing extract; body content still renders. 4 new tests. Full suite: 645 passed, 1 skipped. ruff + format + `mypy --strict` clean.
 
 ## [1.55.0] - 2026-05-10
 
