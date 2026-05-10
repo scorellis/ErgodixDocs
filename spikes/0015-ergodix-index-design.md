@@ -2,9 +2,9 @@
 
 - **Date filed**: 2026-05-10
 - **Sprint story**: First Sprint 1 implementation arc. The parking-lot entry in [SprintLog.md](../SprintLog.md) ("ergodix index + _AI/ergodix.map: corpus content index, near-term — after B2") is now activated.
-- **ADRs to produce**: ADR 0016 will lock the schema + activation decisions resolved here.
+- **ADRs produced**: [ADR 0016 — `ergodix index` + `_AI/ergodix.map` locked decisions](../adrs/0016-ergodix-index-design.md) (2026-05-10).
 - **Touches**: [ADR 0001](../adrs/0001-click-cli-with-persona-floater-registries.md) (CLI subcommand surface), [ADR 0005](../adrs/0005-roles-as-floaters-and-opus-naming.md) (no role gating; index runs under any floater), [ADR 0006](../adrs/0006-editor-collaboration-sliced-repos.md) (sharing the map across collaborators), [ADR 0013](../adrs/0013-ai-permitted-actions-boundary.md) (the map is tooling metadata, not corpus content — boundary preserved), [ADR 0014](../adrs/0014-sync-transport-and-settings-cascade.md) (the map respects sync-transport conventions for paths), [ADR 0015](../adrs/0015-migrate-from-gdocs.md) (the manifest's per-file SHA-256 shares conceptual ground with the index).
-- **Status**: Open — design surface enumerated, not yet resolved. ADR 0016 follows when the questions below settle.
+- **Status**: Resolved — all 9 open questions locked in ADR 0016. Implementation chunks now mergeable behind tests.
 
 ## Question
 
