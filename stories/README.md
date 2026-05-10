@@ -40,26 +40,38 @@ The folder structure trades the single-page property for per-file linkability, c
 
 ### Parking lot (this folder)
 
+Infra / tooling:
+
 - [uv-migration](parking-lot/uv-migration.md) — adopt uv per ADR 0009's locked design (close the deviation noted in PR #86).
 
-### Parking lot (still in the monolith, pending migration to per-file)
+Spike (not yet ASVRAT-shape story):
 
-The following stories live in `SprintLog.md`'s parking-lot section and have not yet been extracted to per-file form. They will land in a follow-up PR:
+- [criticmarkup-dual-mode-review](parking-lot/criticmarkup-dual-mode-review.md) — diff-level + CriticMarkup review UX precedence.
 
-- CriticMarkup dual-mode review (spike)
-- Continuity-Engine: AI-assisted story-logic analysis suite
-- Plot-Planner: AI-assisted authoring-analysis tool suite
-- Sell-My-Book: book-marketing assistance suite
-- IP strategy: trademark + patent decision
-- Licensing + monetization framework
-- Skill factory-seal protection
-- MCP server + AI-user persona
-- In-app AI editor with BYO-key + Drive sync
-- Phil-trained custom prose linter
-- Devil's Toolbox: foundational rhetoric reference Skill
-- `form-analyzer` ergodite: grade-level + rhetorical eloquence + Fibonacci arc
-- Story 0.X — Multi-opus support
-- Scale concerns (broader bucket)
-- Story 0.Y — Publishing-house / enterprise scale
+Sprint 1+ when activated:
 
-Until they're extracted, the canonical place to read those stories is the monolith.
+- [continuity-engine](parking-lot/continuity-engine.md) — AI-assisted story-logic analysis suite. Project's raison d'être.
+- [phil-trained-prose-linter](parking-lot/phil-trained-prose-linter.md) — custom linter trained on the human editor's repeated corrections.
+
+Sprint 2+ when activated:
+
+- [plot-planner](parking-lot/plot-planner.md) — AI-assisted authoring-analysis tool suite (craft, not story logic).
+- [devils-toolbox](parking-lot/devils-toolbox.md) — foundational rhetoric reference Skill (dependency of Plot-Planner tools).
+- [form-analyzer-ergodite](parking-lot/form-analyzer-ergodite.md) — grade-level + rhetorical eloquence + Fibonacci arc; first concrete ergodite.
+- [skill-factory-seal-protection](parking-lot/skill-factory-seal-protection.md) — signed Skill manifests; activates with first proprietary Skill.
+- [mcp-server-ai-user-persona](parking-lot/mcp-server-ai-user-persona.md) — MCP server exposing a curated ergodix tool surface; new AI-user persona.
+
+Way later (post-distribution / pre-commercial):
+
+- [ip-strategy](parking-lot/ip-strategy.md) — trademark "ErgodixDocs" + patent decision (hard deadline ~2027-05-02 for US grace-period filing).
+- [licensing-monetization](parking-lot/licensing-monetization.md) — license keys, payment, distribution channels.
+- [sell-my-book](parking-lot/sell-my-book.md) — book-marketing assistance suite (activates after the author's own book ships).
+- [in-app-ai-editor](parking-lot/in-app-ai-editor.md) — polished consumer app, BYO-key + Drive sync (after Plot-Planner + licensing ship).
+
+Scale / multi-tenancy (deferred until real signal):
+
+- [multi-opus-support](parking-lot/multi-opus-support.md) — Story 0.X. Named bundles of (corpus + floater set) on one machine.
+- [scale-concerns](parking-lot/scale-concerns.md) — Stories 0.Z1–0.Z5: concurrency, AI cost, retention, resilience.
+- [publishing-house-enterprise-scale](parking-lot/publishing-house-enterprise-scale.md) — Story 0.Y. Enterprise tenancy (SSO, central billing, etc.).
+
+The monolith [SprintLog.md](SprintLog.md) is no longer the canonical source for any active or parking-lot story — it remains as historical record only.
