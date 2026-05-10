@@ -1,0 +1,53 @@
+name: Integration smoke
+
+# Invokes scripts/integration-smoke.sh — the same local-runnable smoke
+# documented in README §Integration smoke test. The smoke exercises
+# bootstrap.sh → install → CLI registration → `ergodix migrate --from
+# docx --check` against examples/migrate-fixture, asserting expected
+# counts.
+#
+# Runs on every PR and every push to main, in parallel with the
+# unit-test workflow (.github/workflows/ci.yml). The two are
+# complementary: ci.yml catches the unit-test / lint / type-check
+# regression layer; this one catches the install + console-script +
+# migrate-against-fixture layer that the unit tests don't reach.
+#
+# Ubuntu runner. The smoke script uses standard Unix tools (bash,
+# rsync, python3, pip) — no brew, no macOS-specific paths. Cantilever's
+# apply phase (which would need brew / sudo) is NOT exercised; the
+# smoke accepts cantilever's halt-on-inspect or consent-declined exit
+# as success because both indicate the install + plan phases worked.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: integration-smoke.sh (Ubuntu, Python 3.13)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Make smoke script executable
+        run: chmod +x scripts/integration-smoke.sh
+
+      - name: Run integration smoke
+        env:
+          # Use a workflow-local deploy dir under $RUNNER_TEMP rather
+          # than the script's default `/tmp/...` — keeps multiple
+          # parallel runs (e.g. from different PRs) from colliding.
+          ERGODIX_SMOKE_DEPLOY: ${{ runner.temp }}/ergodix-smoke-deploy
+        run: scripts/integration-smoke.sh
