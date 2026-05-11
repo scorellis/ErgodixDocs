@@ -27,7 +27,7 @@ Per the partnership norm of preserving the *journey* in spikes, here are the pro
 > The reason I'm bringing this up is that a friend of mine was telling me about how kids writing with ai is a real problem. 1: I think we could easily extend this product to that sort of use
 >
 > 2. We should check and do some research and see if this tool already exists
-> 3. Build a skill map, and determine if we can build stand alone "skills" — binaries — that can do things like review for devil's toolbox (regex again, detecting things like anaphora, and we can also have a near-rhyme topography map. Finding the climax of the story, I don't know how we would do that. We will have to look at my fibonacci writing prompt that I give to chat got and figure out if there exists a tool or if we can build one that would be able to do it.
+> 3. Build a skill map, and determine if we can build stand alone "skills" — binaries — that can do things like review for wordsmith toolbox (regex again, detecting things like anaphora, and we can also have a near-rhyme topography map. Finding the climax of the story, I don't know how we would do that. We will have to look at my fibonacci writing prompt that I give to chat got and figure out if there exists a tool or if we can build one that would be able to do it.
 > instead of calling them "skills" like claude does, we will call them ergodites which meshes nicely with the notion of ergodic documents plus they are like little "egos" that have the ability to carry out tasks. We will want to ensure they aren't tampered with either -- maybe we salt their hashes and create a dictionary of their hashes that we update with each release if they change.
 
 ### Assistant response (summarized, not verbatim — captured for context)
@@ -315,7 +315,7 @@ Grouped by likely ADR boundaries:
 - [ADR 0005 — Roles as floaters and opus naming](../adrs/0005-roles-as-floaters-and-opus-naming.md): student=writer, teacher=editor mapping.
 - [ADR 0006 — Editor collaboration via sliced repos](../adrs/0006-editor-collaboration-sliced-repos.md): teacher reads student's slice; signed-commit topology.
 - [ADR 0014 — Sync transport and settings cascade](../adrs/0014-sync-transport-and-settings-cascade.md): drive-mirror mode for school-managed Drive folders; settings cascade for `InfringementThreatLevelWords` and friends.
-- [Devil's Toolbox parking-lot story](../stories/SprintLog.md): pattern detection (anaphora, near-rhyme topography) — related analysis surface, same registry.
+- [Wordsmith Toolbox parking-lot story](../stories/parking-lot/wordsmith-toolbox.md): pattern detection (anaphora, near-rhyme topography) — related analysis surface, same registry.
 - [Fibonacci writing prompt — TBD]: the user's chapter-arc prompt for ChatGPT, referenced in Message 1. Not yet captured in the repo. Action: add `docs/fibonacci-writing-prompt.md` (or wherever the user wants it) before the climax-detection analysis is designed.
 
 ## Why we're not implementing today

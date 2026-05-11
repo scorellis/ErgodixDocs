@@ -31,7 +31,7 @@ The author has a defined scoring methodology (Fibonacci peaks, dynamics, show-vs
 
 - [ ] Decide implementation surface: Claude Code skills/commands (`.claude/skills/<name>/`) vs. `ergodix` subcommands vs. both. Likely both — slash-commands for in-editor use, `ergodix` subcommand mirrors for CI/scripts.
 - [ ] Name the umbrella concept (`plot-planner` is the working name; could be `authoring-suite`, `craft-tools`, etc.).
-- [ ] **Dependency**: [devils-toolbox](devils-toolbox.md). `writing-score`, `PC-placator`, and most stylistic-feedback tools reference rhetoric primitives by id; the Devil's Toolbox Skill provides the canonical reference. Sequence: ship Devil's Toolbox before (or alongside) the first stylistic-feedback tool.
+- [ ] **Dependency**: [wordsmith-toolbox](wordsmith-toolbox.md). `writing-score`, `PC-placator`, and most stylistic-feedback tools reference rhetoric primitives by id; the Wordsmith Toolbox Skill provides the canonical reference. Sequence: ship Wordsmith Toolbox before (or alongside) the first stylistic-feedback tool.
 - [ ] **Dependency**: [Spike 0010 — UserWritingPreferencesInterview](../../spikes/0010-user-writing-preferences-interview.md). Tool output is shaped by author preferences (scoring weights, anti-patterns, AI-boundary refinements) — the interview captures these once and tools reference them every run.
 - [ ] Encode the author's scoring methodology in a stable, testable form (probably a TOML/YAML rubric).
 - [ ] Settle on per-chapter analysis index + cross-chapter retrieval pattern — cross-references [scale-concerns](scale-concerns.md) §Z2.
@@ -41,6 +41,6 @@ The author has a defined scoring methodology (Fibonacci peaks, dynamics, show-vs
 
 ## Cross-references
 
-- [devils-toolbox](devils-toolbox.md): rhetoric primitives used by stylistic-feedback tools.
+- [wordsmith-toolbox](wordsmith-toolbox.md): rhetoric primitives used by stylistic-feedback tools.
 - [Spike 0010](../../spikes/0010-user-writing-preferences-interview.md): author preference capture.
 - [continuity-engine](continuity-engine.md): sibling suite (story logic, not craft).

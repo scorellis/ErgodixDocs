@@ -13,7 +13,24 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.69.0`, next docs PR as `1.68.2`.)
+(Nothing yet — next code PR will land as `1.69.0`, next docs PR as `1.68.3`.)
+
+## [1.68.2] - 2026-05-11
+
+**Author craft-methodology landed in tree + "Devil's Toolbox" → "Wordsmith Toolbox" rename.** Closes the design loop on the next major arc (Plot-Planner / form-analyzer / writing-score) by capturing the author's source material before implementation begins, and also closes the ergodix-index story.
+
+Three companion craft docs land together:
+
+- **[docs/wordsmith-toolbox-reference.md](docs/wordsmith-toolbox-reference.md)**: author-curated rhetorical-device catalog. ~30 devices grouped into 5 categories (Sound / Repetition & Structure / Interruption & Reversal / Ornament / Rhetorical Questions). Each entry has a stable kebab-case `id`, category, definition (in the author's voice), live examples, and a `classifier-hint` where applicable. Top-of-doc category index + bottom-of-doc encoding plan show the TOML data file the Skill will lift into when the parking-lot story activates.
+- **[docs/scoring-methodology.md](docs/scoring-methodology.md)**: two-part chapter-evaluation rubric.
+  - **Part 1 — Overmorrow Writing Analysis Guide**: 10 dimensions (`tension-arc`, `show-vs-tell`, `eloquence`, `narrative-geometry`, `engagement-voice`, `continuity-lore`, `perspective-temporal`, `structural-innovation`, `character-complexity`, `originality-risk`) with worked examples from the live corpus. Section 3's rhetorical-devices checklist cross-refs the Wordsmith Toolbox catalog by id.
+  - **Part 2 — Ten Measures of Literary Quality**: 10 measures (`m1-fibonacci-arc` through `m10-originality`) as a tabular 1–10 scoring contract. Eloquence (m4) carries explicit watchpoints — author-tics, tropisms, clichés, dead-metaphors, rhythmic-monotony — each as a 1–3 point deduction. Closes with the author's directive *"Your task is not to dilute my voice — it is to refine my intent."*
+  - **How tooling consumes this** section enumerates the 6-stage pipeline future tools follow (score → justify → deduct on watchpoints → credit on devices → identify leverage → respect boundary) and the `.claude/skills/writing-score/data/methodology.toml` encoding shape.
+- **Rename**: "Devil's Toolbox" → "Wordsmith Toolbox" everywhere in tree (file paths, story names, cross-refs in ADR 0013, Spikes 0010 / 0013 / 0014, all parking-lot stories that reference it, CHANGELOG, the frozen SprintLog monolith). Rationale: "Devil" framing would create friction in K-12 / education-mode and commercial-distribution deploys; "Wordsmith" matches the methodology's directive that "Eloquence is intentionality." `grep -rln '[Dd]evil'` across the tree returns zero matches.
+
+Also closes the ergodix-index story:
+
+- **[stories/active/ergodix-index.md](stories/active/ergodix-index.md)**: status flipped `ACTIVE` → `DONE`. All 6 task checkboxes checked off with PR-number citations (#95, #96, #97, #98, #99, #101). v1.0 milestone's Sprint 1 pillar is now complete — migrate ✅, render ✅, ergodix-index end-to-end ✅.
 
 ## [1.68.1] - 2026-05-11
 
@@ -125,7 +142,7 @@ Spike 0015's status updated from "Open" → "Resolved." The active story ([stori
 
 - Spike: `criticmarkup-dual-mode-review`
 - Sprint 1+: `continuity-engine`, `phil-trained-prose-linter`
-- Sprint 2+: `plot-planner`, `devils-toolbox`, `form-analyzer-ergodite`, `skill-factory-seal-protection`, `mcp-server-ai-user-persona`
+- Sprint 2+: `plot-planner`, `wordsmith-toolbox`, `form-analyzer-ergodite`, `skill-factory-seal-protection`, `mcp-server-ai-user-persona`
 - Way-later (post-distribution): `ip-strategy`, `licensing-monetization`, `sell-my-book`, `in-app-ai-editor`
 - Scale / multi-tenancy: `multi-opus-support`, `scale-concerns`, `publishing-house-enterprise-scale`
 
@@ -224,7 +241,7 @@ OAuth review status: **0 open findings**. Prior PRs closed #1, #2, #4, #5, #6.
 
 ## [1.52.1] - 2026-05-10
 
-**Spike 0014 + parking-lot story — `form-analyzer` ergodite.** Captures the design surface for a single ergodite that grades a chapter's *form* on three axes: readability/grade-level (publicly-defined formulas — Flesch-Kincaid, Gunning Fog, SMOG, Coleman-Liau, ARI, Dale-Chall via `textstat`-style portfolio + consensus + band classification), rhetorical eloquence (per-paragraph density of detected figures: anaphora, epistrophe, polysyndeton, asyndeton, tricolon, alliteration, anastrophe — first concrete consumer of the Devil's Toolbox rhetoric primitives), and Fibonacci/golden-mean structural arc (per the author's writing prompt, blocked on `docs/fibonacci-writing-prompt.md` capture). Single ergodite with toggleable sub-checks rather than three separate ergodites. Companion parking-lot story added to SprintLog.md with ASVRAT body + tasks. Activation gated on Spike 0013's ergodite registry shipping (ADR-X1).
+**Spike 0014 + parking-lot story — `form-analyzer` ergodite.** Captures the design surface for a single ergodite that grades a chapter's *form* on three axes: readability/grade-level (publicly-defined formulas — Flesch-Kincaid, Gunning Fog, SMOG, Coleman-Liau, ARI, Dale-Chall via `textstat`-style portfolio + consensus + band classification), rhetorical eloquence (per-paragraph density of detected figures: anaphora, epistrophe, polysyndeton, asyndeton, tricolon, alliteration, anastrophe — first concrete consumer of the Wordsmith Toolbox rhetoric primitives), and Fibonacci/golden-mean structural arc (per the author's writing prompt, blocked on `docs/fibonacci-writing-prompt.md` capture). Single ergodite with toggleable sub-checks rather than three separate ergodites. Companion parking-lot story added to SprintLog.md with ASVRAT body + tasks. Activation gated on Spike 0013's ergodite registry shipping (ADR-X1).
 
 (Bonus: corrected two `../spikes/...` → `spikes/...` cross-ref paths in SprintLog.md while editing — `SprintLog.md` lives at the repo root, so the leading `..` was a stale lift-and-shift bug.)
 

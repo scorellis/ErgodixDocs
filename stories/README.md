@@ -56,7 +56,7 @@ Sprint 1+ when activated:
 Sprint 2+ when activated:
 
 - [plot-planner](parking-lot/plot-planner.md) — AI-assisted authoring-analysis tool suite (craft, not story logic).
-- [devils-toolbox](parking-lot/devils-toolbox.md) — foundational rhetoric reference Skill (dependency of Plot-Planner tools).
+- [wordsmith-toolbox](parking-lot/wordsmith-toolbox.md) — foundational rhetoric reference Skill (dependency of Plot-Planner tools).
 - [form-analyzer-ergodite](parking-lot/form-analyzer-ergodite.md) — grade-level + rhetorical eloquence + Fibonacci arc; first concrete ergodite.
 - [skill-factory-seal-protection](parking-lot/skill-factory-seal-protection.md) — signed Skill manifests; activates with first proprietary Skill.
 - [mcp-server-ai-user-persona](parking-lot/mcp-server-ai-user-persona.md) — MCP server exposing a curated ergodix tool surface; new AI-user persona.
