@@ -13,7 +13,17 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.68.0`, next docs PR as `1.67.1`.)
+(Nothing yet — next code PR will land as `1.69.0`, next docs PR as `1.68.1`.)
+
+## [1.68.0] - 2026-05-11
+
+**`ergodix index` chunk 5 — fixture + hermetic e2e tests.** Closes the same gap migrate-fixture closed for `ergodix migrate`: there's now an in-tree corpus shape that exercises every walker rule end-to-end, with tests that copy the fixture to `tmp_path` so they never mutate the tracked content.
+
+- **[examples/index-fixture/](examples/index-fixture/)** — small hand-curated corpus, 6 indexable files (`README.md`, top-level `_preamble.tex`, `Book 1/_preamble.tex`, `Book 1/Chapter 1.md`, `Book 1/Chapter 2.md`, `Book 1/Section A/Chapter 3.md`) + 2 deliberately-excluded paths (`_archive/Old Chapter.md`, `scratch/draft.md` under a `.ergodix-skip`-scoped dir). Layout documented in the fixture's own README.
+- **[tests/test_index_e2e.py](tests/test_index_e2e.py)** — 10 hermetic e2e tests via Click's `CliRunner`. Covers: default mode writes map; expected file paths match (pins walker scope `.md`+`.tex`); `_archive/` + `.ergodix-skip` exclusions verified; `--check` passes after a fresh generate; `--check` fails after chapter edit / new file / removed file; full round-trip (generate → check passes → modify → check fails → re-generate → check passes); summary line reports correct file count.
+- Pattern matches the migrate-fixture e2e test design (PR #76): committed fixture + `_copy_fixture(tmp_path)` helper for hermeticity.
+
+Full suite: 751 passed, 1 skipped (was 741; +10). `ruff` + `format` + `mypy --strict` clean.
 
 ## [1.67.0] - 2026-05-11
 
