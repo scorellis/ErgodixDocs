@@ -13,7 +13,23 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.67.0`, next docs PR as `1.66.1`.)
+(Nothing yet — next code PR will land as `1.67.0`, next docs PR as `1.66.2`.)
+
+## [1.66.1] - 2026-05-11
+
+**`docs/ergodix-map-consumers.md` — first-consumer doc for `ergodix.map`.** Chunk 6 of the ergodix-index arc (Spike 0015 §"Implementation chunks" #6) — closes the design loop by documenting the read API that downstream tool authors will use.
+
+Audience: authors of **downstream tools** that read the corpus content index — Continuity-Engine, Plot-Planner, the future MCP server, any ergodite that needs "what changed since I last looked." It is not for end users.
+
+Covers:
+
+- **What the map is + why it exists** (incremental analysis instead of full corpus re-tokenization).
+- **The read API**: `read_map(path) -> Map`. Per [ADR 0016 §7](adrs/0016-ergodix-index-design.md), consumers read via this helper, never raw TOML — the helper handles schema-version refusal uniformly and survives schema evolution.
+- **Data shape**: `IndexEntry` + `Map` dataclasses, what consumers can/can't rely on (`sha256` authoritative, `mtime` advisory, `path` POSIX, `files` sorted, schema locked at version 1).
+- **Incremental pattern** worked end-to-end: load prior map → build current Map without writing → call `compare_to_map` → re-analyze only `new_files + changed_files` → drop cache for `removed_files`.
+- **Where downstream tool output goes**: `<corpus>/_AI/<tool>/...` per [ADR 0016 §9](adrs/0016-ergodix-index-design.md).
+- **Quick-reference table** mapping common needs to the right helper.
+- Cross-refs to ADR 0016, Spike 0015, Continuity-Engine + Plot-Planner parking-lot stories, and ADR 0015 (migrate manifest — the conceptually adjacent per-run record vs. the map's living view).
 
 ## [1.66.0] - 2026-05-11
 
