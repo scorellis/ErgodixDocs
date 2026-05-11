@@ -1,6 +1,6 @@
 # `ergodix index` + `_AI/ergodix.map` — corpus content index
 
-- **Status**: **ACTIVE** (Sprint 1 starter, 2026-05-10)
+- **Status**: **DONE** (2026-05-11 — all 6 implementation chunks landed: PRs #95, #96, #97, #98, #99, #101)
 - **Spike**: [Spike 0015 — `ergodix index` design](../../spikes/0015-ergodix-index-design.md)
 - **ADR**: [ADR 0016 — `ergodix index` + `_AI/ergodix.map` locked decisions](../../adrs/0016-ergodix-index-design.md) (2026-05-10)
 - **Origin**: lifted from the parking-lot section of [stories/SprintLog.md](../SprintLog.md) — "near-term — after B2."
@@ -13,16 +13,18 @@ Risk: stale-map handling (user edits a file outside ErgodixDocs, the map doesn't
 
 Assumptions: SHA-256 of file content is sufficient for change-detection (collisions are not a threat-model concern); the map is regenerated on demand via an `ergodix index` subcommand and re-runs cheaply; lives at `_AI/ergodix.map` next to the corpus per the existing `_AI/` convention; TOML keeps it human-readable so the user can open and inspect without tooling.
 
-## Tasks (post-ADR-0016)
+## Tasks (post-ADR-0016) — all complete
 
-ADR 0016 locked all 9 open questions from the spike. Per Spike 0015's "Implementation chunks" section, the work splits into 6 PRs in the smaller-units cadence:
+ADR 0016 locked all 9 open questions from the spike. Per Spike 0015's "Implementation chunks" section, the work split into 6 PRs in the smaller-units cadence — all merged 2026-05-10 → 2026-05-11:
 
-- [ ] Helpers (`ergodix/index.py`): pure functions — `compute_sha256_of_file`, `walk_corpus_for_index`, `build_map_entry`, `serialize_map_toml`, `parse_map_toml`, schema constants.
-- [ ] `generate_index` orchestrator: walks the corpus, builds the `Map`, writes `_AI/ergodix.map` atomically (tmp + rename), returns a summary record.
-- [ ] `compare_to_map` + drift report: given an existing map and a fresh walk, compute new / changed / removed file sets.
-- [ ] CLI wiring: real `ergodix index` command with `--check` / `--corpus` / `--quiet`. Exit codes per Spike 0015 §4.
-- [ ] Migrate-fixture extension (or `examples/index-fixture/`) so hermetic e2e tests cover the index path.
-- [ ] First-consumer doc: `docs/ergodix-map-consumers.md` documenting the read API + per-file shape, so Plot-Planner / Continuity-Engine designers don't reinvent the parsing.
+- [x] **Chunk 1 (PR #95)**: Helpers (`ergodix/index.py`) — pure functions `compute_sha256_of_file`, `walk_corpus_for_index`, `build_map_entry`, `serialize_map_toml`, `parse_map_toml`, schema constants. 26 tests.
+- [x] **Chunk 2 (PR #96)**: `generate_index` orchestrator — walks the corpus, builds the `Map`, writes `_AI/ergodix.map` atomically (tmp + rename), returns an `IndexSummary` record. 18 tests.
+- [x] **Chunk 3 (PR #97)**: `compare_to_map` + `DriftReport` + `read_map` — given an existing map and a fresh walk, compute new / changed / removed file sets. 16 tests.
+- [x] **Chunk 4 (PR #98)**: CLI wiring — `ergodix index [--check] [--corpus] [--quiet]` in `ergodix/cli.py`. Exit codes per Spike 0015 §4 / ADR 0016 §6. 14 tests.
+- [x] **Chunk 5 (PR #99)**: `examples/index-fixture/` + hermetic e2e tests in `tests/test_index_e2e.py`. 10 tests.
+- [x] **Chunk 6 (PR #101)**: First-consumer doc `docs/ergodix-map-consumers.md` — the read API + per-file shape for Plot-Planner / Continuity-Engine / future MCP server.
+
+Final test count after the arc: **761 passed, 1 skipped** (up from 654 at arc start).
 
 ## Cross-references
 
