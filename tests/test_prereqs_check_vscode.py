@@ -54,6 +54,18 @@ def test_required_extensions_are_nonempty_strings() -> None:
         assert "." in ext, f"extension ID {ext!r} should be <publisher>.<name>"
 
 
+def test_required_extensions_includes_wysiwyg_markdown_editor() -> None:
+    """Pin `cweijan.vscode-office` specifically — the WYSIWYG markdown
+    editor is load-bearing for authors migrating off Google Docs / Word
+    who want a familiar editing surface. Accidental removal should trip
+    CI rather than silently regress the install UX. Replace this pin
+    with a different WYSIWYG extension intentionally if the choice ever
+    changes."""
+    from ergodix.prereqs import check_vscode
+
+    assert "cweijan.vscode-office" in check_vscode.REQUIRED_EXTENSIONS
+
+
 # ─── inspect() ──────────────────────────────────────────────────────────────
 
 
