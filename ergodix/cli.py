@@ -262,6 +262,128 @@ def migrate_cmd(
     sys.exit(1 if failed > 0 else 0)
 
 
+@main.command(name="index")
+@click.option(
+    "--check",
+    is_flag=True,
+    help=(
+        "Drift-check mode: compare the corpus against the existing map "
+        "and exit 1 on drift. Does not write."
+    ),
+)
+@click.option(
+    "--corpus",
+    "corpus",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override the corpus folder. Defaults to CORPUS_FOLDER from local_config.py.",
+)
+@click.option(
+    "--quiet",
+    is_flag=True,
+    help="Suppress per-file output; print only the summary line.",
+)
+def index_cmd(check: bool, corpus: Path | None, quiet: bool) -> None:
+    """Generate or check `<corpus>/_AI/ergodix.map` (ADR 0016).
+
+    Default mode walks the corpus, computes per-file SHA-256 hashes,
+    and writes the map atomically. ``--check`` mode is read-only:
+    walks, compares against the existing map, prints any drift, and
+    exits 1 if drift is found (mirrors migrate's ``--check`` exit-code
+    convention per ADR 0016 §6).
+    """
+    from ergodix.sync_transport import read_corpus_folder_from_local_config
+
+    corpus_root = corpus if corpus is not None else read_corpus_folder_from_local_config()
+    if corpus_root is None:
+        click.echo(
+            "error: no corpus folder configured. "
+            "Set CORPUS_FOLDER in local_config.py or pass --corpus <path>.",
+            err=True,
+        )
+        sys.exit(1)
+
+    from ergodix.index import (
+        Map,
+        build_map_entry,
+        compare_to_map,
+        generate_index,
+        read_map,
+        walk_corpus_for_index,
+    )
+
+    if check:
+        # Read-only path: build current state in-memory, compare to the
+        # on-disk map, report drift. Never write.
+        root = corpus_root.resolve()
+        current_entries = sorted(
+            (build_map_entry(corpus_root=root, file_path=p) for p in walk_corpus_for_index(root)),
+            key=lambda e: e.path,
+        )
+        # Use an empty Map's metadata for the current side — we only
+        # care about the files set for comparison.
+        current_map = Map(
+            version=1,
+            generated_at="",
+            generator="ergodix index --check",
+            corpus_root=str(root),
+            files=tuple(current_entries),
+        )
+
+        map_path = root / "_AI" / "ergodix.map"
+        try:
+            existing_map = read_map(map_path)
+        except FileNotFoundError:
+            # No prior map — every current file is "new". Mirror the
+            # all-new bucket without trying to fabricate an existing
+            # Map with empty meta fields.
+            existing_map = Map(
+                version=1,
+                generated_at="",
+                generator="",
+                corpus_root="",
+                files=(),
+            )
+
+        report = compare_to_map(existing=existing_map, current=current_map)
+
+        if not report.has_drift:
+            if not quiet:
+                click.echo(f"index check: no drift ({len(current_entries)} files)")
+            sys.exit(0)
+
+        # Report drift. Bucket order: new, changed, removed (alphabetical
+        # within each).
+        if not quiet:
+            if report.new_files:
+                click.echo("new files:")
+                for p in report.new_files:
+                    click.echo(f"  + {p}")
+            if report.changed_files:
+                click.echo("changed files:")
+                for p in report.changed_files:
+                    click.echo(f"  ~ {p}")
+            if report.removed_files:
+                click.echo("removed files:")
+                for p in report.removed_files:
+                    click.echo(f"  - {p}")
+        click.echo(
+            f"index check: drift ({len(report.new_files)} new, "
+            f"{len(report.changed_files)} changed, {len(report.removed_files)} removed)"
+        )
+        sys.exit(1)
+
+    # Default mode: regenerate the map.
+    summary = generate_index(corpus_root=corpus_root)
+    if not quiet:
+        click.echo(f"wrote {summary.map_path}")
+    click.echo(
+        f"index: {summary.file_count} files, "
+        f"{summary.total_bytes} bytes, generated_at {summary.generated_at}"
+    )
+    sys.exit(0)
+
+
 @main.command(name="render")
 @click.argument("target", type=click.Path(path_type=Path))
 @click.option(

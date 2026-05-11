@@ -13,7 +13,23 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.67.0`, next docs PR as `1.66.1`.)
+(Nothing yet — next code PR will land as `1.68.0`, next docs PR as `1.67.1`.)
+
+## [1.67.0] - 2026-05-11
+
+**`ergodix index` chunk 4 — CLI wiring (`ergodix index` is now a real command).** First user-visible surface of the index arc. Composes chunks 1-3 (pure helpers + orchestrator + drift comparison) into the `ergodix index [--check] [--corpus <path>] [--quiet]` subcommand in [ergodix/cli.py](ergodix/cli.py).
+
+Surface (per ADR 0016 §6 / Spike 0015 §4):
+
+- **Default mode**: walks the corpus, regenerates `<corpus>/_AI/ergodix.map`, prints a one-line summary (`index: N files, M bytes, generated_at <iso>`). Exit 0 on success.
+- **`--check` mode**: read-only. Walks the corpus, compares against the existing map, prints a drift report grouped by bucket (new / changed / removed; `+` / `~` / `-` prefixes; sorted within each), exits **1** on drift, **0** otherwise. Never writes. Missing `_AI/ergodix.map` is treated as "every current file is new" (exit 1).
+- **`--corpus <path>`**: override `CORPUS_FOLDER` from `local_config.py`. Mirrors migrate's `--corpus` exactly.
+- **`--quiet`**: suppresses per-file output. Default-mode summary line and `--check`-mode summary line are still emitted.
+- **Missing-corpus path**: no `--corpus` AND no `CORPUS_FOLDER` in `local_config.py` → exit 1 with a clear error message (mirrors migrate's behavior).
+
+14 new tests in [tests/test_index_cli.py](tests/test_index_cli.py) via `CliRunner`: default-mode write/print/replace; `--check` no-drift / new / changed / removed / does-not-write / drift-bucket-output / no-prior-map; `--quiet` suppression + summary preservation; missing-corpus error; end-to-end round-trip (generate → check passes → modify → check fails → re-generate → check passes).
+
+Full suite: 741 passed, 1 skipped (was 727; +14). `ruff` + `format` + `mypy --strict` clean.
 
 ## [1.66.0] - 2026-05-11
 
