@@ -13,7 +13,23 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.66.0`, next docs PR as `1.65.1`.)
+(Nothing yet — next code PR will land as `1.67.0`, next docs PR as `1.66.1`.)
+
+## [1.66.0] - 2026-05-11
+
+**`ergodix index` chunk 3 — drift comparison + `read_map`.** Adds the pure-function drift surface that chunk 4's CLI will compose into `ergodix index --check`. Two additions to `ergodix/index.py`:
+
+- **`read_map(path) -> Map`**: disk-side companion to chunk-2's `write_map`. Composes `parse_map_toml` with file I/O. Same strict version refusal applies — a map declaring an unknown schema version raises `ValueError` before any consumer sees a half-interpreted record. Callers wanting "missing prior index → empty Map" semantics catch `FileNotFoundError` themselves.
+- **`compare_to_map(existing, current) -> DriftReport`**: pure function comparing two Maps. Buckets:
+  - `new_files` — paths in `current` not in `existing`.
+  - `changed_files` — paths in both, whose `sha256` differs. Per ADR 0016 §3, mtime is ignored.
+  - `removed_files` — paths in `existing` not in `current`.
+
+  Each bucket sorted for deterministic output. `DriftReport.has_drift` property returns True iff any bucket is non-empty — the predicate chunk 4's CLI uses to choose exit code 1 vs 0.
+
+Edge cases pinned by tests: empty-vs-empty (no drift); empty-vs-populated (all new, initial-index case); populated-vs-empty (all removed, corpus-deleted case); mtime-only diff (ignored — sha matches); all three buckets non-empty simultaneously.
+
+16 new tests in `tests/test_index_drift.py`. Full suite: 727 passed, 1 skipped (was 711). `ruff` + `format` + `mypy --strict` clean.
 
 ## [1.65.0] - 2026-05-11
 

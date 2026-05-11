@@ -322,6 +322,78 @@ def generate_index(
     )
 
 
+# ─── read_map (disk-side companion to write_map) ────────────────────────────
+
+
+def read_map(path: Path) -> Map:
+    """Load a Map from ``path``.
+
+    Composes ``parse_map_toml`` with disk I/O. Same strict-version
+    refusal applies — a map declaring an unknown schema version raises
+    ``ValueError`` before any consumer sees a half-interpreted record.
+    Callers that want "missing prior index → empty Map" semantics
+    catch ``FileNotFoundError`` themselves.
+    """
+    return parse_map_toml(path.read_text(encoding="utf-8"))
+
+
+# ─── DriftReport + compare_to_map ───────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class DriftReport:
+    """The output of comparing an existing map against a fresh walk.
+
+    Per ADR 0016 §3: SHA-256 is authoritative for `changed_files`;
+    mtime differences alone are not drift. Each bucket is sorted so the
+    report is deterministic regardless of input order.
+    """
+
+    new_files: tuple[str, ...]
+    changed_files: tuple[str, ...]
+    removed_files: tuple[str, ...]
+
+    @property
+    def has_drift(self) -> bool:
+        """True if any of the three buckets is non-empty."""
+        return bool(self.new_files or self.changed_files or self.removed_files)
+
+
+def compare_to_map(*, existing: Map, current: Map) -> DriftReport:
+    """Compute the drift between two Maps.
+
+    Pure function — no I/O. The CLI (chunk 4) is the composer that
+    reads the existing map from disk via ``read_map`` and builds the
+    current Map via ``walk_corpus_for_index`` + ``build_map_entry``
+    (without writing).
+
+    Buckets:
+      * new_files     — paths in ``current`` that aren't in ``existing``.
+      * changed_files — paths in both, whose ``sha256`` differs. Per
+                        ADR 0016 §3, mtime is ignored for this check.
+      * removed_files — paths in ``existing`` that aren't in ``current``.
+    """
+    existing_by_path = {e.path: e for e in existing.files}
+    current_by_path = {e.path: e for e in current.files}
+
+    existing_paths = set(existing_by_path)
+    current_paths = set(current_by_path)
+
+    new = current_paths - existing_paths
+    removed = existing_paths - current_paths
+    changed = {
+        p
+        for p in existing_paths & current_paths
+        if existing_by_path[p].sha256 != current_by_path[p].sha256
+    }
+
+    return DriftReport(
+        new_files=tuple(sorted(new)),
+        changed_files=tuple(sorted(changed)),
+        removed_files=tuple(sorted(removed)),
+    )
+
+
 # ─── parse_map_toml ─────────────────────────────────────────────────────────
 
 
