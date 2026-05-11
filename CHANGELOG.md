@@ -13,7 +13,19 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.65.0`, next docs PR as `1.64.1`.)
+(Nothing yet — next code PR will land as `1.66.0`, next docs PR as `1.65.1`.)
+
+## [1.65.0] - 2026-05-11
+
+**`ergodix index` chunk 2 — `generate_index` orchestrator.** Walks the corpus, builds the `Map`, writes it atomically to `<corpus>/_AI/ergodix.map`, and returns an `IndexSummary` record (map_path / file_count / total_bytes / generated_at). Composes the chunk-1 pure helpers; no CLI surface yet (chunk 4).
+
+- **Atomic write**: `write_map(map_data, path)` matches migrate's `write_manifest` pattern — write to sibling `.tmp`, then `os.replace`. Crashes never leave a half-written map visible.
+- **Determinism**: entries sorted by POSIX path before serialization, so re-runs on an unchanged corpus produce byte-identical maps (modulo `generated_at`). Pinned by `test_generate_index_byte_stable_across_runs`.
+- **Self-skip**: `_AI/` added to `_SKIP_DIR_NAMES` so the walker never indexes its own output (or any future Continuity-Engine / Plot-Planner artifact alongside the map). ADR 0016 §9 establishes `_AI/` as the project-wide AI-artifact namespace; the walker exclusion is its enforcement.
+- **Empty corpus** writes a valid map with an empty `files = []` (covered by `test_generate_index_empty_corpus`).
+- **Injectable clock**: `now_fn` parameter (defaults to `datetime.now(tz=UTC)`) so tests pin `generated_at` to a known value without faking system time.
+
+18 new tests in `tests/test_index_orchestrator.py`. Full suite: 711 passed, 1 skipped (was 693). `ruff` + `format` + `mypy --strict` clean.
 
 ## [1.64.0] - 2026-05-10
 
