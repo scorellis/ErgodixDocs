@@ -1,11 +1,11 @@
-# Devil's Toolbox — Rhetorical Device Reference
+# Wordsmith Toolbox — Rhetorical Device Reference
 
 Author-curated catalog of rhetorical devices that grounds the future
 Plot-Planner / form-analyzer / writing-score tools when they need to cite
 "what counts as anaphora" or "what counts as polysyndeton."
 
-This is the **content** the [Devil's Toolbox parking-lot story](../stories/parking-lot/devils-toolbox.md)
-will eventually encode as a structured Skill (`.claude/skills/devils-toolbox/`)
+This is the **content** the [Wordsmith Toolbox parking-lot story](../stories/parking-lot/wordsmith-toolbox.md)
+will eventually encode as a structured Skill (`.claude/skills/wordsmith-toolbox/`)
 with TOML/YAML data files keyed by device `id`. The story stays parked until
 a downstream tool needs it; this reference lives in tree so the source
 material is preserved in the author's voice and not lost between sessions.
@@ -431,9 +431,9 @@ should classify carefully.
 
 ## Encoding plan (when the Skill activates)
 
-When the [Devil's Toolbox parking-lot story](../stories/parking-lot/devils-toolbox.md)
+When the [Wordsmith Toolbox parking-lot story](../stories/parking-lot/wordsmith-toolbox.md)
 activates, the structure above lifts cleanly into a TOML data file at
-`.claude/skills/devils-toolbox/data/devices.toml`:
+`.claude/skills/wordsmith-toolbox/data/devices.toml`:
 
 ```toml
 [[devices]]
@@ -465,7 +465,7 @@ import and reference devices by id.
 
 ## Cross-references
 
-- [Devil's Toolbox parking-lot story](../stories/parking-lot/devils-toolbox.md):
+- [Wordsmith Toolbox parking-lot story](../stories/parking-lot/wordsmith-toolbox.md):
   the eventual Skill that encodes this reference as TOML keyed by id.
 - [scoring-methodology.md](scoring-methodology.md): the chapter-evaluation
   rubric. Part 1 §3's rhetorical-devices checklist references the catalog
@@ -473,7 +473,7 @@ import and reference devices by id.
   metaphors, etc.) but credits on intentional use of devices listed here.
 - [Plot-Planner parking-lot story](../stories/parking-lot/plot-planner.md):
   `writing-score` / `PC-placator` / future stylistic-feedback tools
-  reference rhetoric primitives by id; the Devil's Toolbox Skill is the
+  reference rhetoric primitives by id; the Wordsmith Toolbox Skill is the
   canonical reference.
 - [form-analyzer ergodite parking-lot story](../stories/parking-lot/form-analyzer-ergodite.md):
   the eloquence sub-check (7 v1 figures via regex) draws its candidate

@@ -77,7 +77,7 @@ specified one) a 1–10 rating scale.
 
 - **Definition**: Use of rhetorical devices, layered prose, and poetic
   wordplay without losing clarity or flow.
-- **Rhetorical Devices Checklist** *(cross-ref [devils-toolbox-reference.md](devils-toolbox-reference.md) for full catalog)*:
+- **Rhetorical Devices Checklist** *(cross-ref [wordsmith-toolbox-reference.md](wordsmith-toolbox-reference.md) for full catalog)*:
 
   | Device id | Author example |
   |---|---|
@@ -401,7 +401,7 @@ rubric as follows:
 | **1. Score** | Emit 1–10 verdict per measure | Part 2 §§1–10 score-scale tables |
 | **2. Justify** | One-sentence rationale per score, with citation | Part 1 worked examples + chapter text |
 | **3. Deduct on watchpoints** | Pattern-match author-tics / tropisms / clichés / dead-metaphors / rhythmic-monotony | Part 2 §4 watchpoint table |
-| **4. Credit on devices** | Cite intentional rhetorical-device use that raises `m4-eloquence` | Part 1 §3 device table + [devils-toolbox-reference.md](devils-toolbox-reference.md) catalog |
+| **4. Credit on devices** | Cite intentional rhetorical-device use that raises `m4-eloquence` | Part 1 §3 device table + [wordsmith-toolbox-reference.md](wordsmith-toolbox-reference.md) catalog |
 | **5. Identify leverage** | Single measure most worth improving | Aggregate from steps 1–4 |
 | **6. Respect boundary** | Never autonomously rewrite prose | ADR 0013 + closing directive |
 
@@ -454,9 +454,9 @@ the Skill.
 - [form-analyzer ergodite parking-lot story](../stories/parking-lot/form-analyzer-ergodite.md):
   the eloquence sub-check uses Part 2 §4's watchpoint table + Part 1 §3's
   rhetorical-device table.
-- [Devil's Toolbox reference](devils-toolbox-reference.md): the definitional
+- [Wordsmith Toolbox reference](wordsmith-toolbox-reference.md): the definitional
   catalog of devices that Part 1 §3 cites by id. Part 1 is the *evaluation
-  rubric*; the Devil's Toolbox is the *definitional source*.
+  rubric*; the Wordsmith Toolbox is the *definitional source*.
 - [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md):
   captures author opt-ins / weights / "ignore this measure when…"
   preferences that override this methodology per-corpus or per-tool.

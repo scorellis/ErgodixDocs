@@ -5,7 +5,7 @@
 
 ## As / So that
 
-As a publisher (and the author wearing the publisher floater), so that the proprietary Skills that constitute the project's actual moat — the author's scoring methodology, the Devil's Toolbox rhetoric reference, the Plot-Planner tool suite, future Continuity-Engine analyzers — cannot be silently modified, forked, or ratioed-into-meaninglessness by a downstream user; if a user wants to change a Skill, they file a comment / PR on the upstream repo and we decide whether to accept it.
+As a publisher (and the author wearing the publisher floater), so that the proprietary Skills that constitute the project's actual moat — the author's scoring methodology, the Wordsmith Toolbox rhetoric reference, the Plot-Planner tool suite, future Continuity-Engine analyzers — cannot be silently modified, forked, or ratioed-into-meaninglessness by a downstream user; if a user wants to change a Skill, they file a comment / PR on the upstream repo and we decide whether to accept it.
 
 ## Value
 

@@ -3,7 +3,7 @@
 - **Date filed**: 2026-05-10
 - **Sprint story**: Parking-lot until [Spike 0013](0013-style-sentinel-and-certificate.md)'s ergodite registry ships (ADR-X1). This spike is the first concrete instance of the ergodite plugin contract.
 - **ADRs to produce**: none of its own — fits inside ADR-X1's plugin contract once that lands.
-- **Touches**: [Spike 0013](0013-style-sentinel-and-certificate.md) (ergodite registry, integrity manifest), [Devil's Toolbox parking-lot story](../stories/SprintLog.md) (rhetoric primitives the eloquence sub-check references), [Spike 0010](0010-user-writing-preferences-interview.md) (preference-gated structural analysis).
+- **Touches**: [Spike 0013](0013-style-sentinel-and-certificate.md) (ergodite registry, integrity manifest), [Wordsmith Toolbox parking-lot story](../stories/parking-lot/wordsmith-toolbox.md) (rhetoric primitives the eloquence sub-check references), [Spike 0010](0010-user-writing-preferences-interview.md) (preference-gated structural analysis).
 - **Status**: Open — design surface enumerated, not yet resolved.
 
 ## Question
@@ -11,7 +11,7 @@
 A single ergodite that grades the *form* of a chapter on three orthogonal axes:
 
 1. **Readability / grade level.** What grade level (US K-12 + college) is the prose pitched at? Is the author writing too low or too high for the intended audience? Mostly a settled science — public formulas exist, no need to invent.
-2. **Rhetorical eloquence.** Density of recognized rhetorical figures (anaphora, polysyndeton, chiasmus, etc.) per paragraph. Pulls primitive definitions from the [Devil's Toolbox](../stories/SprintLog.md) reference; the form-analyzer is one of its first concrete consumers.
+2. **Rhetorical eloquence.** Density of recognized rhetorical figures (anaphora, polysyndeton, chiasmus, etc.) per paragraph. Pulls primitive definitions from the [Wordsmith Toolbox](../stories/SprintLog.md) reference; the form-analyzer is one of its first concrete consumers.
 3. **Fibonacci / golden-mean structural arc.** Does the chapter's tension/intensity curve follow the author's preferred narrative shape? This corresponds to the user's "Fibonacci writing prompt" — the prompt itself isn't yet captured in-tree (flagged in Spike 0013 cross-references); resolving that is a precondition.
 
 The form-analyzer wraps these as a single `ErgoditeReport` so the writer / editor / publisher can see one combined readout per chapter rather than three separate runs.
@@ -43,12 +43,12 @@ Decades of public-domain formulas exist; pick a small portfolio rather than rely
 - Output format: one number, a portfolio of numbers, or a band ("middle school," "early high school," "college lower-division")? Lean: portfolio + consensus grade + band, all in the report.
 - How does this interact with the author's preferred reading level? Spike 0010's interview should ask for a target band; the form-analyzer flags as "off-target" only when the prose drifts outside the author's explicit target — not on every "your prose is at grade 9 but the formulas average 11" mismatch.
 
-### B. Rhetorical eloquence — Devil's Toolbox dependency
+### B. Rhetorical eloquence — Wordsmith Toolbox dependency
 
 The eloquence sub-check counts recognized rhetorical figures per paragraph and reports density (figures-per-100-words) plus a list of detected exemplars. It does *not* score "good vs. bad rhetoric" — that's an author-preference call (some authors deliberately avoid classical figures; others lean on them).
 
 **Detection mechanism.** Two layers:
-1. **Regex / pattern primitives** — anaphora ("It was X. It was Y. It was Z."), polysyndeton (consecutive coordinating conjunctions), tricolon (three parallel clauses), epistrophe, alliteration density, etc. These are cheap and deterministic. Devil's Toolbox provides the canonical list with classifier hints.
+1. **Regex / pattern primitives** — anaphora ("It was X. It was Y. It was Z."), polysyndeton (consecutive coordinating conjunctions), tricolon (three parallel clauses), epistrophe, alliteration density, etc. These are cheap and deterministic. Wordsmith Toolbox provides the canonical list with classifier hints.
 2. **LLM classifier (optional, behind a setting)** — for harder figures (chiasmus, antimetabole, parallelism, irony) where regex isn't enough. Gated behind `ergodix_use_llm_for_rhetoric: true` in settings; off by default to keep runs deterministic + free.
 
 **Output shape per paragraph:**
@@ -63,7 +63,7 @@ The eloquence sub-check counts recognized rhetorical figures per paragraph and r
 
 **Open questions.**
 - What's the v1 minimum viable list of detected figures? Lean: anaphora, epistrophe, polysyndeton, asyndeton, tricolon, alliteration, anastrophe. ~7 covers most prose-fiction rhetoric without over-engineering.
-- How does the form-analyzer call into the Devil's Toolbox reference? The toolbox is parking-lot too. For v1, inline a minimal reference inside form-analyzer; refactor to consume the toolbox once it ships.
+- How does the form-analyzer call into the Wordsmith Toolbox reference? The toolbox is parking-lot too. For v1, inline a minimal reference inside form-analyzer; refactor to consume the toolbox once it ships.
 
 ### C. Fibonacci / golden-mean structural arc — needs the author's prompt
 
@@ -141,12 +141,12 @@ The author's writing-preferences interview (Spike 0010) supplies `target_band_fr
 2. **LLM gate for hard figures**: default off vs. default on? Lean: off (deterministic, free); the author can opt in via settings.
 3. **Fibonacci prompt capture**: who writes `docs/fibonacci-writing-prompt.md`? The author (Scott). Action item flagged elsewhere; this spike is blocked on it.
 4. **Education-mode target band**: when education-mode lands (Spike 0013 §E), the target grade level becomes a *required* setting from the school / teacher rather than the optional interview field. The form-analyzer needs to handle both shapes.
-5. **Devil's Toolbox readiness**: does form-analyzer ship before, after, or alongside the Devil's Toolbox reference? Lean: form-analyzer ships with an *inline minimal* rhetoric reference (the 7 figures listed in §B), and the Devil's Toolbox refactor extracts them later.
+5. **Wordsmith Toolbox readiness**: does form-analyzer ship before, after, or alongside the Wordsmith Toolbox reference? Lean: form-analyzer ships with an *inline minimal* rhetoric reference (the 7 figures listed in §B), and the Wordsmith Toolbox refactor extracts them later.
 
 ## Cross-references
 
 - [Spike 0013 — style sentinel + ergodite registry](0013-style-sentinel-and-certificate.md): defines the ergodite plugin contract this spike instantiates.
-- [Devil's Toolbox parking-lot story](../stories/SprintLog.md#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated): canonical rhetoric reference the eloquence sub-check will eventually consume.
+- [Wordsmith Toolbox parking-lot story](../stories/SprintLog.md#story--wordsmith-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated): canonical rhetoric reference the eloquence sub-check will eventually consume.
 - [Spike 0010 — user writing preferences interview](0010-user-writing-preferences-interview.md): supplies target reading band + Fibonacci preferences.
 - Fibonacci writing prompt — TBD; not yet captured in-tree (Spike 0013's cross-references flag this as a precondition for the climax-detection / arc-analysis work).
 

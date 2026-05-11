@@ -125,7 +125,7 @@ Spike 0015's status updated from "Open" → "Resolved." The active story ([stori
 
 - Spike: `criticmarkup-dual-mode-review`
 - Sprint 1+: `continuity-engine`, `phil-trained-prose-linter`
-- Sprint 2+: `plot-planner`, `devils-toolbox`, `form-analyzer-ergodite`, `skill-factory-seal-protection`, `mcp-server-ai-user-persona`
+- Sprint 2+: `plot-planner`, `wordsmith-toolbox`, `form-analyzer-ergodite`, `skill-factory-seal-protection`, `mcp-server-ai-user-persona`
 - Way-later (post-distribution): `ip-strategy`, `licensing-monetization`, `sell-my-book`, `in-app-ai-editor`
 - Scale / multi-tenancy: `multi-opus-support`, `scale-concerns`, `publishing-house-enterprise-scale`
 
@@ -224,7 +224,7 @@ OAuth review status: **0 open findings**. Prior PRs closed #1, #2, #4, #5, #6.
 
 ## [1.52.1] - 2026-05-10
 
-**Spike 0014 + parking-lot story — `form-analyzer` ergodite.** Captures the design surface for a single ergodite that grades a chapter's *form* on three axes: readability/grade-level (publicly-defined formulas — Flesch-Kincaid, Gunning Fog, SMOG, Coleman-Liau, ARI, Dale-Chall via `textstat`-style portfolio + consensus + band classification), rhetorical eloquence (per-paragraph density of detected figures: anaphora, epistrophe, polysyndeton, asyndeton, tricolon, alliteration, anastrophe — first concrete consumer of the Devil's Toolbox rhetoric primitives), and Fibonacci/golden-mean structural arc (per the author's writing prompt, blocked on `docs/fibonacci-writing-prompt.md` capture). Single ergodite with toggleable sub-checks rather than three separate ergodites. Companion parking-lot story added to SprintLog.md with ASVRAT body + tasks. Activation gated on Spike 0013's ergodite registry shipping (ADR-X1).
+**Spike 0014 + parking-lot story — `form-analyzer` ergodite.** Captures the design surface for a single ergodite that grades a chapter's *form* on three axes: readability/grade-level (publicly-defined formulas — Flesch-Kincaid, Gunning Fog, SMOG, Coleman-Liau, ARI, Dale-Chall via `textstat`-style portfolio + consensus + band classification), rhetorical eloquence (per-paragraph density of detected figures: anaphora, epistrophe, polysyndeton, asyndeton, tricolon, alliteration, anastrophe — first concrete consumer of the Wordsmith Toolbox rhetoric primitives), and Fibonacci/golden-mean structural arc (per the author's writing prompt, blocked on `docs/fibonacci-writing-prompt.md` capture). Single ergodite with toggleable sub-checks rather than three separate ergodites. Companion parking-lot story added to SprintLog.md with ASVRAT body + tasks. Activation gated on Spike 0013's ergodite registry shipping (ADR-X1).
 
 (Bonus: corrected two `../spikes/...` → `spikes/...` cross-ref paths in SprintLog.md while editing — `SprintLog.md` lives at the repo root, so the leading `..` was a stale lift-and-shift bug.)
 

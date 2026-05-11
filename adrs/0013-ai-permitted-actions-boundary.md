@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-05-09
 - **Spike**: None — direct architectural decision based on author's clear specification.
-- **Touches**: [CLAUDE.md](../CLAUDE.md) principle #2 (the "AI-prose boundary" tightens, narrows, and gains a small mechanical-edits exception). [Plot-Planner story](../stories/SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated). [Continuity-Engine story](../stories/SprintLog.md#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated). [Devil's Toolbox story](../stories/SprintLog.md#story--devils-toolbox-foundational-rhetoric-reference-skill-sprint-2-when-activated). [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md). Future MCP server story.
+- **Touches**: [CLAUDE.md](../CLAUDE.md) principle #2 (the "AI-prose boundary" tightens, narrows, and gains a small mechanical-edits exception). [Plot-Planner story](../stories/SprintLog.md#story--plot-planner-ai-assisted-authoring-analysis-tool-suite-sprint-2-when-activated). [Continuity-Engine story](../stories/SprintLog.md#story--continuity-engine-ai-assisted-story-logic-analysis-suite-sprint-1-when-activated). [Wordsmith Toolbox story](../stories/parking-lot/wordsmith-toolbox.md). [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md). Future MCP server story.
 
 ## Context
 
@@ -40,7 +40,7 @@ The AI may perform exactly the following four actions on the author's corpus:
    - Output is *report data*, never mutations.
 
 4. **Suggestion-only craft advice.**
-   - Scope: the AI may *offer* — at the author's request — boilerplate or methodology-grounded advice on craft questions ("what are the canonical structures for a B-plot?", "what does the Devil's Toolbox say about anaphora?"). It may *show* the author canonical patterns, frameworks, or comparable examples *from outside the corpus*.
+   - Scope: the AI may *offer* — at the author's request — boilerplate or methodology-grounded advice on craft questions ("what are the canonical structures for a B-plot?", "what does the Wordsmith Toolbox say about anaphora?"). It may *show* the author canonical patterns, frameworks, or comparable examples *from outside the corpus*.
    - The advice is *displayed* to the author; it is **never applied** to the corpus by the AI. The author works through it at the keyboard.
    - This includes plot-craft advice. The AI may explain plot structures, name them, illustrate with non-corpus examples; it may not generate plot content for the corpus and stage it as the author's work.
 
@@ -58,7 +58,7 @@ Anything not on the closed list is barred. Specifically, the AI **must not**:
 ### Consequences
 
 - **CLAUDE.md principle #2** is updated to point at this ADR as the source of truth. The principle's tagline shifts from "the AI never edits chapter prose" to "the AI's permitted actions on the corpus are constrained per ADR 0013."
-- **Every Skill** (`.claude/skills/<name>/`) must declare which of the four permitted actions it performs in its skill manifest. A Skill that performs none of them is not a corpus-touching Skill (e.g., the Devil's Toolbox is a *reference Skill* — it produces no corpus output, just structured data other tools consume).
+- **Every Skill** (`.claude/skills/<name>/`) must declare which of the four permitted actions it performs in its skill manifest. A Skill that performs none of them is not a corpus-touching Skill (e.g., the Wordsmith Toolbox is a *reference Skill* — it produces no corpus output, just structured data other tools consume).
 - **Plot-Planner / Continuity-Engine tools** must publish their output as report data (TOML/markdown/JSON), never as edits. Tool implementers can lean on this guarantee in API design.
 - **Mechanical-correction tooling** lives primarily in the editor (LTeX, VS Code spell-check) per CLAUDE.md's existing tool-chain. ErgodixDocs Skills that perform mechanical corrections (rare; mostly headless / CI cases) must produce *patches the author reviews*, not silent edits.
 - **The MCP server** (when it exists, per the [parking-lot story](../stories/SprintLog.md#story--mcp-server--ai-user-persona-sprint-2-when-activated)) must enforce this boundary at the tool-registration layer: tools registered with the MCP server declare their permitted-action category, and the server refuses tool calls that exceed it.
