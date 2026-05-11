@@ -37,11 +37,14 @@ would have been premature.
 from __future__ import annotations
 
 import hashlib
+import os
 import tomllib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+
+from ergodix.version import __version__
 
 MAP_SCHEMA_VERSION: int = 1
 """ADR 0016 §1: v1 schema is locked at version = 1. Readers refuse
@@ -58,15 +61,18 @@ skipped."""
 
 _SKIP_DIR_NAMES: frozenset[str] = frozenset(
     {
+        "_AI",
         "_archive",
         "_media",
         "__pycache__",
         "node_modules",
     }
 )
-"""Spike 0015 §2 directory excludes. _archive holds migrate's preserved
-originals; _media holds chapter images (binary, out of scope for v1);
-__pycache__ / node_modules are scratch."""
+"""Spike 0015 §2 directory excludes. _AI holds the index's own output
+plus future tool outputs (Continuity-Engine reports, Plot-Planner runs);
+indexing it would create a self-referential update loop. _archive holds
+migrate's preserved originals; _media holds chapter images (binary, out
+of scope for v1); __pycache__ / node_modules are scratch."""
 
 
 # ─── Dataclasses ────────────────────────────────────────────────────────────
@@ -231,6 +237,89 @@ def _toml_escape(s: str) -> str:
     components on weird filesystems, so escape them.
     """
     return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+# ─── parse_map_toml ─────────────────────────────────────────────────────────
+
+
+# ─── Atomic write_map ───────────────────────────────────────────────────────
+
+
+def write_map(map_data: Map, path: Path) -> None:
+    """Write ``map_data`` to ``path`` atomically.
+
+    Creates parent dirs. Writes to a sibling ``.tmp`` file then
+    ``os.replace``s it onto the target so a crashed write never leaves
+    a half-written map visible. Matches migrate's ``write_manifest``
+    pattern (ergodix.migrate §"Read / write / find").
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    body = serialize_map_toml(map_data)
+    tmp.write_text(body, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+# ─── IndexSummary + generate_index orchestrator ─────────────────────────────
+
+
+@dataclass(frozen=True)
+class IndexSummary:
+    """The orchestrator's return value.
+
+    Carries enough information for the CLI to print a one-line summary
+    and for downstream callers (chunk 3 drift comparison, chunk 4 CLI)
+    to reason about what just happened without re-reading the map.
+    """
+
+    map_path: Path
+    file_count: int
+    total_bytes: int
+    generated_at: str
+
+
+def _default_now() -> datetime:
+    return datetime.now(tz=UTC)
+
+
+def generate_index(
+    *,
+    corpus_root: Path,
+    now_fn: Callable[[], datetime] = _default_now,
+) -> IndexSummary:
+    """Walk ``corpus_root``, build a Map, write it to
+    ``<corpus_root>/_AI/ergodix.map`` atomically, and return a summary.
+
+    Per Spike 0015 §5: deterministic — entries sorted by POSIX path so
+    re-runs on an unchanged corpus produce byte-identical maps (modulo
+    ``generated_at``). Per ADR 0016 §4: atomic-write pattern matches
+    migrate's manifest writer.
+
+    The ``_AI/`` directory is excluded from the walk via
+    ``_SKIP_DIR_NAMES`` — the map never indexes itself or any sibling
+    AI-emitted artifact (Continuity-Engine reports, Plot-Planner runs).
+    """
+    root = corpus_root.resolve()
+    entries = sorted(
+        (build_map_entry(corpus_root=root, file_path=p) for p in walk_corpus_for_index(root)),
+        key=lambda e: e.path,
+    )
+    generated_at = now_fn().isoformat()
+    map_data = Map(
+        version=MAP_SCHEMA_VERSION,
+        generated_at=generated_at,
+        generator=f"ergodix {__version__} index",
+        corpus_root=str(root),
+        files=tuple(entries),
+    )
+    map_path = root / "_AI" / "ergodix.map"
+    write_map(map_data, map_path)
+    return IndexSummary(
+        map_path=map_path,
+        file_count=len(entries),
+        total_bytes=sum(e.size_bytes for e in entries),
+        generated_at=generated_at,
+    )
 
 
 # ─── parse_map_toml ─────────────────────────────────────────────────────────
