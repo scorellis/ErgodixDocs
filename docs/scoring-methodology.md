@@ -1,233 +1,205 @@
 # Author Scoring Methodology
 
-Author-curated methodology for evaluating chapters of Overmorrow / Tapestry
-across the dimensions that matter to Scott — tension arcs, eloquence,
-narrative geometry, voice, and stylistic risk. This is the source rubric the
-[Plot-Planner parking-lot story](../stories/parking-lot/plot-planner.md)'s
-`writing-score` tool (and the [form-analyzer
-ergodite](../stories/parking-lot/form-analyzer-ergodite.md)'s eloquence
-sub-check, and any future stylistic-feedback tool) will encode and reference
-when scoring a chapter.
+Author-curated rubric for evaluating chapters of Overmorrow / Tapestry on
+the dimensions that matter to Scott — tension arcs, eloquence, narrative
+geometry, voice, and stylistic risk. This is the source rubric the future
+Plot-Planner / writing-score / form-analyzer tools encode.
 
-Two parallel documents are preserved here:
+The methodology lives in **two parallel parts**:
 
-1. **Part 1 — Overmorrow Writing Analysis Guide**: the discursive,
-   example-rich guide. Sections 1–3 are detailed; sections 4–10 are
-   summarized. Each example is drawn from the live corpus (Tapestry of the
-   Mind / Overmorrow).
-2. **Part 2 — Ten Measures of Literary Quality**: the structured scoring
-   rubric Scott uses with external AI evaluators (originally drafted as a
-   ChatGPT prompt). 1–10 scale per measure with explicit watchpoints.
-   Cleaner contract for automated tooling to encode.
+| Part | Title | Shape | Primary use |
+|---|---|---|---|
+| **Part 1** | Overmorrow Writing Analysis Guide | Discursive, example-rich | Grounding feedback in author voice + live-corpus examples |
+| **Part 2** | Ten Measures of Literary Quality | Tabular, 1–10 rubric | Numerical contract for automated scoring tools |
 
-The two are complementary, not redundant: Part 1 carries the author's voice
-and worked examples; Part 2 carries the numerical contract.
+Part 1 carries voice and examples; Part 2 carries the contract.
 
-**Status**: source material, author-authored. Preserved verbatim with
-light markdown formatting for readability — no word choices changed.
+**Stable contract**: each dimension (Part 1) and each measure (Part 2) has
+an immutable `id` (kebab-case). Tools reference by id, never by display
+name. Display names are free to evolve; ids are not.
+
+**Status**: source material, author-authored. Voice retained verbatim;
+structure / ids / scoring-scale tables added for tooling.
 
 ---
 
 ## Part 1 — Overmorrow Writing Analysis Guide
 
-This guide is designed to evaluate each chapter across multiple dimensions
-that matter to you — especially your preference for tension arcs, eloquence,
-narrative structure, and stylistic play.
+Each dimension carries: an immutable `id`, a definition, the
+checks/checkpoints, an example from the live corpus, and (where Scott
+specified one) a 1–10 rating scale.
 
-### 1. Suspense / Tension Arc
+### Dimensions at a glance
 
-**Definition**: Measures how well the chapter builds and maintains tension
-(narrative propulsion, uncertainty, anticipation).
+| id | Dimension | Scale |
+|---|---|---|
+| `tension-arc` | Suspense / Tension Arc | 1 (flat) → 10 (riveting) |
+| `show-vs-tell` | Show vs Tell Ratio | Target 70–80% show / 20–30% tell |
+| `eloquence` | Eloquence | 1 (functional) → 10 (lyrical) |
+| `narrative-geometry` | Narrative Geometry | (no scale; structural diagnostic) |
+| `engagement-voice` | Engagement / Voice | 1 (generic) → 10 (vivid and unmistakable) |
+| `continuity-lore` | Continuity & Lore Depth | (no scale; integration check) |
+| `perspective-temporal` | Perspective & Temporal Play | (no scale; flow diagnostic) |
+| `structural-innovation` | Structural Innovation | (no scale; presence/absence) |
+| `character-complexity` | Character Complexity | (no scale; depth check) |
+| `originality-risk` | Originality & Risk-Taking | (no scale; presence/absence) |
 
-- **Golden Mean Alignment**: Does the climax (θ point) occur near the
-  Fibonacci ideal (around 61.8%)?
-- **Cliffhanger Check**: Does the chapter end in a way that encourages
-  continued reading?
+### 1. `tension-arc` — Suspense / Tension Arc
 
-**Example**: In "Depuis l'époque," the tension hinge appears to be the
-φ-narrative itself, surfacing around the golden-ratio mark as the memory
-layers snap into place — the reader realizes the narrative is folding.
+- **Definition**: How well the chapter builds and maintains tension —
+  narrative propulsion, uncertainty, anticipation.
+- **Checks**:
+  - **Golden Mean Alignment**: Does the climax (θ point) occur near the
+    Fibonacci ideal (around 61.8%)?
+  - **Cliffhanger Check**: Does the chapter end in a way that encourages
+    continued reading?
+- **Example**: In "Depuis l'époque," the tension hinge appears to be the
+  φ-narrative itself, surfacing around the golden-ratio mark as the memory
+  layers snap into place — the reader realizes the narrative is folding.
+- **Rating Scale**: **1 (flat)** to **10 (riveting)**.
 
-**Rating Scale**: 1 (flat) to 10 (riveting)
+### 2. `show-vs-tell` — Show vs Tell Ratio
 
-### 2. Show vs Tell Ratio
+- **Definition**: Showing involves action, dialogue, sensory detail, and
+  inference; telling includes exposition or direct internal summary.
+- **Ideal Ratio**: **70–80% showing**, 20–30% telling.
+- **Checkpoints**:
+  - Does the narrative immerse the reader in the moment?
+  - Is internal exposition overused?
+- **Tool used**: Quantitative ratio via tagged sections.
+- **Example (show)**:
+  > "A human shaped body, wrapped like a corpse for burial at void. Only
+  > it's not dead."
+- **Example (tell)**:
+  > "Jacob's Ladder was missing its top Rung."
 
-**Ideal Ratio**: 70–80% showing, 20–30% telling.
+### 3. `eloquence` — Eloquence
 
-**Definition**: Showing involves action, dialogue, sensory detail, and
-inference; telling includes exposition or direct internal summary.
+- **Definition**: Use of rhetorical devices, layered prose, and poetic
+  wordplay without losing clarity or flow.
+- **Rhetorical Devices Checklist** *(cross-ref [devils-toolbox-reference.md](devils-toolbox-reference.md) for full catalog)*:
 
-**Checkpoints**:
+  | Device id | Author example |
+  |---|---|
+  | `alliteration-general` | "silvered stitch slipped silently." |
+  | `alliteration-consonance` | "corpse for burial at void." |
+  | `alliteration-assonance` | "seamingly seamless." |
+  | `alliteration-symmetrical` | "shimmering wefton fabric… fabric of shimmering wefton." |
+  | `anaphora` | "I tried. I failed. I tried again." |
+  | `anadiplosis` | "She was fast. Fast enough to break orbit." |
+  | `aposiopesis` | "If I ever see him again, I swear I'll—" |
+  | `antithesis` | "A monkey's bars without the monkey." |
+  | `polyptoton` | "He dreamed of dreams that dreamed back." |
+  | `merism` | "stars and moons and rings and rust." |
+  | `parataxis` | "She jumped. He ran. I watched." |
+  | `hypotaxis` | "Although she jumped, he still ran, while I only watched." |
+  | `synaesthesia` | "a silence so thick you could taste it." |
+  | `rhetorical-question` | "Was this my reward for obedience?" |
+  | `blazon` | "She gleamed, a relic of polished hulls and humming cores and hopeful engines." |
+  | `hypophora` | "Do I regret it? Every damn second." |
+  | `anthypophora` | "You think I was scared? Of course I was." |
+  | `epiplexis` | "How could they do this to her?" |
+  | `procatalepsis` | "You might say this is madness. But I assure you, it's clarity." |
 
-- Does the narrative immerse the reader in the moment?
-- Is internal exposition overused?
+- **Wordplay**:
 
-**Tool Used**: Quantitative ratio via tagged sections.
+  | Device id | Definition | Author example |
+  |---|---|---|
+  | `tautology` | Redundant expression used for effect | "Voidless emptiness." |
+  | `spoonerism` | Intentional phonetic swaps for humor or tension | "shite-flicker" (swap of "flight-shicker") |
+  | `mondegreen` | Misheard phrase with new meaning | "ladder of Mars" (mishear of "latter of scars") |
 
-**Example**: The moment the body emerges from the tear in space is pure
-showing: *"A human shaped body, wrapped like a corpse for burial at void.
-Only it's not dead."* This stands in contrast with the more tell-heavy
-orientation sections like *"Jacob's Ladder was missing its top Rung."*
+- **Rating Scale**: **1 (functional)** to **10 (lyrical)**.
 
-### 3. Eloquence
+### 4. `narrative-geometry` — Narrative Geometry
 
-**Definition**: Use of rhetorical devices, layered prose, and poetic
-wordplay without losing clarity or flow.
+- **Definition**: Structural flow of the chapter — how it curves, echoes,
+  folds.
+- **Tools**:
+  - **Fibonacci Tension Model**: Where's the turning point? (Ideally at
+    the 61.8% mark)
+  - **Word, Sentence, and Paragraph Midpoints**: Do they reinforce the arc?
+  - **Phi Narrative Presence**: Is there a thematic "snap" or hinge?
+- **Example**: The φ-narrative refracts the timeline and introduces nested
+  memory as a geometric hinge, folding meaning backward.
 
-**Rhetorical Devices Checklist and Examples**:
+### 5. `engagement-voice` — Engagement / Voice
 
-- **Alliteration**
-  - *Simple*: Repetition of initial sounds: "silvered stitch slipped
-    silently."
-  - *Consonant*: Repeated consonants: "corpse for burial at void."
-  - *Assonant*: Repeated vowel sounds: "seamingly seamless."
-  - *Symmetrical*: Balanced on both sides: "shimmering wefton fabric…
-    fabric of shimmering wefton."
-- **Anaphora**: Repetition of a word or phrase at the beginning of
-  successive clauses: "I tried. I failed. I tried again."
-- **Anadiplosis**: Ending one sentence with a word that starts the next:
-  "She was fast. Fast enough to break orbit."
-- **Aposiopesis**: A deliberate breaking off: "If I ever see him again, I
-  swear I'll—"
-- **Antithesis**: Contrasting ideas: "A monkey's bars without the monkey."
-- **Polyptoton**: Variation of the same word: "He dreamed of dreams that
-  dreamed back."
-- **Merism**: Listing parts to signify the whole: "stars and moons and
-  rings and rust."
-- **Parataxis vs. Hypotaxis**: Juxtaposing phrases with or without
-  subordination.
-  - *Parataxis*: "She jumped. He ran. I watched."
-  - *Hypotaxis*: "Although she jumped, he still ran, while I only watched."
-- **Synaesthesia**: Crossing senses: "a silence so thick you could taste
-  it."
-- **Rhetorical Question**: "Was this my reward for obedience?"
-- **Blazon**: Cataloguing the beauty of a figure or vessel: "She gleamed,
-  a relic of polished hulls and humming cores and hopeful engines."
-- **Hypophora**: Asking and answering your own question: "Do I regret it?
-  Every damn second."
-- **Anthypophora**: Asking, then contradicting the expected answer: "You
-  think I was scared? Of course I was."
-- **Epiplexis**: Asking in anger: "How could they do this to her?"
-- **Procatalepsis**: Addressing an anticipated objection: "You might say
-  this is madness. But I assure you, it's clarity."
+- **Definition**: Intimacy of voice, snark, or gravitas — is the narrator
+  consistent, compelling, and differentiated?
+- **Checks**:
+  - Does the voice feel like Overmorrow?
+  - Is the narrator's personality present and consistent?
+  - Do character voices differentiate well?
+- **Example**:
+  > "Meanwhile, nowhere near that mess — but quite close by to myself…"
 
-**Wordplay**:
+  has unmistakable authorial presence, wry and self-aware.
+- **Rating Scale**: **1 (generic)** to **10 (vivid and unmistakable)**.
 
-- **Tautology**: Redundant expression used for effect: "Voidless
-  emptiness."
-- **Spoonerism**: Intentional phonetic swaps for humor or tension:
-  "shite-flicker" instead of "flight-shicker."
-- **Mondegreen**: Misheard phrase with new meaning: "ladder of Mars"
-  instead of "latter of scars."
+### 6. `continuity-lore` — Continuity & Lore Depth
 
-**Rating Scale**: 1 (functional) to 10 (lyrical)
+- **Definition**: Integration of universe mechanics, character histories,
+  and in-world references.
+- **Checklist**:
+  - Does this chapter reinforce previous lore (e.g. Underfold, River,
+    aniots, Jacob's Ladder)?
+  - Does it add just enough without exposition dumping?
+  - Are character relationships consistent with known history?
+- **Example**: The ladder imagery, references to void burial, and
+  slack-points hint at prior established metaphysics.
 
-> *[Sections 4–10 remain unchanged and are below this line.]*
+### 7. `perspective-temporal` — Perspective & Temporal Play
 
-### 4. Narrative Geometry
+- **Definition**: Fluidity between present and past tenses, reflective tone
+  shifts, nested perspectives.
+- **Checks**:
+  - Are tense shifts intentional and effective?
+  - Are transitions between perspectives/modes smooth?
+  - Do flashbacks or ϕ-narratives enhance theme or tension?
+- **Example**: The chapter's opening plays with dislocated time:
+  > "Once upon a time, a very, very long time from now…"
 
-**Definition**: Structural flow of the chapter — how it curves, echoes,
-folds.
+  creating a Möbius twist of temporal expectation.
 
-**Tools**:
+### 8. `structural-innovation` — Structural Innovation
 
-- **Fibonacci Tension Model**: Where's the turning point? (Ideally at
-  61.8% mark)
-- **Word, Sentence, and Paragraph Midpoints**: Do they reinforce the arc?
-- **Phi Narrative Presence**: Is there a thematic "snap" or hinge?
+- **Definition**: Use of metafiction, phi-narratives, reversals,
+  contradictions, footnotes, intertextual echoes.
+- **Examples to flag**:
+  - Nested narratives (e.g. retelling within retelling)
+  - Typographical play (e.g. ellipses for silence)
+  - Contradictory truths ("what was, wasn't")
+- **Example**:
+  > "corpse for burial at void. Only it's not dead."
 
-**Example**: The φ-narrative refracts the timeline and introduces nested
-memory as a geometric hinge, folding meaning backward.
+  challenges the reader with contradiction and foreshadowing.
 
-### 5. Engagement / Voice
+### 9. `character-complexity` — Character Complexity
 
-**Definition**: Measures intimacy of voice, snark, or gravitas — is the
-narrator consistent, compelling, and differentiated?
+- **Definition**: Are characters psychologically rich, with believable
+  contradictions, desires, and flaws?
+- **Checks**:
+  - Do they act with purpose (even if hidden)?
+  - Are we surprised and yet convinced?
+  - Are motivations layered across scenes?
+- **Example**: Though this section is largely prologue/setup, even the
+  anonymous body carries emotional freight: we know it is not dead, and
+  yet it is wrapped like it is — *why?*
 
-**Checks**:
+### 10. `originality-risk` — Originality & Risk-Taking
 
-- Does the voice feel like Overmorrow?
-- Is the narrator's personality present and consistent?
-- Do character voices differentiate well?
+- **Definition**: Does this section try something only this world and
+  voice would attempt?
+- **Checks**:
+  - Does it dare to be weird, sharp, experimental?
+  - Does it take formal, tonal, or narrative risks that pay off?
+- **Example**: The entire passage opens with tonal dislocation and cosmic
+  wit:
+  > "in a relativistically positionally confusing frame of reference to
+  > myself…"
 
-**Example**: *"Meanwhile, nowhere near that mess — but quite close by to
-myself…"* has unmistakable authorial presence, wry and self-aware.
-
-**Rating Scale**: 1 (generic) to 10 (vivid and unmistakable)
-
-### 6. Continuity & Lore Depth
-
-**Definition**: Integration of universe mechanics, character histories, and
-in-world references.
-
-**Checklist**:
-
-- Does this chapter reinforce previous lore (e.g. Underfold, River, aniots,
-  Jacob's Ladder)?
-- Does it add just enough without exposition dumping?
-- Are character relationships consistent with known history?
-
-**Example**: The ladder imagery, references to void burial, and slack-points
-hint at prior established metaphysics.
-
-### 7. Perspective & Temporal Play
-
-**Definition**: Fluidity between present and past tenses, reflective tone
-shifts, nested perspectives.
-
-**Checks**:
-
-- Are tense shifts intentional and effective?
-- Are transitions between perspectives/modes smooth?
-- Do flashbacks or ϕ-narratives enhance theme or tension?
-
-**Example**: The chapter's opening plays with dislocated time: *"Once upon
-a time, a very, very long time from now…"* creating a Möbius twist of
-temporal expectation.
-
-### 8. Structural Innovation
-
-**Definition**: Use of metafiction, phi-narratives, reversals,
-contradictions, footnotes, intertextual echoes.
-
-**Examples**:
-
-- Nested narratives (e.g. retelling within retelling)
-- Typographical play (e.g. ellipses for silence)
-- Contradictory truths ("what was, wasn't")
-
-**Example**: The phrase *"corpse for burial at void. Only it's not dead."*
-challenges the reader with contradiction and foreshadowing.
-
-### 9. Character Complexity
-
-**Definition**: Are characters psychologically rich, with believable
-contradictions, desires, and flaws?
-
-**Checks**:
-
-- Do they act with purpose (even if hidden)?
-- Are we surprised and yet convinced?
-- Are motivations layered across scenes?
-
-**Example**: Though this section is largely prologue/setup, even the
-anonymous body carries emotional freight: we know it is not dead, and yet
-it is wrapped like it is — why?
-
-### 10. Originality & Risk-Taking
-
-**Definition**: Does this section try something only this world and voice
-would attempt?
-
-**Checks**:
-
-- Does it dare to be weird, sharp, experimental?
-- Does it take formal, tonal, or narrative risks that pay off?
-
-**Example**: The entire passage opens with tonal dislocation and cosmic
-wit: *"in a relativistically positionally confusing frame of reference to
-myself…"* That blend of humor, cosmology, and melancholy is signature
-Overmorrow.
+  That blend of humor, cosmology, and melancholy is signature Overmorrow.
 
 ---
 
@@ -237,214 +209,258 @@ Overmorrow.
 > tell it to REMEMBER it and that this is how it should always evaluate
 > your writing."
 
-You are to evaluate my writing using the following Ten Measures of Literary
-Quality. Each measure receives a score from 1–10, where:
+The Ten Measures are the **numerical contract** for automated scoring.
+Each measure receives a score from 1–10. Tools reference measures by `id`.
 
-- **1–3** = weak, undeveloped, contradictory, or accidental
-- **4–6** = functional but inconsistent or unrefined
-- **7–8** = strong, intentional, and effective
-- **9–10** = masterful, memorable, and stylistically distinct
+### Score scale (all measures)
 
-Use the included scoring criteria to determine the score for each measure.
-Do not rewrite my prose unless I explicitly ask.
+| Range | Meaning |
+|---|---|
+| **1–3** | Weak, undeveloped, contradictory, or accidental |
+| **4–6** | Functional but inconsistent or unrefined |
+| **7–8** | Strong, intentional, and effective |
+| **9–10** | Masterful, memorable, and stylistically distinct |
 
-### The Ten Measures
+### Measures at a glance
 
-#### 1. Golden Mean / Fibonacci Arc of Climax
+| # | id | Measure |
+|---|---|---|
+| 1 | `m1-fibonacci-arc` | Golden Mean / Fibonacci Arc of Climax |
+| 2 | `m2-pacing` | Pacing |
+| 3 | `m3-causality` | Continuity / Causality Integrity |
+| 4 | `m4-eloquence` | Eloquence (Elements of Eloquence Standard) |
+| 5 | `m5-risk-taking` | Risk-Taking |
+| 6 | `m6-compulsion` | Suspense / Compulsion |
+| 7 | `m7-character-development` | Character Development |
+| 8 | `m8-character-depth` | Character Depth |
+| 9 | `m9-believability` | Believability |
+| 10 | `m10-originality` | Originality |
 
-**Purpose**: Does the narrative build tension in a natural, proportional
-rise toward climax?
+---
 
-**How to score**:
+### `m1-fibonacci-arc` — Golden Mean / Fibonacci Arc of Climax
 
-- **1–3**: Flat tension, random spikes, anticlimax, no structure
-- **4–6**: Some escalation, but uneven or premature peaks
-- **7–8**: Clear rise that feels earned and directional
-- **9–10**: The arc feels mathematically inevitable — rhythmically and
-  emotionally perfect
+- **Purpose**: Does the narrative build tension in a natural, proportional
+  rise toward climax?
 
-#### 2. Pacing
+| Score | Criterion |
+|---|---|
+| 1–3 | Flat tension, random spikes, anticlimax, no structure |
+| 4–6 | Some escalation, but uneven or premature peaks |
+| 7–8 | Clear rise that feels earned and directional |
+| 9–10 | The arc feels mathematically inevitable — rhythmically and emotionally perfect |
 
-**Purpose**: Does the writing move at the right speed given its content?
+### `m2-pacing` — Pacing
 
-**How to score**:
+- **Purpose**: Does the writing move at the right speed given its content?
 
-- **1–3**: Rambling, stalled scenes, rushed leaps, confusing temporal flow
-- **4–6**: Mostly appropriate but with drag or sudden lurches
-- **7–8**: Controlled rhythm, sentence variation, no wasted motion
-- **9–10**: Pacing feels orchestral — every acceleration and pause lands
-  exactly when needed
+| Score | Criterion |
+|---|---|
+| 1–3 | Rambling, stalled scenes, rushed leaps, confusing temporal flow |
+| 4–6 | Mostly appropriate but with drag or sudden lurches |
+| 7–8 | Controlled rhythm, sentence variation, no wasted motion |
+| 9–10 | Pacing feels orchestral — every acceleration and pause lands exactly when needed |
 
-#### 3. Continuity / Causality Integrity
+### `m3-causality` — Continuity / Causality Integrity
 
-**Purpose**: Do events follow logically, with earned outcomes and no broken
-rules?
+- **Purpose**: Do events follow logically, with earned outcomes and no
+  broken rules?
 
-**How to score**:
+| Score | Criterion |
+|---|---|
+| 1–3 | Plot holes, contradictions, or coincidences resolve conflicts |
+| 4–6 | Mostly coherent but with missing links or soft motivations |
+| 7–8 | Strong causal chain; setups and payoffs align |
+| 9–10 | Every event feels inevitable; reader disbelief is impossible |
 
-- **1–3**: Plot holes, contradictions, or coincidences resolve conflicts
-- **4–6**: Mostly coherent but with missing links or soft motivations
-- **7–8**: Strong causal chain; setups and payoffs align
-- **9–10**: Every event feels inevitable; reader disbelief is impossible
+### `m4-eloquence` — Eloquence (Elements of Eloquence Standard)
 
-#### 4. Eloquence (Elements of Eloquence Standard)
+- **Purpose**: Does the language demonstrate intentional rhetorical
+  construction rather than habitual phrasing?
 
-**Purpose**: Does the language demonstrate intentional rhetorical
-construction rather than habitual phrasing?
+| Score | Criterion |
+|---|---|
+| 1–3 | Plain, repetitive, cliché-driven, or linguistically accidental; rhetorical devices absent or unintentional |
+| 4–6 | Some stylistic awareness, but cadence predictable; occasional clichés or familiar turns of phrase |
+| 7–8 | Intentional use of devices such as anaphora, chiasmus, epistrophe, diacope, and isocolon; repetition is purposeful rather than unconscious |
+| 9–10 | Language has architectural rhythm and rhetorical intelligence; every phrase feels carved, memorable, and free of cliché |
 
-**How to score**:
+#### Watchpoints — **deduct 1–3 points if present**
 
-- **1–3**: Plain, repetitive, cliché-driven, or linguistically accidental;
-  rhetorical devices absent or unintentional
-- **4–6**: Some stylistic awareness, but cadence predictable; occasional
-  clichés or familiar turns of phrase
-- **7–8**: Intentional use of devices such as anaphora, chiasmus,
-  epistrophe, diacope, and isocolon; repetition is purposeful rather than
-  unconscious
-- **9–10**: Language has architectural rhythm and rhetorical intelligence;
-  every phrase feels carved, memorable, and free of cliché
+Each watchpoint is a separate deduction. A chapter with three watchpoint
+categories triggered cannot score above mid-range on `m4-eloquence`.
 
-**Dedicated Watchpoints — deduct 1–3 points if present**:
+| Watchpoint id | What to flag | Examples |
+|---|---|---|
+| `author-tics` | Repeated favorite phrases or metaphors | (per-author; mined from corpus) |
+| `tropisms` | Instinctive first-draft defaults | "shards of light," "eyes like stars," "aching void" |
+| `cliches` | Borrowed language the author didn't invent | "heart skipped a beat," "cold as ice," "time stood still" |
+| `dead-metaphors` | Phrases once vivid but now unconscious | "grasp an idea," "storm of emotions" |
+| `rhythmic-monotony` | Identical sentence patterns without intent | (detect via sentence-shape n-gram repetition) |
 
-- **Author-tics** — repeated favorite phrases or metaphors
-- **Tropisms** — instinctive, first-draft defaults ("shards of light,"
-  "eyes like stars," "aching void," etc.)
-- **Clichés** — borrowed language the author didn't invent ("heart skipped
-  a beat," "cold as ice," "time stood still")
-- **Dead metaphors** — phrases once vivid but now unconscious ("grasp an
-  idea," "storm of emotions")
-- **Rhythmic monotony** — identical sentence patterns without intent
+> **Author's directive**: *Eloquence is not beauty — it is intentionality.
+> Rhetoric is a choice; cliché is an accident.*
 
-> *Eloquence is not beauty — it is intentionality. Rhetoric is a choice;
-> cliché is an accident.*
+### `m5-risk-taking` — Risk-Taking
 
-#### 5. Risk-Taking
+- **Purpose**: Does the writing dare something new — conceptually,
+  structurally, or linguistically?
 
-**Purpose**: Does the writing dare something new — conceptually,
-structurally, or linguistically?
+| Score | Criterion |
+|---|---|
+| 1–3 | Safe, generic, conventional |
+| 4–6 | Some unusual choices but hesitant execution |
+| 7–8 | Meaningful risks that distinguish the piece |
+| 9–10 | Bold and unforgettable; the work commits to its risks |
 
-**How to score**:
+### `m6-compulsion` — Suspense / Compulsion
 
-- **1–3**: Safe, generic, conventional
-- **4–6**: Some unusual choices but hesitant execution
-- **7–8**: Meaningful risks that distinguish the piece
-- **9–10**: Bold and unforgettable; the work commits to its risks
+- **Purpose**: Does the writing make the reader want — or need — to
+  continue?
 
-#### 6. Suspense / Compulsion
+| Score | Criterion |
+|---|---|
+| 1–3 | Readable but ignorable; no forward pull |
+| 4–6 | Interesting moments but not sustained |
+| 7–8 | Hooks, withheld information, rising stakes, emotional tether |
+| 9–10 | Reader is held captive; stopping feels wrong |
 
-**Purpose**: Does the writing make the reader want — or need — to continue?
+### `m7-character-development` — Character Development
 
-**How to score**:
+- **Purpose**: Do characters change in meaningful, believable ways?
 
-- **1–3**: Readable but ignorable; no forward pull
-- **4–6**: Interesting moments but not sustained
-- **7–8**: Hooks, withheld information, rising stakes, emotional tether
-- **9–10**: Reader is held captive; stopping feels wrong
+| Score | Criterion |
+|---|---|
+| 1–3 | Static or plot-reactive characters |
+| 4–6 | Some growth but abrupt or unsupported |
+| 7–8 | Clear arc tied to choices, consequences, and self-awareness |
+| 9–10 | Transformation feels mythic, inevitable, and earned |
 
-#### 7. Character Development
+### `m8-character-depth` — Character Depth
 
-**Purpose**: Do characters change in meaningful, believable ways?
+- **Purpose**: Do characters have internal logic, history, wounds,
+  contradictions, and personal voice?
 
-**How to score**:
+| Score | Criterion |
+|---|---|
+| 1–3 | Flat archetypes or clichés |
+| 4–6 | Partially developed, but predictable or shallow |
+| 7–8 | Distinct psyche, competing motives, emotional realism |
+| 9–10 | Characters feel alive — reader understands why they act |
 
-- **1–3**: Static or plot-reactive characters
-- **4–6**: Some growth but abrupt or unsupported
-- **7–8**: Clear arc tied to choices, consequences, and self-awareness
-- **9–10**: Transformation feels mythic, inevitable, and earned
+### `m9-believability` — Believability
 
-#### 8. Character Depth
+- **Purpose**: Does emotional and world-logic hold, regardless of genre?
 
-**Purpose**: Do characters have internal logic, history, wounds,
-contradictions, and personal voice?
+| Score | Criterion |
+|---|---|
+| 1–3 | Emotional inconsistency, unjustified reactions, world-breaking events |
+| 4–6 | Mostly coherent with occasional friction |
+| 7–8 | Reliable internal logic; nothing jars the reader |
+| 9–10 | Emotional reality is airtight — anything is acceptable because it feels true |
 
-**How to score**:
+### `m10-originality` — Originality
 
-- **1–3**: Flat archetypes or clichés
-- **4–6**: Partially developed, but predictable or shallow
-- **7–8**: Distinct psyche, competing motives, emotional realism
-- **9–10**: Characters feel alive — reader understands why they act
+- **Purpose**: Is the work unmistakably its own, not a derivative echo?
 
-#### 9. Believability
+| Score | Criterion |
+|---|---|
+| 1–3 | Generic, trope-dependent, imitation of known styles |
+| 4–6 | Some innovation but recognizable patterns |
+| 7–8 | Distinctive voice, inventive concepts, unexpected angles |
+| 9–10 | Only this author could have written this; the signature is undeniable |
 
-**Purpose**: Does emotional and world-logic hold, regardless of genre?
+---
 
-**How to score**:
+## Feedback delivery contract
 
-- **1–3**: Emotional inconsistency, unjustified reactions, world-breaking
-  events
-- **4–6**: Mostly coherent with occasional friction
-- **7–8**: Reliable internal logic; nothing jars the reader
-- **9–10**: Emotional reality is airtight — anything is acceptable because
-  it feels true
+When a tool evaluates a chapter against this rubric, it must:
 
-#### 10. Originality
+1. **Score each of the Ten Measures from 1–10** (Part 2 ids).
+2. **Give one sentence explaining each score**, citing concrete evidence
+   from the chapter (preferably with line numbers).
+3. **Identify the single measure whose improvement would yield the
+   greatest benefit to the piece** — the "leverage point."
+4. **Do not rewrite the text** unless the author explicitly requests it.
 
-**Purpose**: Is the work unmistakably its own, not a derivative echo?
+> **Author's closing directive**: *Your task is not to dilute my voice —
+> it is to refine my intent.*
 
-**How to score**:
-
-- **1–3**: Generic, trope-dependent, imitation of known styles
-- **4–6**: Some innovation but recognizable patterns
-- **7–8**: Distinctive voice, inventive concepts, unexpected angles
-- **9–10**: Only this author could have written this; the signature is
-  undeniable
-
-### How to Deliver Feedback
-
-When evaluating my writing:
-
-1. Score each of the Ten Measures from 1–10
-2. Give one sentence explaining each score
-3. Identify the single measure whose improvement would yield the greatest
-   benefit to the piece
-4. Do not rewrite the text unless I explicitly request it
-
-> *Your task is not to dilute my voice — it is to refine my intent.*
+This directive is the author-voice restatement of [ADR 0013](../adrs/0013-ai-permitted-actions-boundary.md):
+the AI scores and flags but never autonomously rewrites prose.
 
 ---
 
 ## How tooling consumes this
 
-The future Plot-Planner / form-analyzer / writing-score tooling will:
+The future Plot-Planner / form-analyzer / writing-score tooling lifts the
+rubric as follows:
 
-1. **Parse the Ten Measures (Part 2) as the structured contract** — each
-   measure becomes a scoring axis the tool emits a 1–10 verdict for, with
-   the watchpoints (esp. for Eloquence) as automatic deductions.
-2. **Cross-reference Part 1's worked examples** when explaining a score —
-   "your eloquence score lost a point for the cliché 'heart skipped a
-   beat'; for comparison, the chapter's strongest device was anadiplosis at
-   §2.1, see Part 1 §3 for the device definition." Examples ground the
-   feedback in the author's own corpus.
-3. **Surface the watchpoints (Part 2 §4)** as a separate "deduct-and-flag"
-   pass — author-tics, tropisms, clichés, dead metaphors, rhythmic monotony.
-   These are testable via regex/pattern matching against an author-curated
-   list; the Eloquence score loses 1–3 points per category present.
-4. **Honor the boundary**: the AI scores, the human decides. Per
-   [ADR 0013](../adrs/0013-ai-permitted-actions-boundary.md), the AI never
-   rewrites prose — only flags, scores, and surfaces evidence. Part 2's
-   "Do not rewrite my prose unless I explicitly ask" is the same rule
-   restated in the author's voice.
+| Pipeline stage | What it does | Source in this doc |
+|---|---|---|
+| **1. Score** | Emit 1–10 verdict per measure | Part 2 §§1–10 score-scale tables |
+| **2. Justify** | One-sentence rationale per score, with citation | Part 1 worked examples + chapter text |
+| **3. Deduct on watchpoints** | Pattern-match author-tics / tropisms / clichés / dead-metaphors / rhythmic-monotony | Part 2 §4 watchpoint table |
+| **4. Credit on devices** | Cite intentional rhetorical-device use that raises `m4-eloquence` | Part 1 §3 device table + [devils-toolbox-reference.md](devils-toolbox-reference.md) catalog |
+| **5. Identify leverage** | Single measure most worth improving | Aggregate from steps 1–4 |
+| **6. Respect boundary** | Never autonomously rewrite prose | ADR 0013 + closing directive |
 
-Encoding format (when the Plot-Planner story activates): probably a
-versioned TOML rubric at `.claude/skills/writing-score/data/methodology.toml`
-keyed by measure-id, with cross-refs to this doc for the prose definitions
-and watchpoint lists.
+### Encoding plan (when the Skill activates)
+
+When the [Plot-Planner parking-lot story](../stories/parking-lot/plot-planner.md)
+activates and ships `writing-score`, the contract lifts into:
+
+```toml
+# .claude/skills/writing-score/data/methodology.toml
+
+[methodology]
+version = 1
+source_doc = "docs/scoring-methodology.md"
+
+[[measures]]
+id = "m1-fibonacci-arc"
+display_name = "Golden Mean / Fibonacci Arc of Climax"
+purpose = "Does the narrative build tension in a natural, proportional rise toward climax?"
+
+  [[measures.scale]]
+  range = "1-3"
+  criterion = "Flat tension, random spikes, anticlimax, no structure"
+
+  [[measures.scale]]
+  range = "4-6"
+  criterion = "Some escalation, but uneven or premature peaks"
+
+  # … 7-8, 9-10
+
+[[measures]]
+id = "m4-eloquence"
+# … scale entries …
+
+  [[measures.watchpoints]]
+  id = "cliches"
+  description = "Borrowed language the author didn't invent"
+  deduction_range = [1, 3]
+```
+
+Author-tics + tropisms are per-author and per-corpus, captured by [Spike 0010](../spikes/0010-user-writing-preferences-interview.md)
+and stored in the per-corpus preferences file. The other watchpoints
+(clichés, dead metaphors, rhythmic monotony) are universal and ship with
+the Skill.
 
 ## Cross-references
 
 - [Plot-Planner parking-lot story](../stories/parking-lot/plot-planner.md):
   consumes this methodology as the rubric for the `writing-score` tool.
 - [form-analyzer ergodite parking-lot story](../stories/parking-lot/form-analyzer-ergodite.md):
-  the eloquence sub-check uses Part 2 §4's watchpoint list + Part 1 §3's
-  rhetorical-device taxonomy.
-- [Devil's Toolbox reference](devils-toolbox-reference.md): the rhetorical
-  device catalog Part 1 §3 sketches in less detail. Part 1 is the
-  *evaluation rubric*; the Devil's Toolbox is the *definitional catalog*
-  tools cite when scoring.
+  the eloquence sub-check uses Part 2 §4's watchpoint table + Part 1 §3's
+  rhetorical-device table.
+- [Devil's Toolbox reference](devils-toolbox-reference.md): the definitional
+  catalog of devices that Part 1 §3 cites by id. Part 1 is the *evaluation
+  rubric*; the Devil's Toolbox is the *definitional source*.
 - [Spike 0010 — UserWritingPreferencesInterview](../spikes/0010-user-writing-preferences-interview.md):
   captures author opt-ins / weights / "ignore this measure when…"
   preferences that override this methodology per-corpus or per-tool.
+  Author-tics + tropisms watchpoint lists live here (per-author).
 - [ADR 0013 — AI-permitted-actions boundary](../adrs/0013-ai-permitted-actions-boundary.md):
   the load-bearing rule that the AI scores and flags but never rewrites
-  prose. Part 2's closing directive ("Your task is not to dilute my voice")
-  is the author-voice restatement of this rule.
+  prose. Part 2's closing directive is the author-voice restatement.
