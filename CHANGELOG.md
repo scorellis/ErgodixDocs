@@ -13,7 +13,25 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.64.0`, next docs PR as `1.63.4`.)
+(Nothing yet — next code PR will land as `1.65.0`, next docs PR as `1.64.1`.)
+
+## [1.64.0] - 2026-05-10
+
+**`ergodix index` chunk 1 — pure helpers in `ergodix/index.py`.** First implementation chunk of the ergodix-index arc (Spike 0015 §"Implementation chunks", ADR 0016). No FS orchestration yet; just the pure functions the orchestrator (chunk 2), drift comparison (chunk 3), and CLI wiring (chunk 4) will compose.
+
+Exposed surface:
+
+- `MAP_SCHEMA_VERSION = 1` — locked per ADR 0016 §1.
+- `IndexEntry` / `Map` — frozen dataclasses for one file and the full map.
+- `compute_sha256_of_file(path)` — lowercase hex SHA-256 over file bytes (streamed in 64 KiB chunks).
+- `walk_corpus_for_index(corpus_root)` — yields indexable file paths per Spike 0015 §2: includes `.md`, `_preamble.tex`, any other `*.tex`; skips hidden files/dirs, `_archive/`, `_media/`, `__pycache__/`, `node_modules/`, `.ergodix-skip`-scoped trees, `.gdoc`/`.gsheet` placeholders.
+- `build_map_entry(corpus_root, file_path)` — file → `IndexEntry` with POSIX-relative path, SHA-256, size, ISO-8601 UTC mtime.
+- `serialize_map_toml(map_data)` — `Map` → TOML text in the schema fixed by ADR 0016 §1 (single `[meta]` block + one `[[files]]` array entry per file).
+- `parse_map_toml(text)` — strict version refusal per ADR 0016 §1.
+
+The walker duplicates the small `_walk` loop from `ergodix.migrate` per ADR 0016 §5 ("duplicate the small loop first, refactor only when chunks 2-4 show real coupling pressure"). The two walkers diverge in scope (migrate hands off to importer registry; index has a fixed extension allowlist) so factoring up-front would have been premature.
+
+26 new tests covering: SHA-256 over known-content / lowercase-hex / empty file / binary file; walker yields `.md` / `_preamble.tex` / custom `.tex`; walker skips hidden / `_archive/` / `_media/` / `__pycache__` / `node_modules` / `.gdoc`+`.gsheet`; walker respects `.ergodix-skip` marker and descends into nested dirs; `build_map_entry` records all four fields correctly; serialize/parse round-trip; version-refusal on unknown / missing version. Full suite: 693 passed, 1 skipped (was 667). `ruff` + `format` + `mypy --strict` clean.
 
 ## [1.63.3] - 2026-05-10
 
