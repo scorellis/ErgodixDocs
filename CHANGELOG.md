@@ -13,7 +13,11 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.69.0`, next docs PR as `1.68.3`.)
+(Nothing yet — next code PR will land as `1.69.0`, next docs PR as `1.68.4`.)
+
+## [1.68.3] - 2026-05-11
+
+**`ai.summary.md` refresh — v1.0 milestone checkpoint.** Replaces the 2026-05-10 (migrate arc closure) snapshot. The v1.0 milestone is now closed on main: migrate ✅, render ✅, ergodix-index end-to-end ✅. VERSION 1.68.2; 761 tests passing; CI/CD live; author craft methodology captured in tree. Refresh documents: today's arc (ergodix-index chunks 1-6 + ADR 0016 + craft-methodology drop + Devil's→Wordsmith rename + system-flow diagram + stories-folder migration + smoke-script hardening + GitHub Actions); current status; the four next-session candidates (Spike 0010 resolution → unblocks writing-score; Spike 0013 ADR → unblocks form-analyzer; first Continuity-Engine tool `timeline-continuity-analyzer`; tag v1.0 milestone); a refreshed gotchas section (stacked-PR auto-retarget bit us twice; force-push sandbox-blocked; zsh interactivecomments; Finder dedup copies); and a comprehensive file-state index. Resume prompt now points the next session at Sprint 2 with concrete starting moves.
 
 ## [1.68.2] - 2026-05-11
 
