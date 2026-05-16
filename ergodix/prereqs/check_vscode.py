@@ -13,6 +13,12 @@ A7 lands the editor side of the writer floater's tool-chain. Two stages:
         - ``bumkaka.criticmarkup``
             Highlights ``CriticMarkup`` change marks ({++ ++}, {-- --}, etc.)
             so editor-style review notes are visually distinct from prose.
+        - ``cweijan.vscode-office``
+            WYSIWYG Markdown editor (Vditor-based). Right-click a ``.md``
+            file → "Open With" → "Markdown Editor" for rich-text-style
+            editing. Important for authors migrating from Google Docs /
+            Word who want a familiar editing surface inside VS Code rather
+            than only the source-view default.
 
 A7 depends on A2 (Homebrew) for the cask install. The registry orders
 A2 before A7 so this works in a single cantilever run.
@@ -45,6 +51,7 @@ REQUIRED_EXTENSIONS: tuple[str, ...] = (
     "shd101wyy.markdown-preview-enhanced",
     "valentjn.vscode-ltex",
     "bumkaka.criticmarkup",
+    "cweijan.vscode-office",
 )
 
 # Fallback path for the `code` CLI on macOS when PATH hasn't picked up

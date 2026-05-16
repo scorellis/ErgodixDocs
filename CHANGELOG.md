@@ -13,7 +13,22 @@ This intentionally departs from strict SemVer. Project progress is best read thr
 
 ## [Unreleased]
 
-(Nothing yet — next code PR will land as `1.69.0`, next docs PR as `1.68.4`.)
+(Nothing yet — next code PR will land as `1.70.0`, next docs PR as `1.69.1`.)
+
+## [1.69.0] - 2026-05-11
+
+**Cantilever installs a WYSIWYG markdown editor.** Adds `cweijan.vscode-office` to `REQUIRED_EXTENSIONS` in [ergodix/prereqs/check_vscode.py](ergodix/prereqs/check_vscode.py). Closes a real install-UX gap surfaced by today's live Tapestry migration: after pulling a corpus out of Google Docs, authors need a familiar rich-text editing surface — not just source-view markdown — or the friction stays high. Office Viewer (built on Vditor) gives them WYSIWYG editing inside VS Code via right-click → "Open With" → "Markdown Editor."
+
+A fresh `./bootstrap.sh && ergodix cantilever` install on a new Mac now provisions all four extensions:
+
+- `shd101wyy.markdown-preview-enhanced` — split-pane Pandoc-aware preview
+- `valentjn.vscode-ltex` — local grammar/style checker
+- `bumkaka.criticmarkup` — CriticMarkup change-mark highlighting
+- `cweijan.vscode-office` — **new** WYSIWYG markdown editor
+
+Includes a dedicated test (`test_required_extensions_includes_wysiwyg_markdown_editor`) pinning the WYSIWYG extension specifically — if anyone removes it the test trips before the install UX regresses silently. Other extensions in the list are intentionally not pinned (per the existing comment, so we can swap LTeX → ltex-plus, etc., without test churn).
+
+Full suite: 752 passed, 1 skipped (was 751; +1). `ruff` + `format` + `mypy --strict` clean.
 
 ## [1.68.3] - 2026-05-11
 
